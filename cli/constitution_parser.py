@@ -202,16 +202,19 @@ class Constitution:
         violations = []
 
         for file_path in files:
+            # Convert to string if Path object
+            file_str = str(file_path)
+
             # Check if file exists
-            if not Path(file_path).exists():
+            if not Path(file_str).exists():
                 continue
 
             # Skip non-Python files
-            if not file_path.endswith('.py'):
+            if not file_str.endswith('.py'):
                 continue
 
             # Validate this file
-            file_violations = self.validate_file(file_path)
+            file_violations = self.validate_file(file_str)
             violations.extend(file_violations)
 
         return violations
