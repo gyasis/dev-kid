@@ -161,7 +161,53 @@ session_snapshots/      ~3k tokens    Recovery points
 4. Snapshots include complete mental state + next steps
 5. All state files survive context compression
 
-### 6. Skills Auto-Activation Pattern
+### 6. Constitution Enforcement Pattern
+
+**Pattern**: Project-specific rules extracted from tasks.md and enforced at checkpoint validation.
+
+**Implementation**:
+```
+tasks.md (constitution rules) → Orchestrator → execution_plan.json → Wave Executor → Checkpoint Validation
+                                                                              ↓
+                                                                    Constitution.validate_output()
+```
+
+**Key Components**:
+- **Constitution Parser**: Extracts rules from `@constitution:` metadata in tasks.md
+- **Orchestrator Integration**: Parses constitution rules and includes in execution_plan.json
+- **Wave Executor**: Loads Constitution from memory-bank, validates at checkpoint
+- **Rust Watchdog**: Stores constitution rules in process registry (context-resilient)
+
+**Constitution Rules Format**:
+```markdown
+@constitution: {
+  "type_hints": "required",
+  "docstrings": "required",
+  "no_hardcoded_secrets": true,
+  "test_coverage": 80
+}
+```
+
+**Validation Points**:
+1. After each wave completes
+2. Before git checkpoint is created
+3. Constitution.validate_output() runs on all modified files
+4. Violations HALT progression (same as task completion verification)
+
+**Critical Rules**:
+1. Constitution loaded from `memory-bank/shared/constitution.yml` (if exists)
+2. Task-specific rules override global constitution
+3. Validation enforces: type hints, docstrings, secrets detection, test coverage
+4. Context-resilient: Rules persisted in rust-watchdog process registry
+5. Violations generate clear error messages with remediation guidance
+
+**Prevents**:
+- Code quality regressions (missing type hints, undocumented functions)
+- Security issues (hardcoded secrets in commits)
+- Test coverage decay (untested code reaching production)
+- Technical debt accumulation (bypassing project standards)
+
+### 7. Skills Auto-Activation Pattern
 
 **Pattern**: Keyword-triggered workflow automation with zero coordination overhead.
 

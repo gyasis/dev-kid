@@ -29,6 +29,7 @@
 - Task orchestrator (`cli/orchestrator.py`)
 - Wave executor (`cli/wave_executor.py`)
 - Task watchdog daemon (`cli/task_watchdog.py`)
+- Constitution parser (`cli/constitution_parser.py`) - NEW: SpecKit integration
 - Constitution manager (`cli/constitution_manager.py`)
 - Config manager (`cli/config_manager.py`)
 
@@ -50,6 +51,30 @@
 **Constraints**:
 - Requires Python 3.7+ (typing features, dataclasses)
 - No pip packages allowed (zero-config principle)
+
+#### Rust 1.70+
+**Purpose**: High-performance task watchdog with process-based monitoring
+
+**Usage**:
+- Rust watchdog daemon (`rust-watchdog/src/main.rs`)
+- Task registry with constitution support (`rust-watchdog/src/types.rs`)
+- Process-based monitoring (survives context compression)
+
+**Key Features**:
+- Constitution rules storage in process registry
+- 'register' subcommand for task registration with metadata
+- JSON-RPC 2.0 API for CLI integration
+- Context-resilient state management
+
+**Rationale**:
+- Performance: Low memory overhead, fast startup
+- Reliability: Process-based, survives context compression
+- Type safety: Rust's type system prevents state corruption
+
+**SpecKit Integration** (2026-01-10):
+- TaskInfo struct extended with `constitution_rules` field
+- Constitution rules persist across context compression
+- Integration with Python constitution_parser.py
 
 #### Git 2.0+
 **Purpose**: Version control, checkpoints, history tracking
