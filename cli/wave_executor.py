@@ -77,8 +77,37 @@ class WaveExecutor:
         print("   Step 2: memory-bank-keeper updates progress.md...")
         self._update_progress(wave_id, tasks)
 
-        # Step 3: Git agent commits
-        print("   Step 3: git-version-manager creates checkpoint...")
+        # Step 3: Constitution validation
+        print("   Step 3: constitution-validator checks output files...")
+        if self.constitution:
+            # Get modified files from git diff
+            result = subprocess.run(
+                ["git", "diff", "--name-only", "HEAD"],
+                capture_output=True, text=True
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                modified_files = [f for f in result.stdout.strip().split('\n') if f]
+
+                # Validate against constitution
+                violations = self.constitution.validate_output(modified_files)
+
+                if violations:
+                    print(f"\n❌ Constitution Violations Found:")
+                    for v in violations:
+                        print(f"   {v.file}:{v.line} - {v.rule}: {v.message}")
+                    print("\n🚫 Checkpoint BLOCKED due to constitution violations")
+                    print("   Fix violations and re-run checkpoint")
+                    sys.exit(1)
+                else:
+                    print("   ✅ Constitution validation passed")
+            else:
+                print("   ℹ️  No modified files to validate")
+        else:
+            print("   ⚠️  Constitution not loaded, skipping validation")
+
+        # Step 4: Git agent commits
+        print("   Step 4: git-version-manager creates checkpoint...")
         self._git_checkpoint(wave_id)
 
         print(f"✅ Checkpoint {wave_id} complete\n")
@@ -109,6 +138,35 @@ class WaveExecutor:
         commit_msg = f"[CHECKPOINT] Wave {wave_id} Complete\n\nAll tasks verified and validated"
         subprocess.run(['git', 'commit', '-m', commit_msg], check=False)  # Don't fail if nothing to commit
 
+    def execute_task(self, task: Dict) -> None:
+        """Execute a single task and register it with the watchdog
+
+        Args:
+            task: Task dictionary with task_id, instruction, agent_role, and optional constitution_rules
+        """
+        task_id = task["task_id"]
+        command = task["instruction"]
+        constitution_rules = task.get("constitution_rules", [])
+
+        # Build watchdog register command
+        cmd_parts = ["task-watchdog", "register", task_id, "--command", command]
+
+        # Add constitution rules if present
+        if constitution_rules:
+            rules_arg = ",".join(constitution_rules)
+            cmd_parts.extend(["--rules", rules_arg])
+
+        # Execute registration
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print(f"      ❌ Failed to register task {task_id}: {result.stderr.strip()}")
+        else:
+            if constitution_rules:
+                print(f"      ✅ Task {task_id} registered with {len(constitution_rules)} constitution rule(s)")
+            else:
+                print(f"      ✅ Task {task_id} registered (no constitution rules)")
+
     def execute_wave(self, wave: Dict) -> None:
         """Execute a single wave"""
         wave_id = wave['wave_id']
@@ -124,6 +182,8 @@ class WaveExecutor:
             print("   Strategy: Parallel execution")
             for task in tasks:
                 print(f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}...")
+                # Register task with watchdog
+                self.execute_task(task)
                 # In real system: spawn agent with task
                 # For now: just print
 
@@ -131,6 +191,8 @@ class WaveExecutor:
             print("   Strategy: Sequential execution")
             for task in tasks:
                 print(f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}...")
+                # Register task with watchdog
+                self.execute_task(task)
                 # In real system: execute task sequentially
 
         print(f"   ⏳ Wave {wave_id} in progress...")

@@ -1,0 +1,202 @@
+{
+  "execution_plan": {
+    "phase_id": "SpecKit Integration - Constitution Enforcement",
+    "waves": [
+      {
+        "wave_id": 1,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Schema updates in different languages/files can proceed simultaneously - Python dataclasses, Rust structs, and JSON schemas are independent",
+        "tasks": [
+          {
+            "task_id": "SPECKIT-001",
+            "agent_role": "python-pro",
+            "instruction": "Update Task dataclass in cli/orchestrator.py: Add 'constitution_rules: List[str] = field(default_factory=list)' field to capture constitution metadata from tasks.md",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/orchestrator.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-001 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "SPECKIT-002",
+            "agent_role": "rust-pro",
+            "instruction": "Update TaskInfo struct in rust-watchdog/src/types.rs: Add 'constitution_rules: Vec<String>' field with serde serialization support",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/src/types.rs"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-002 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "SPECKIT-003",
+            "agent_role": "python-pro",
+            "instruction": "Create cli/constitution_parser.py: Implement Constitution class with methods: parse(file_path), get_rules_for_task(task), validate_output(files). Use existing constitution_manager.py as reference.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/constitution_parser.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-003 as [x] in execution tracking",
+            "dependencies": []
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify Task dataclass has constitution_rules field, TaskInfo struct compiles with new field, and Constitution parser class exists with required methods",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 2,
+        "strategy": "SEQUENTIAL_MERGE",
+        "rationale": "Orchestrator parsing must use the updated Task dataclass from Wave 1, and execution plan generation depends on parsing logic",
+        "tasks": [
+          {
+            "task_id": "SPECKIT-004",
+            "agent_role": "python-pro",
+            "instruction": "Update parse_task() function in cli/orchestrator.py: Extract 'Constitution:' metadata from task descriptions using regex pattern '- \\*\\*Constitution\\*\\*: (.+)'. Store in task.constitution_rules list.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/orchestrator.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-004 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-001"]
+          },
+          {
+            "task_id": "SPECKIT-005",
+            "agent_role": "python-pro",
+            "instruction": "Update create_execution_plan() in cli/orchestrator.py: Include task.constitution_rules in execution_plan.json output. Add 'constitution_rules' field to task JSON serialization.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/orchestrator.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-005 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-004"]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify orchestrator extracts constitution metadata from test tasks.md and includes rules in execution_plan.json output",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 3,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave executor loading and watchdog registration are independent concerns - can be implemented simultaneously",
+        "tasks": [
+          {
+            "task_id": "SPECKIT-006",
+            "agent_role": "python-pro",
+            "instruction": "Update WaveExecutor.__init__() in cli/wave_executor.py: Load Constitution from memory-bank/shared/.constitution.md. Import constitution_parser and initialize self.constitution.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/wave_executor.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-006 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-003"]
+          },
+          {
+            "task_id": "SPECKIT-007",
+            "agent_role": "rust-pro",
+            "instruction": "Add 'register' subcommand to rust-watchdog/src/main.rs: Accept task_id, command, and constitution_rules via CLI args. Store in process registry with full metadata.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/src/main.rs"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-007 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-002"]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify wave_executor.py successfully loads constitution and task-watchdog 'register' command accepts constitution_rules parameter",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 4,
+        "strategy": "SEQUENTIAL_MERGE",
+        "rationale": "Task execution integration requires both constitution loading and watchdog registration to be complete. Checkpoint validation depends on all execution logic.",
+        "tasks": [
+          {
+            "task_id": "SPECKIT-008",
+            "agent_role": "python-pro",
+            "instruction": "Create execute_task() method in cli/wave_executor.py: For each task, call 'task-watchdog register TASK_ID --rules RULE1 RULE2...'. Pass constitution_rules from execution_plan.json to watchdog.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/wave_executor.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-008 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-006", "SPECKIT-007"]
+          },
+          {
+            "task_id": "SPECKIT-009",
+            "agent_role": "python-pro",
+            "instruction": "Update execute_checkpoint() in cli/wave_executor.py: After task verification, call self.constitution.validate_output() on modified files. Block checkpoint if violations found. Include violation details in output.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/wave_executor.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-009 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-008"]
+          },
+          {
+            "task_id": "SPECKIT-010",
+            "agent_role": "python-pro",
+            "instruction": "Implement Constitution.validate_output() in cli/constitution_parser.py: Parse modified files, check against constitution rules (e.g., type hints, docstrings, test coverage). Return list of ConstitutionViolation objects with file, line, rule, and message.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/cli/constitution_parser.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-010 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-003"]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify end-to-end flow: Constitution rules flow from tasks.md → orchestrator → executor → watchdog → checkpoint validation. Test with sample task that violates constitution.",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 5,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Documentation and testing are independent - can run simultaneously after core implementation complete",
+        "tasks": [
+          {
+            "task_id": "SPECKIT-011",
+            "agent_role": "documentation-specialist",
+            "instruction": "Update SPECKIT_DEVKID_INTEGRATION_GUARANTEE.md: Change status from 'VERIFIED' to 'IMPLEMENTED'. Add implementation details, test results, and verification evidence.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/SPECKIT_DEVKID_INTEGRATION_GUARANTEE.md"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-011 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-009", "SPECKIT-010"]
+          },
+          {
+            "task_id": "SPECKIT-012",
+            "agent_role": "test-automator",
+            "instruction": "Create integration test: Test constitution enforcement with sample task that violates rules. Verify checkpoint blocks and provides clear violation messages. Test file: tests/test_constitution_integration.py",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/tests/test_constitution_integration.py"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-012 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-009", "SPECKIT-010"]
+          },
+          {
+            "task_id": "SPECKIT-013",
+            "agent_role": "documentation-specialist",
+            "instruction": "Update rust-watchdog/README.md: Add section 'Constitution Enforcement' documenting the 'register' command with --rules parameter and showing integration with SpecKit workflow.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/README.md"
+            ],
+            "completion_handshake": "Upon success, mark SPECKIT-013 as [x] in execution tracking",
+            "dependencies": ["SPECKIT-007"]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all documentation updated, integration tests passing, and SpecKit integration guarantee fully implemented and tested",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      }
+    ]
+  }
+}

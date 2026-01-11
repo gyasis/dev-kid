@@ -1,0 +1,447 @@
+#!/usr/bin/env bash
+# dev-kid - Main CLI entry point
+
+set -e
+
+VERSION="2.0.0"
+DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_header() {
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  DEV-KID v${VERSION} - Claude Code Development Workflow${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+show_help() {
+    print_header
+    cat << EOF
+
+Usage: dev-kid [COMMAND] [OPTIONS]
+
+CORE COMMANDS:
+  init [PATH]              Initialize dev-kid in project (default: current dir)
+  orchestrate [PHASE]      Convert tasks.md into wave execution plan
+  execute                  Execute waves from execution_plan.json
+  sync-memory              Update Memory Bank with current state
+  checkpoint [MESSAGE]     Create semantic git checkpoint
+  verify                   Run anti-hallucination verification
+  recall                   Resume from last snapshot
+  finalize                 Create session snapshot and checkpoint
+
+ORCHESTRATION:
+  waves                    Show current execution plan waves
+  wave-status [N]          Check status of wave N
+  next-wave                Execute next pending wave
+
+TASK WATCHDOG (Survives context compression):
+  watchdog-start           Start background task monitoring (5-min checks)
+  watchdog-stop            Stop watchdog process
+  watchdog-check           Run one-time task check
+  watchdog-report          Show task timing report
+  task-start ID DESC       Start timer for a task
+  task-complete ID         Complete a task and record time
+
+MEMORY:
+  memory-status            Show Memory Bank health
+  memory-diff              Show changes since last sync
+
+CONSTITUTION & CONFIG:
+  constitution init        Initialize from template (python-api, typescript, etc.)
+  constitution validate    Check constitution quality
+  constitution show        Display current constitution
+  constitution edit        Open constitution in editor
+  config init              Initialize config.json with defaults
+  config show              Display current configuration
+  config get KEY           Get config value (e.g., task_orchestration.wave_size)
+  config set KEY VALUE     Set config value
+  config validate          Validate config file
+
+SYSTEM:
+  validate                 Validate system integrity
+  status                   Show dev-kid status
+  version                  Show version
+  help                     Show this help
+
+OPTIONS:
+  --project-path PATH      Specify project path (for init)
+  --phase-id ID            Phase identifier (for orchestrate)
+  --verbose                Verbose output
+  --dry-run                Show what would happen without executing
+
+EXAMPLES:
+  dev-kid init                    # Initialize in current directory
+  dev-kid orchestrate "Phase 7"   # Create execution plan from tasks.md
+  dev-kid execute                 # Execute all waves
+  dev-kid watchdog-start          # Start task monitoring
+  dev-kid checkpoint "Feature complete"
+  dev-kid recall                  # Resume from last session
+
+For detailed documentation: DEV_KID.md
+
+EOF
+}
+
+# Command implementations
+
+cmd_init() {
+    local project_path="${1:-.}"
+
+    echo -e "${GREEN}🚀 Initializing dev-kid in: $project_path${NC}"
+
+    # Run init script
+    "$DEV_KID_ROOT/scripts/init.sh" "$project_path"
+}
+
+cmd_orchestrate() {
+    local phase_id="${1:-default}"
+
+    echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
+
+    # Run orchestrator
+    python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
+}
+
+cmd_execute() {
+    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+
+    # Run wave executor
+    python3 "$DEV_KID_ROOT/cli/wave_executor.py"
+}
+
+cmd_sync_memory() {
+    echo -e "${GREEN}💾 Syncing Memory Bank${NC}"
+
+    # Trigger sync_memory skill
+    "$DEV_KID_ROOT/skills/sync_memory.sh"
+}
+
+cmd_checkpoint() {
+    local message="$1"
+
+    echo -e "${GREEN}📸 Creating checkpoint${NC}"
+
+    # Trigger checkpoint skill
+    "$DEV_KID_ROOT/skills/checkpoint.sh" "$message"
+}
+
+cmd_verify() {
+    echo -e "${GREEN}🔍 Running verification${NC}"
+
+    # Trigger verify_existence skill
+    "$DEV_KID_ROOT/skills/verify_existence.sh"
+}
+
+cmd_recall() {
+    echo -e "${GREEN}🧠 Recalling last session${NC}"
+
+    # Trigger recall skill
+    "$DEV_KID_ROOT/skills/recall.sh"
+}
+
+cmd_finalize() {
+    echo -e "${GREEN}📦 Finalizing session${NC}"
+
+    # Trigger finalize_session skill
+    "$DEV_KID_ROOT/skills/finalize_session.sh"
+}
+
+cmd_waves() {
+    echo -e "${GREEN}🌊 Execution Plan Waves${NC}"
+
+    if [ ! -f "execution_plan.json" ]; then
+        echo -e "${RED}❌ No execution plan found${NC}"
+        echo "   Run: dev-kid orchestrate"
+        exit 1
+    fi
+
+    # Parse and display waves
+    python3 -c "
+import json
+with open('execution_plan.json') as f:
+    plan = json.load(f)
+
+print('\n📋 Phase:', plan['execution_plan']['phase_id'])
+print('🌊 Waves:', len(plan['execution_plan']['waves']))
+print()
+
+for wave in plan['execution_plan']['waves']:
+    print(f\"Wave {wave['wave_id']} ({wave['strategy']}):\")
+    print(f\"  Tasks: {len(wave['tasks'])}\")
+    print(f\"  Rationale: {wave['rationale']}\")
+    print()
+"
+}
+
+# Task Watchdog commands
+
+cmd_watchdog_start() {
+    echo -e "${GREEN}🐕 Starting Task Watchdog (Rust)${NC}"
+    echo "   Generic process monitor for AI coding tools"
+    echo "   Monitoring tasks every 5 minutes..."
+    echo "   Press Ctrl+C to stop"
+    echo ""
+
+    # Run Rust watchdog in background
+    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" run &
+    WATCHDOG_PID=$!
+
+    echo "✅ Watchdog started (PID: $WATCHDOG_PID)"
+    echo "   Memory usage: <3MB | Startup: <5ms"
+    echo "   To stop: dev-kid watchdog-stop"
+}
+
+cmd_watchdog_stop() {
+    echo -e "${GREEN}🛑 Stopping Task Watchdog${NC}"
+
+    # Kill Rust watchdog process
+    pkill -f "task-watchdog run" && echo "✅ Watchdog stopped" || echo "⚠️  No watchdog running"
+}
+
+cmd_watchdog_check() {
+    echo -e "${GREEN}🔍 Running task check${NC}"
+
+    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" rehydrate
+}
+
+cmd_watchdog_report() {
+    echo -e "${GREEN}📊 Task Timing Report${NC}"
+
+    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" report
+}
+
+cmd_task_start() {
+    local task_id="$1"
+    local description="$2"
+
+    if [ -z "$task_id" ] || [ -z "$description" ]; then
+        echo -e "${RED}❌ Usage: dev-kid task-start TASK_ID \"Description\"${NC}"
+        exit 1
+    fi
+
+    # Note: Task registration will be implemented when process/Docker container is created
+    # For now, just log the intent
+    echo "⏱️  Task $task_id: $description"
+    echo "   To track: Register in .claude/process_registry.json with PID/container ID"
+}
+
+cmd_task_complete() {
+    local task_id="$1"
+
+    if [ -z "$task_id" ]; then
+        echo -e "${RED}❌ Usage: dev-kid task-complete TASK_ID${NC}"
+        exit 1
+    fi
+
+    # Kill the task and mark as complete in registry
+    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" kill "$task_id"
+}
+
+cmd_status() {
+    print_header
+    echo ""
+
+    # Check Memory Bank
+    if [ -d "memory-bank" ]; then
+        echo -e "${GREEN}✅ Memory Bank: Initialized${NC}"
+    else
+        echo -e "${RED}❌ Memory Bank: Not found${NC}"
+    fi
+
+    # Check Constitution
+    if [ -f "memory-bank/shared/.constitution.md" ]; then
+        echo -e "${GREEN}✅ Constitution: Configured${NC}"
+        python3 "$DEV_KID_ROOT/cli/constitution_manager.py" validate 2>&1 | grep -q "validation passed" && \
+            echo -e "   Quality: Valid" || echo -e "   Quality: ${YELLOW}Needs review${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Constitution: Not configured${NC}"
+        echo -e "   Run: dev-kid constitution init"
+    fi
+
+    # Check Config
+    if [ -f ".devkid/config.json" ]; then
+        echo -e "${GREEN}✅ Config: Initialized${NC}"
+        WAVE_SIZE=$(python3 "$DEV_KID_ROOT/cli/config_manager.py" get task_orchestration.wave_size 2>/dev/null)
+        WATCHDOG=$(python3 "$DEV_KID_ROOT/cli/config_manager.py" get task_orchestration.task_watchdog_minutes 2>/dev/null)
+        echo -e "   Wave size: $WAVE_SIZE | Watchdog: ${WATCHDOG}min"
+    else
+        echo -e "${YELLOW}⚠️  Config: Not initialized${NC}"
+        echo -e "   Run: dev-kid config init"
+    fi
+
+    # Check Context Protection
+    if [ -d ".claude" ]; then
+        echo -e "${GREEN}✅ Context Protection: Enabled${NC}"
+    else
+        echo -e "${RED}❌ Context Protection: Not enabled${NC}"
+    fi
+
+    # Check Task Watchdog (Rust)
+    if [ -f ".claude/process_registry.json" ]; then
+        echo -e "${GREEN}✅ Task Watchdog: Active (Rust)${NC}"
+        "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" stats 2>/dev/null | grep -E "(Running|Completed|Total)" | sed 's/^/   /'
+    else
+        echo -e "${YELLOW}⚠️  Task Watchdog: Not configured${NC}"
+    fi
+
+    # Check Skills
+    if [ -d "$HOME/.claude/skills/planning-enhanced" ]; then
+        skill_count=$(ls -1 "$HOME/.claude/skills/planning-enhanced"/*.sh 2>/dev/null | wc -l)
+        echo -e "${GREEN}✅ Skills: $skill_count installed${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Skills: Not installed${NC}"
+    fi
+
+    # Check Git
+    if [ -d ".git" ]; then
+        echo -e "${GREEN}✅ Git: Initialized${NC}"
+        commit_count=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+        echo -e "   Commits: $commit_count"
+    else
+        echo -e "${YELLOW}⚠️  Git: Not initialized${NC}"
+    fi
+
+    # Check Execution Plan
+    if [ -f "execution_plan.json" ]; then
+        wave_count=$(python3 -c "import json; print(len(json.load(open('execution_plan.json'))['execution_plan']['waves']))")
+        echo -e "${GREEN}✅ Execution Plan: $wave_count waves${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Execution Plan: Not generated${NC}"
+    fi
+
+    echo ""
+}
+
+cmd_validate() {
+    echo -e "${GREEN}🔧 Validating system integrity${NC}"
+    "$DEV_KID_ROOT/skills/maintain_integrity.sh"
+}
+
+# Constitution commands
+cmd_constitution() {
+    local subcommand="$1"
+    shift
+
+    case "$subcommand" in
+        init)
+            echo -e "${GREEN}📜 Initializing constitution${NC}"
+            python3 "$DEV_KID_ROOT/cli/constitution_manager.py" init "$@"
+            ;;
+        validate)
+            echo -e "${GREEN}🔍 Validating constitution${NC}"
+            python3 "$DEV_KID_ROOT/cli/constitution_manager.py" validate "$@"
+            ;;
+        show)
+            echo -e "${GREEN}📋 Displaying constitution${NC}"
+            python3 "$DEV_KID_ROOT/cli/constitution_manager.py" show "$@"
+            ;;
+        edit)
+            echo -e "${GREEN}✏️  Opening constitution in editor${NC}"
+            local constitution_path="memory-bank/shared/.constitution.md"
+
+            if [ ! -f "$constitution_path" ]; then
+                echo -e "${RED}❌ Constitution not found at $constitution_path${NC}"
+                echo "   Run: dev-kid constitution init"
+                exit 1
+            fi
+
+            # Use editor preference or default to nano
+            ${EDITOR:-nano} "$constitution_path"
+            ;;
+        *)
+            echo -e "${RED}❌ Unknown constitution subcommand: $subcommand${NC}"
+            echo "   Available: init, validate, show, edit"
+            exit 1
+            ;;
+    esac
+}
+
+# Config commands
+cmd_config() {
+    local subcommand="$1"
+    shift
+
+    case "$subcommand" in
+        init)
+            echo -e "${GREEN}⚙️  Initializing config${NC}"
+            python3 "$DEV_KID_ROOT/cli/config_manager.py" init "$@"
+            ;;
+        show)
+            echo -e "${GREEN}📋 Displaying config${NC}"
+            python3 "$DEV_KID_ROOT/cli/config_manager.py" show "$@"
+            ;;
+        get)
+            if [ -z "$1" ]; then
+                echo -e "${RED}❌ Usage: dev-kid config get KEY${NC}"
+                echo "   Example: dev-kid config get task_orchestration.wave_size"
+                exit 1
+            fi
+            python3 "$DEV_KID_ROOT/cli/config_manager.py" get "$@"
+            ;;
+        set)
+            if [ -z "$1" ] || [ -z "$2" ]; then
+                echo -e "${RED}❌ Usage: dev-kid config set KEY VALUE${NC}"
+                echo "   Example: dev-kid config set task_orchestration.wave_size 10"
+                exit 1
+            fi
+            python3 "$DEV_KID_ROOT/cli/config_manager.py" set "$@"
+            ;;
+        validate)
+            echo -e "${GREEN}🔍 Validating config${NC}"
+            python3 "$DEV_KID_ROOT/cli/config_manager.py" validate "$@"
+            ;;
+        *)
+            echo -e "${RED}❌ Unknown config subcommand: $subcommand${NC}"
+            echo "   Available: init, show, get, set, validate"
+            exit 1
+            ;;
+    esac
+}
+
+# Main command dispatcher
+main() {
+    if [ $# -eq 0 ]; then
+        show_help
+        exit 0
+    fi
+
+    local command="$1"
+    shift
+
+    case "$command" in
+        init)               cmd_init "$@" ;;
+        orchestrate)        cmd_orchestrate "$@" ;;
+        execute)            cmd_execute "$@" ;;
+        sync-memory)        cmd_sync_memory "$@" ;;
+        checkpoint)         cmd_checkpoint "$@" ;;
+        verify)             cmd_verify "$@" ;;
+        recall)             cmd_recall "$@" ;;
+        finalize)           cmd_finalize "$@" ;;
+        waves)              cmd_waves "$@" ;;
+        watchdog-start)     cmd_watchdog_start "$@" ;;
+        watchdog-stop)      cmd_watchdog_stop "$@" ;;
+        watchdog-check)     cmd_watchdog_check "$@" ;;
+        watchdog-report)    cmd_watchdog_report "$@" ;;
+        task-start)         cmd_task_start "$@" ;;
+        task-complete)      cmd_task_complete "$@" ;;
+        constitution)       cmd_constitution "$@" ;;
+        config)             cmd_config "$@" ;;
+        status)             cmd_status "$@" ;;
+        validate)           cmd_validate "$@" ;;
+        version)            echo "dev-kid v$VERSION" ;;
+        help|-h|--help)     show_help ;;
+        *)
+            echo -e "${RED}❌ Unknown command: $command${NC}"
+            echo "   Run 'dev-kid help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
