@@ -113,6 +113,37 @@ PYTHON
 EOF
 chmod +x .git/hooks/post-commit
 
+# Set up post-checkout hook for speckit integration
+echo "   Installing post-checkout hook (speckit integration)..."
+cat > .git/hooks/post-checkout << 'EOF'
+#!/bin/bash
+# Post-checkout hook for dev-kid + speckit integration
+# Auto-symlinks tasks.md to current branch's spec folder
+
+BRANCH=$(git branch --show-current)
+SPEC_TASKS=".specify/specs/${BRANCH}/tasks.md"
+
+# Remove existing tasks.md (symlink or regular file)
+if [ -L "tasks.md" ] || [ -f "tasks.md" ]; then
+    rm tasks.md
+fi
+
+# Create symlink to branch's spec tasks if it exists
+if [ -f "$SPEC_TASKS" ]; then
+    echo "🔗 Linking tasks.md → $SPEC_TASKS"
+    ln -s "$SPEC_TASKS" tasks.md
+    echo "   Tasks loaded for branch: $BRANCH"
+else
+    # Check if .specify exists to provide helpful message
+    if [ -d ".specify/specs" ]; then
+        echo "⚠️  No tasks.md found for branch $BRANCH"
+        echo "   Expected: $SPEC_TASKS"
+        echo "   Run /speckit.tasks to generate tasks for this feature"
+    fi
+fi
+EOF
+chmod +x .git/hooks/post-checkout
+
 # Create initial checkpoint
 git add .
 git commit -m "[MILESTONE] Dev-kid initialized
@@ -158,15 +189,24 @@ echo "📚 Memory Bank: memory-bank/"
 echo "🛡️  Context Protection: .claude/"
 echo "⏱️  Task Watchdog: .claude/task_timers.json"
 echo "📸 Snapshots: .claude/session_snapshots/"
+echo "🔗 Git Hooks: post-commit, post-checkout (speckit integration)"
 echo ""
 echo "Next steps:"
+echo ""
+echo "Option A - With Speckit (recommended for feature-branch workflow):"
+echo "  1. Run: /speckit.constitution (create project rules)"
+echo "  2. Run: /speckit.specify 'Your feature description' (create branch + spec)"
+echo "  3. Run: /speckit.tasks (generate tasks.md from spec)"
+echo "  4. Run: dev-kid orchestrate (create execution plan)"
+echo "  5. Run: dev-kid execute (execute waves)"
+echo ""
+echo "Option B - Standalone (manual tasks.md):"
 echo "  1. Setup constitution: dev-kid constitution init (if not done)"
 echo "  2. Edit memory-bank/shared/projectbrief.md (define project vision)"
-echo "  3. Review config: dev-kid config show"
-echo "  4. Create tasks.md (list your tasks)"
-echo "  5. Run: dev-kid orchestrate (create execution plan)"
-echo "  6. Run: dev-kid watchdog-start (start task monitoring)"
-echo "  7. Run: dev-kid execute (execute waves)"
+echo "  3. Create tasks.md (list your tasks)"
+echo "  4. Run: dev-kid orchestrate (create execution plan)"
+echo "  5. Run: dev-kid watchdog-start (start task monitoring)"
+echo "  6. Run: dev-kid execute (execute waves)"
 echo ""
 echo "Quick commands:"
 echo "  dev-kid constitution show  # View development rules"

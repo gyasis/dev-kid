@@ -353,3 +353,125 @@ dev-kid checkpoint "Test"
 **Git-Centric**: Every checkpoint is a git commit. History is source of truth.
 
 **Fail-Safe**: Verification before progression. No silent failures. Clear error messages.
+
+## Project Intelligence (Discovered Patterns)
+
+### Critical Implementation Insights
+
+**Dual Interface Pattern**: Providing both auto-triggering skills AND manual slash commands proved essential. Users need automation for efficiency but also control for edge cases. Skills in ~/.claude/skills/ auto-activate based on file conditions, while commands in ~/.claude/commands/ provide manual override.
+
+**Symlink Strategy**: For Speckit integration, symlinks (not copies) ensure single source of truth. tasks.md symlinks to .specify/specs/{branch}/tasks.md, updated automatically by git post-checkout hook. This prevents divergence and preserves progress across branch switches.
+
+**Process-Based Monitoring**: Task watchdog runs as independent Python process, not token-based. State persisted to .claude/task_timers.json survives context compression. This was THE critical decision that enables reliable monitoring.
+
+**Verification-Gated Progression**: Wave executor MUST verify tasks.md has [x] markers before proceeding to next wave. This fail-safe pattern prevents silent failures and ensures data integrity.
+
+**Memory Bank Hierarchy**: Six-tier structure (projectbrief → productContext → activeContext → systemPatterns → techContext → progress) builds context progressively. Each tier depends on previous tiers, enabling efficient context loading.
+
+### User Preferences & Patterns
+
+**Error Messages**: Users strongly prefer actionable error messages. Format: "❌ Problem description" followed by "ℹ️ Next steps". Never fail silently.
+
+**Git Operations**: Users are extremely cautious about git operations. NEVER use --force, --hard-reset, or --amend without explicit confirmation. Conservative operations only.
+
+**Documentation**: Users prefer comprehensive inline documentation over external docs. CLAUDE.md serves as single source of truth for project context.
+
+**Token Efficiency**: Users are highly sensitive to token usage. Skills must activate with minimal overhead, Memory Bank updates must be incremental, no verbose output.
+
+### Critical Implementation Paths
+
+**Installation Flow**:
+1. Run ./scripts/install.sh (copies to ~/.dev-kid)
+2. Creates symlink to /usr/local/bin/dev-kid (or PATH alternative)
+3. Deploys skills to ~/.claude/skills/
+4. Deploys commands to ~/.claude/commands/
+5. Verify with ./scripts/verify-install.sh
+
+**Orchestration Flow**:
+1. Parse tasks.md (Markdown → Task objects)
+2. Extract file paths (prioritize backtick convention)
+3. Analyze dependencies (explicit + file locks)
+4. Group into waves (greedy algorithm)
+5. Write execution_plan.json
+6. Verify JSON schema
+
+**Execution Flow**:
+1. Read execution_plan.json
+2. For each wave sequentially:
+   - Execute tasks (agent responsibility)
+   - Verify completion (check tasks.md for [x])
+   - HALT if verification fails
+   - Update progress.md
+   - Create git commit
+   - Proceed to next wave
+
+**Speckit Integration Flow**:
+1. User switches branch (git checkout feature-x)
+2. post-checkout hook fires
+3. Hook checks .specify/specs/feature-x/tasks.md exists
+4. Creates symlink: tasks.md → .specify/specs/feature-x/tasks.md
+5. Dev-kid works with branch-specific tasks
+6. Progress preserved when switching back
+
+### Known Gotchas
+
+**Skills Not Found**: Claude Code looks in specific directories. Ensure install.sh copies to ~/.claude/skills/ (NOT ~/.dev-kid/skills/). Common mistake during development.
+
+**File Lock Over-Detection**: Regex may detect file-like strings that aren't actual files. Use backticks to explicitly mark file paths: `src/file.py`. This guarantees detection.
+
+**Watchdog Process Orphans**: If watchdog crashes, process may remain. Always check with `ps aux | grep task_watchdog.py` and kill manually if needed: `pkill -f task_watchdog.py`.
+
+**Git Hooks Not Executable**: Git hooks must have execute permission. After creating .git/hooks/post-checkout, run `chmod +x .git/hooks/post-checkout`. Silent failure if not executable.
+
+**tasks.md Format**: Tasks MUST follow format: `- [ ] TASK-ID: Description affecting \`file.py\``. Wave executor depends on this structure for parsing and verification.
+
+### Performance Optimization Notes
+
+**O(n²) Dependency Analysis**: Acceptable for <1000 tasks (~1 second). If task lists grow larger, consider optimization. Current greedy algorithm trades optimality for predictability.
+
+**JSON File I/O**: Execution plan and state files are small (<100KB typical). File I/O is not bottleneck. Git operations are slowest part of pipeline.
+
+**Memory Bank Updates**: Incremental updates via git diff/log parsing. Avoid full file rewrites. Append-only activity stream prevents corruption.
+
+**Watchdog Polling**: 5-minute check interval balances responsiveness with CPU usage. Configurable if needed, but 5min works for 99% of use cases.
+
+### Testing Strategies
+
+**Manual Testing Workflow**:
+1. Install to /tmp/test-dev-kid (isolated environment)
+2. Initialize test project with git init
+3. Create test tasks.md with known dependencies
+4. Run orchestration and verify execution_plan.json
+5. Execute waves and verify git commits
+6. Check Memory Bank updates
+
+**Regression Testing**:
+- Always test file lock detection with backtick and non-backtick paths
+- Always test verification failure (incomplete tasks.md)
+- Always test git hook activation (branch switches)
+- Always test watchdog state persistence (kill and restart)
+
+**Edge Cases to Test**:
+- Empty tasks.md (should gracefully handle)
+- No git repository (should error clearly)
+- Circular dependencies (should detect and report)
+- File paths with spaces (should handle with backticks)
+- Very long task descriptions (should truncate gracefully)
+
+### Constitution Integration Notes
+
+**Pipeline Enforcement**: Constitution.md is checked at three points: pre-orchestration, during execution, post-checkpoint. This ensures quality standards are enforced throughout.
+
+**Optional Feature**: Constitution is optional. If Constitution.md doesn't exist, system works normally. This allows gradual adoption.
+
+**Violation Reporting**: When constitution violations detected, system provides clear explanation with specific rule violated and suggested fix. Never fail silently.
+
+### Speckit Integration Notes
+
+**Branch-Based Isolation**: Critical decision was to use .specify/specs/{branch}/ structure. Each feature branch has independent tasks.md, preventing conflicts.
+
+**Symlink Management**: Git post-checkout hook is ONLY way to reliably detect branch switches. Running dev-kid commands doesn't work because git context isn't available.
+
+**Progress Preservation**: Because tasks.md is symlinked (not copied), progress on each branch is automatically preserved. No manual syncing needed.
+
+**Constitution Sharing**: Constitution.md lives in project root, shared across all branches. This ensures quality standards are consistent across features.

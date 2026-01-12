@@ -98,6 +98,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 echo "   Copying files..."
 cp -r "$PROJECT_ROOT/cli" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/skills" "$INSTALL_DIR/"
+cp -r "$PROJECT_ROOT/commands" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/scripts" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/templates" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/DEV_KID.md" "$INSTALL_DIR/"
@@ -117,20 +118,54 @@ fi
 
 # Create skills directory for Claude Code
 echo "   Installing skills to Claude Code..."
-mkdir -p "$HOME/.claude/skills/planning-enhanced"
+mkdir -p "$HOME/.claude/skills"
 
-# Copy skills to Claude Code skills directory
-cp "$INSTALL_DIR/skills"/*.sh "$HOME/.claude/skills/planning-enhanced/"
+# Copy skills to Claude Code skills directory (markdown skills with YAML frontmatter)
+cp "$INSTALL_DIR/skills"/*.md "$HOME/.claude/skills/"
+
+# Also keep legacy .sh scripts for backward compatibility
+mkdir -p "$HOME/.claude/skills/planning-enhanced"
+cp "$INSTALL_DIR/skills"/*.sh "$HOME/.claude/skills/planning-enhanced/" 2>/dev/null || true
 
 # Copy task watchdog
 cp "$INSTALL_DIR/cli/task_watchdog.py" "$HOME/.claude/skills/planning-enhanced/"
 
+# Install commands to Claude Code
+echo "   Installing commands to Claude Code..."
+mkdir -p "$HOME/.claude/commands"
+
+# Copy dev-kid commands
+cp "$INSTALL_DIR/commands"/devkid.*.md "$HOME/.claude/commands/"
+
 echo "✅ Installation complete!"
+echo ""
+
+# Count installed files
+SKILL_COUNT=$(ls -1 "$HOME/.claude/skills"/*.md 2>/dev/null | wc -l)
+CMD_COUNT=$(ls -1 "$HOME/.claude/commands"/devkid.*.md 2>/dev/null | wc -l)
+
+echo "📦 Installed:"
+echo "   Skills: $SKILL_COUNT auto-triggering workflows"
+echo "   Commands: $CMD_COUNT slash commands"
 echo ""
 echo "Quick start:"
 echo "  cd your-project"
 echo "  dev-kid init          # Initialize dev-kid"
 echo "  dev-kid status        # Check status"
+echo ""
+echo "Claude Code Commands (slash commands):"
+echo "  /devkid.orchestrate   # Convert tasks to waves"
+echo "  /devkid.execute       # Execute waves with monitoring"
+echo "  /devkid.checkpoint    # Validate & commit"
+echo "  /devkid.sync-memory   # Update memory bank"
+echo "  /devkid.workflow      # Show complete workflow guide"
+echo ""
+echo "Auto-Triggering Skills:"
+echo "  orchestrate-tasks.md  # Auto-orchestrates when tasks.md exists"
+echo "  execute-waves.md      # Auto-executes when execution_plan.json exists"
+echo "  checkpoint-wave.md    # Auto-validates wave completion"
+echo "  sync-memory.md        # Auto-updates memory bank after checkpoints"
+echo "  speckit-workflow.md   # Complete workflow guide"
 echo ""
 echo "Documentation:"
 echo "  cat $INSTALL_DIR/DEV_KID.md"

@@ -34,13 +34,25 @@ Dev-kid is a complete development workflow system that transforms how AI agents 
 - **System Bus**: Inter-agent messaging
 - **Session Snapshots**: Zero-loss session recovery
 
-### 🎯 Skills Layer
-- **sync_memory**: Update Memory Bank with current state
-- **checkpoint**: Create semantic git checkpoints
-- **verify_existence**: Anti-hallucination verification
-- **recall**: Resume from last session snapshot
-- **finalize_session**: Create session snapshot
-- **maintain_integrity**: Validate system consistency
+### 🎯 Skills Layer (Auto-Triggering)
+- **orchestrate-tasks.md**: Auto-orchestrates tasks.md into parallelized waves
+- **execute-waves.md**: Auto-executes waves with monitoring & checkpoints
+- **checkpoint-wave.md**: Auto-validates wave completion
+- **sync-memory.md**: Auto-updates Memory Bank after checkpoints
+- **speckit-workflow.md**: Complete workflow guide
+
+### ⚡ Claude Code Commands (Manual)
+- **/devkid.orchestrate**: Convert tasks to waves
+- **/devkid.execute**: Execute waves with monitoring
+- **/devkid.checkpoint**: Validate & commit
+- **/devkid.sync-memory**: Update memory bank
+- **/devkid.workflow**: Show complete workflow guide
+
+### 🔗 Speckit Integration
+- Seamless workflow from planning to execution
+- Git hooks for branch-based task management
+- Constitution enforcement at checkpoints
+- Feature branch isolation with progress preservation
 
 ## Dependencies
 
@@ -55,9 +67,34 @@ Dev-kid is a complete development workflow system that transforms how AI agents 
 
 The installer automatically checks all dependencies and provides installation instructions if anything is missing. See [DEPENDENCIES.md](DEPENDENCIES.md) for detailed requirements and platform-specific installation instructions.
 
-## Quick Start
+## 🚀 Quickstart
 
-### Installation
+**Want to get started in 5 minutes?** See **[QUICKSTART.md](QUICKSTART.md)** for a guided walkthrough.
+
+**TL;DR:**
+```bash
+# Install
+./scripts/install.sh
+
+# In your project
+cd your-project
+dev-kid init
+
+# With Speckit (recommended)
+/speckit.constitution
+/speckit.specify "Your feature"
+/speckit.tasks
+/devkid.execute
+
+# Or standalone
+echo "- [ ] Task 1" > tasks.md
+dev-kid orchestrate "Phase 1"
+dev-kid execute
+```
+
+## Installation
+
+### Detailed Installation
 
 ```bash
 # Clone the repo
@@ -73,8 +110,14 @@ dev-kid version
 
 This installs:
 - CLI to `~/.dev-kid/` with symlink at `/usr/local/bin/dev-kid`
-- Skills to `~/.claude/skills/planning-enhanced/`
+- **Skills** to `~/.claude/skills/` (auto-triggering workflows)
+- **Commands** to `~/.claude/commands/` (slash commands)
 - Templates to `~/.dev-kid/templates/`
+
+Verify installation:
+```bash
+./scripts/verify-install.sh
+```
 
 ### Initialize in Your Project
 
@@ -88,7 +131,45 @@ dev-kid init
 # - Git hooks           (auto-checkpoint on commit)
 ```
 
-### Basic Workflow
+### Workflow Options
+
+#### Option 1: With Speckit (Recommended)
+
+Complete workflow from planning to execution:
+
+```bash
+# 1. Create project constitution (once per project)
+/speckit.constitution
+
+# 2. Create feature spec
+/speckit.specify "Add user authentication with OAuth2"
+# Creates: .specify/specs/001-user-auth/spec.md
+
+# 3. Generate tasks
+/speckit.tasks
+# Creates: .specify/specs/001-user-auth/tasks.md
+# Git hook auto-symlinks: tasks.md → .specify/specs/001-user-auth/tasks.md
+
+# 4. Orchestrate into waves (auto-triggers or manual)
+/devkid.orchestrate
+
+# 5. Execute waves (auto-triggers or manual)
+/devkid.execute
+
+# 6. Checkpoint & sync (auto-triggers or manual)
+/devkid.checkpoint
+/devkid.sync-memory
+```
+
+**Branch switching preserves progress:**
+```bash
+git checkout 002-payment-flow
+# Git hook auto-relinks: tasks.md → .specify/specs/002-payment-flow/tasks.md
+```
+
+#### Option 2: Standalone Dev-Kid
+
+Basic workflow without speckit:
 
 #### 1. Define Your Project
 
