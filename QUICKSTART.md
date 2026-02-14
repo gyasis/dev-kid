@@ -59,6 +59,64 @@ cd ..
 
 **Skip if**: You don't need background task monitoring (core features work without it)
 
+---
+
+## What Just Got Installed: Claude Code Hooks
+
+**Automated State Management (No Manual Work Required!)**
+
+Dev-kid automatically installed 6 Claude Code hooks that run in the background:
+
+### 🪝 Hooks Active in Every Project
+
+When you run `dev-kid init`, these hooks auto-activate:
+
+1. **PreCompact Hook** - Auto-backup before context compression
+   - Saves state before Claude hits token limit
+   - Prevents data loss during compression
+   - Creates emergency checkpoint
+
+2. **TaskCompleted Hook** - Auto-sync GitHub issues
+   - Runs `dev-kid gh-sync` automatically after each task
+   - Updates GitHub issues when tasks marked `[x]`
+   - Creates micro-checkpoint
+
+3. **PostToolUse Hook** - Auto-format code
+   - Runs black/isort for Python
+   - Runs prettier for JS/TS
+   - Runs shfmt for Bash
+
+4. **UserPromptSubmit Hook** - Auto-inject project context
+   - Shows Claude your current branch
+   - Shows constitution rules
+   - Shows task progress
+   - Shows current wave
+
+5. **SessionStart Hook** - Auto-restore context
+   - Runs `dev-kid recall` on startup
+   - Loads last session snapshot
+   - Seamless continuity
+
+6. **SessionEnd Hook** - Auto-finalize session
+   - Runs `dev-kid finalize` on shutdown
+   - Creates recovery snapshot
+   - Prevents work loss
+
+**What This Means**: You don't need to manually sync GitHub, checkpoint, or explain project state. Hooks do it automatically.
+
+**Control Hooks** (optional):
+```bash
+# Disable all hooks
+export DEV_KID_HOOKS_ENABLED=false
+
+# Disable just GitHub sync
+export DEV_KID_AUTO_SYNC_GITHUB=false
+```
+
+**Learn More**: See [HOOKS_REFERENCE.md](HOOKS_REFERENCE.md) for complete guide
+
+---
+
 ## The Modern Workflow: Speckit + Dev-Kid (RECOMMENDED)
 
 **This is the primary workflow.** Speckit handles planning and specification, dev-kid handles execution.

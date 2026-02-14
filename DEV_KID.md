@@ -10,11 +10,12 @@
 
 1. [Overview](#overview)
 2. [Task Orchestration System](#task-orchestration-system)
-3. [Complete CLI Implementation](#complete-cli-implementation)
-4. [Core Skills (All 6)](#core-skills)
-5. [Bash Scripts & Runtime](#bash-scripts--runtime)
-6. [Installation](#installation)
-7. [Usage](#usage)
+3. [Claude Code Hooks](#claude-code-hooks)
+4. [Complete CLI Implementation](#complete-cli-implementation)
+5. [Core Skills (All 6)](#core-skills)
+6. [Bash Scripts & Runtime](#bash-scripts--runtime)
+7. [Installation](#installation)
+8. [Usage](#usage)
 
 ---
 
@@ -529,6 +530,225 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+---
+
+## Claude Code Hooks
+
+**Automated State Management Across Sessions & Context Compression**
+
+Dev-kid uses Claude Code's lifecycle hooks to automate state management, ensuring project consistency without manual intervention.
+
+### Hook Architecture
+
+```
+Claude Code Lifecycle
+        ↓
+   Hook Event Fires
+        ↓
+.claude/settings.json → .claude/hooks/{hook-name}.sh
+        ↓                           ↓
+    Reads stdin            Executes dev-kid commands
+        ↓                           ↓
+  Processes event        Updates state files
+        ↓                           ↓
+  Returns JSON           Syncs GitHub / creates checkpoints
+        ↓
+Claude continues execution
+```
+
+### 6 Lifecycle Hooks
+
+#### 1. PreCompact Hook (CRITICAL)
+**Fires**: BEFORE Claude compresses conversation context (token limit)
+
+**Purpose**: Emergency state backup to prevent data loss during compression
+
+**Actions**:
+- Backs up `AGENT_STATE.json` with timestamp
+- Updates `system_bus.json` with compression event
+- Auto-creates git checkpoint if uncommitted changes exist
+- Logs event to `activity_stream.md`
+
+**Why Critical**: Context compression can lose current wave/task state. This hook ensures state persisted to disk BEFORE compression occurs.
+
+#### 2. TaskCompleted Hook
+**Fires**: After task marked `[x]` in tasks.md
+
+**Purpose**: Auto-checkpoint and sync GitHub issues
+
+**Actions**:
+- Checks if `tasks.md` was modified
+- Calls `dev-kid gh-sync` to update GitHub issues
+- Creates micro-checkpoint if auto-checkpoint enabled
+- Logs completion to `activity_stream.md`
+
+**Why Important**: Ensures GitHub issues stay in sync with tasks.md automatically. No manual intervention required.
+
+#### 3. PostToolUse Hook
+**Fires**: After Claude executes a tool (Edit, Write, etc.)
+
+**Purpose**: Auto-format code files after editing
+
+**Actions**:
+- Detects if tool was Edit or Write
+- Extracts file path from tool metadata
+- Runs language-specific formatters:
+  - Python: `black`, `isort`
+  - JavaScript/TypeScript: `prettier`
+  - Bash: `shfmt`
+
+**Why Useful**: Ensures consistent code style without manual intervention.
+
+#### 4. UserPromptSubmit Hook
+**Fires**: BEFORE Claude processes user's prompt
+
+**Purpose**: Inject project context into Claude's working memory
+
+**Actions**:
+- Reads current git branch
+- Extracts constitution rules (top 5 rules)
+- Calculates task progress (X/Y completed)
+- Identifies current wave from `execution_plan.json`
+- Checks for recent errors in `activity_stream.md`
+- Outputs context as markdown to stdout
+
+**Why Powerful**: Claude always knows project state without manual explanation.
+
+#### 5. SessionStart Hook
+**Fires**: When Claude Code session starts (first prompt)
+
+**Purpose**: Restore context from last session
+
+**Actions**:
+- Calls `dev-kid recall` to restore from last snapshot
+- Updates `AGENT_STATE.json` with new session ID
+- Logs session start to `activity_stream.md`
+
+**Why Essential**: Ensures continuity across sessions.
+
+#### 6. SessionEnd Hook
+**Fires**: When Claude Code session ends (close, timeout, crash)
+
+**Purpose**: Finalize session and create recovery snapshot
+
+**Actions**:
+- Calls `dev-kid finalize` to create final snapshot
+- Creates git checkpoint if uncommitted work exists
+- Updates `AGENT_STATE.json` with finalization timestamp
+- Logs session end to `activity_stream.md`
+
+**Why Critical**: Ensures no work is lost even if Claude crashes.
+
+### Configuration
+
+**File**: `.claude/settings.json`
+
+```json
+{
+  "hooks": {
+    "PreCompact": {
+      "command": ".claude/hooks/pre-compact.sh",
+      "blocking": true,
+      "description": "Emergency state backup before context compression"
+    },
+    "TaskCompleted": {
+      "command": ".claude/hooks/task-completed.sh",
+      "blocking": false,
+      "description": "Auto-checkpoint and sync GitHub issues"
+    }
+  },
+  "hookSettings": {
+    "timeout": 30000,
+    "env": {
+      "DEV_KID_HOOKS_ENABLED": "true",
+      "DEV_KID_AUTO_SYNC_GITHUB": "true",
+      "DEV_KID_AUTO_CHECKPOINT": "true"
+    }
+  }
+}
+```
+
+### Hook Communication Protocol
+
+Hooks communicate via stdin/stdout using JSON:
+
+**Input (stdin)**:
+```json
+{
+  "event": "TaskCompleted",
+  "timestamp": "2026-02-14T15:30:45Z",
+  "metadata": {
+    "task_id": "TASK-012",
+    "description": "Implement user authentication"
+  }
+}
+```
+
+**Output (stdout)**:
+```json
+{
+  "status": "success",
+  "message": "GitHub issue #123 synced"
+}
+```
+
+**Exit Codes**:
+- `0`: Success (hook completed normally)
+- `1`: Error (hook failed, but allow Claude to continue)
+- `2`: Block (prevent Claude from continuing - use only for critical errors)
+
+### State Files Updated by Hooks
+
+- `.claude/AGENT_STATE.json`: Agent coordination state
+- `.claude/activity_stream.md`: Append-only event log
+- `.claude/system_bus.json`: Inter-agent messaging
+- `tasks.md`: Task completion status
+- `execution_plan.json`: Current wave/phase
+- `memory-bank/shared/.constitution.md`: Quality rules
+
+### Performance Impact
+
+Hooks are lightweight:
+- **PreCompact**: ~200ms (blocking, but critical)
+- **TaskCompleted**: ~500ms (non-blocking, background)
+- **PostToolUse**: ~100ms (non-blocking, per file)
+- **UserPromptSubmit**: ~50ms (blocking, very fast)
+- **SessionStart**: ~300ms (one-time at startup)
+- **SessionEnd**: ~400ms (one-time at shutdown)
+
+**Total overhead**: <2 seconds per task (99% in background)
+
+### Environment Variables
+
+```bash
+# Disable all hooks
+export DEV_KID_HOOKS_ENABLED=false
+
+# Disable GitHub sync only
+export DEV_KID_AUTO_SYNC_GITHUB=false
+
+# Disable auto-checkpoints only
+export DEV_KID_AUTO_CHECKPOINT=false
+```
+
+### Deployment
+
+Hooks auto-deploy during project initialization:
+
+```bash
+dev-kid init /path/to/project
+  ↓
+Copies templates/.claude/ → .claude/
+  ↓
+Creates:
+  - .claude/settings.json (hook config)
+  - .claude/hooks/*.sh (hook scripts)
+  ↓
+Hooks active immediately
+```
+
+**Reference**: See [HOOKS_REFERENCE.md](HOOKS_REFERENCE.md) for complete guide.
 
 ---
 

@@ -225,6 +225,86 @@ cd rust-watchdog && cargo build --release
 - `system_bus.json`: Inter-agent messaging
 - `task_timers.json`: Watchdog state
 - `session_snapshots/*.json`: Recovery points
+- `settings.json`: Claude Code hooks configuration
+- `hooks/*.sh`: Lifecycle hook scripts
+
+### Claude Code Hooks (Automated State Management)
+
+Dev-kid uses Claude Code's lifecycle hooks to automate state management across sessions and context compression events.
+
+**6 Lifecycle Hooks**:
+
+1. **PreCompact Hook** (CRITICAL)
+   - Fires BEFORE context compression
+   - Auto-backs up AGENT_STATE.json
+   - Creates emergency checkpoint
+   - **Prevents data loss during compression**
+
+2. **TaskCompleted Hook**
+   - Fires after task marked `[x]` in tasks.md
+   - Auto-runs `dev-kid gh-sync` (syncs GitHub issues)
+   - Creates micro-checkpoint
+   - **Automates GitHub synchronization**
+
+3. **PostToolUse Hook**
+   - Fires after Edit/Write operations
+   - Auto-formats Python (black/isort), JS/TS (prettier), Bash (shfmt)
+   - **Ensures code style consistency**
+
+4. **UserPromptSubmit Hook**
+   - Fires BEFORE prompt processing
+   - Auto-injects: git branch, constitution rules, task progress, current wave
+   - **Provides Claude with automatic situational awareness**
+
+5. **SessionStart Hook**
+   - Fires on session startup
+   - Auto-runs `dev-kid recall` to restore context
+   - **Ensures continuity across sessions**
+
+6. **SessionEnd Hook**
+   - Fires on session shutdown
+   - Auto-runs `dev-kid finalize` to create snapshot
+   - **Prevents work loss on crash**
+
+**Hook Communication**:
+- Input: JSON via stdin (event metadata)
+- Output: JSON via stdout (status)
+- Exit codes: 0 (success), 1 (error), 2 (block)
+
+**Configuration**: `.claude/settings.json`
+```json
+{
+  "hooks": {
+    "PreCompact": {
+      "command": ".claude/hooks/pre-compact.sh",
+      "blocking": true
+    },
+    "TaskCompleted": {
+      "command": ".claude/hooks/task-completed.sh",
+      "blocking": false
+    }
+  },
+  "hookSettings": {
+    "timeout": 30000,
+    "env": {
+      "DEV_KID_HOOKS_ENABLED": "true",
+      "DEV_KID_AUTO_SYNC_GITHUB": "true",
+      "DEV_KID_AUTO_CHECKPOINT": "true"
+    }
+  }
+}
+```
+
+**Performance**: <2 seconds total overhead per task (99% non-blocking)
+
+**Environment Variables**:
+- `DEV_KID_HOOKS_ENABLED=false` - Disable all hooks
+- `DEV_KID_AUTO_SYNC_GITHUB=false` - Disable GitHub sync
+- `DEV_KID_AUTO_CHECKPOINT=false` - Disable auto-checkpoints
+
+**Deployment**: Hooks auto-deploy during `dev-kid init`
+
+**Reference**: See [HOOKS_REFERENCE.md](HOOKS_REFERENCE.md) for complete guide
 
 ## Code Patterns & Standards
 
