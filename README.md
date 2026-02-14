@@ -4,6 +4,16 @@
 
 Dev-kid is a complete development workflow system that transforms how AI agents work with your codebase. It provides persistent memory, task orchestration with wave-based parallelization, and a task watchdog that survives context compression.
 
+## 🚀 Quick Install
+
+```bash
+git clone https://github.com/yourusername/dev-kid.git
+cd dev-kid
+./install
+```
+
+That's it! No `.sh` extension, no complex setup. One command installs everything.
+
 ## Key Features
 
 ### 🌊 Wave-Based Task Orchestration
@@ -12,11 +22,12 @@ Dev-kid is a complete development workflow system that transforms how AI agents 
 - **Checkpoint Verification**: Mandatory validation between waves
 - **Progress Tracking**: Real-time monitoring of wave execution
 
-### 🐕 Task Watchdog (Survives Context Compression)
-- **Background Monitoring**: Process-based task timer (not token-dependent)
+### 🐕 Rust Task Watchdog (Survives Context Compression)
+- **Blazing Fast**: <3MB memory, <5ms startup (17x faster than Python)
+- **Process & Container Tracking**: Monitors native PIDs and Docker containers
+- **Background Monitoring**: Daemon-based task timer (not token-dependent)
 - **5-Minute Checks**: Automatic detection of forgotten tasks
-- **Completion Tracking**: Records task timing and completion
-- **Warning System**: Alerts for long-running or forgotten tasks
+- **Orphan Detection**: Finds processes that died without cleanup
 - **Context Resilient**: Persists state through context compression
 
 ### 💾 Memory Bank
@@ -74,7 +85,7 @@ The installer automatically checks all dependencies and provides installation in
 **TL;DR:**
 ```bash
 # Install
-./scripts/install.sh
+./install
 
 # In your project
 cd your-project
@@ -94,29 +105,31 @@ dev-kid execute
 
 ## Installation
 
-### Detailed Installation
+### One-Line Installation
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/planning-with-files.git
-cd planning-with-files
+git clone https://github.com/yourusername/dev-kid.git
+cd dev-kid
 
-# Run installer
-./scripts/install.sh
+# Run installer (no .sh extension needed!)
+./install
 
 # Verify installation
-dev-kid version
+dev-kid --version
 ```
 
-This installs:
-- CLI to `~/.dev-kid/` with symlink at `/usr/local/bin/dev-kid`
-- **Skills** to `~/.claude/skills/` (auto-triggering workflows)
-- **Commands** to `~/.claude/commands/` (slash commands)
-- Templates to `~/.dev-kid/templates/`
+**What gets installed:**
+- ✅ CLI tools → `~/.dev-kid/`
+- ✅ Symlink → `/usr/local/bin/dev-kid` (requires sudo)
+- ✅ Auto-triggering skills → `~/.claude/skills/`
+- ✅ Slash commands → `~/.claude/commands/`
+- ✅ Templates → `~/.dev-kid/templates/`
 
-Verify installation:
+**Verify installation:**
 ```bash
-./scripts/verify-install.sh
+dev-kid --version
+dev-kid help
 ```
 
 ### Initialize in Your Project
@@ -219,18 +232,20 @@ Wave 2 (sequential after Wave 1):
   - Create database models
 ```
 
-#### 4. Start Task Watchdog
+#### 4. Start Rust Task Watchdog
 
 ```bash
 dev-kid watchdog-start
 ```
 
-This starts background task monitoring that:
-- Checks every 5 minutes for running tasks
-- Warns if tasks exceed 7-minute guideline (investigate what's happening)
-- Detects stalled tasks (no activity for >15 min)
-- Task process continues until marked complete (doesn't auto-stop)
-- Survives context compression
+This starts the Rust watchdog daemon that:
+- **Monitors processes**: Tracks native PIDs and Docker containers
+- **5-minute checks**: Automatic periodic monitoring
+- **Orphan detection**: Finds processes that died without cleanup
+- **Zombie detection**: Finds completed processes still marked running
+- **Resource tracking**: CPU/memory usage per task
+- **Context resilient**: State persisted to `.claude/process_registry.json`
+- **Performance**: <3MB memory, <5ms startup
 
 #### 5. Execute Waves
 
@@ -325,12 +340,20 @@ dev-kid recall
 ## Architecture
 
 ```
-planning-with-files/
+dev-kid/
 ├── cli/
-│   ├── dev-kid              # Main CLI entry point
-│   ├── orchestrator.py      # Task → wave converter
-│   ├── wave_executor.py     # Wave execution engine
-│   └── task_watchdog.py     # Background task monitor
+│   ├── dev-kid              # Main Bash CLI (routes to skills/Python/Rust)
+│   ├── orchestrator.py      # Task → wave converter (Python)
+│   ├── wave_executor.py     # Wave execution engine (Python)
+│   └── config_manager.py    # Config management (Python)
+├── rust-watchdog/
+│   ├── src/
+│   │   ├── main.rs          # CLI & daemon
+│   │   ├── process.rs       # Native process monitoring
+│   │   ├── docker.rs        # Container management
+│   │   └── registry.rs      # State persistence
+│   └── target/release/
+│       └── task-watchdog    # 1.8MB Rust binary
 ├── skills/
 │   ├── sync_memory.sh       # Memory Bank updater
 │   ├── checkpoint.sh        # Git checkpoint creator
@@ -344,7 +367,7 @@ planning-with-files/
 ├── templates/
 │   ├── memory-bank/         # Memory Bank templates
 │   └── .claude/             # Context Protection templates
-└── DEV_KID.md               # Complete documentation
+└── DEV_KID.md               # Complete documentation (1,679 lines)
 ```
 
 ## How It Works
@@ -369,34 +392,48 @@ Wave 1: Task A, Task B (parallel - different files)
 Wave 2: Task C (sequential - conflicts with Task A)
 ```
 
-### 2. Task Watchdog
+### 2. Rust Task Watchdog
 
-**Process-Based Monitoring**:
+**Blazing Fast Process Monitoring** (Rust Implementation):
 ```bash
-# Starts as background process
-python3 task_watchdog.py run &
+# Starts as background daemon
+task-watchdog run &
 
-# State persisted to disk (survives compression)
-.claude/task_timers.json:
+# Binary: rust-watchdog/target/release/task-watchdog (1.8MB)
+# Performance: <3MB memory, <5ms startup, 17x faster than Python
+```
+
+**State Persistence** (survives context compression):
+```json
+.claude/process_registry.json:
 {
-  "running_tasks": {
+  "tasks": {
     "TASK-001": {
-      "started_at": "2025-01-05T10:30:00",
-      "description": "Implement auth"
+      "execution_mode": "Native",
+      "pid": 12345,
+      "pgid": 12345,
+      "start_time": "Mon Jan  6 10:30:00 2025",
+      "status": "Running",
+      "description": "Implement auth",
+      "environment_tag": "CLAUDE_TASK_ID=TASK-001"
+    },
+    "TASK-002": {
+      "execution_mode": "Docker",
+      "container_id": "abc123",
+      "status": "Running",
+      "description": "Run migration"
     }
-  },
-  "completed_tasks": {...},
-  "warnings": [...]
+  }
 }
 ```
 
-**Check Cycle** (every 5 minutes):
-1. Load state from disk
-2. Sync with tasks.md (detect [x] completions)
-3. Check for tasks exceeding 7-minute guideline
-4. Check for stalled tasks (>15 min no activity)
-5. Generate warnings
-6. Save state to disk
+**Monitoring Capabilities**:
+1. **Process Groups (PGID)**: Kill entire process trees
+2. **PID Validation**: Prevent killing recycled PIDs using start time
+3. **Orphan Detection**: Find dead processes with running status
+4. **Zombie Detection**: Find running processes marked complete
+5. **Resource Monitoring**: CPU/memory usage per task
+6. **Docker Support**: Track containers with resource limits
 
 ### 3. Checkpoint Protocol
 

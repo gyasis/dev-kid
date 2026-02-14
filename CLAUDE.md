@@ -24,10 +24,10 @@ tasks.md → orchestrator.py → execution_plan.json → wave_executor.py
 
 ### Key Components
 
-1. **CLI Layer** (`cli/dev-kid`): Bash script that routes commands to Python modules and skills
+1. **CLI Layer** (`cli/dev-kid`): Bash script that routes commands to Python modules, skills, and Rust binary
 2. **Orchestrator** (`cli/orchestrator.py`): Converts linear task lists into parallelized wave execution plans
 3. **Wave Executor** (`cli/wave_executor.py`): Executes waves sequentially with mandatory checkpoints
-4. **Task Watchdog** (`cli/task_watchdog.py`): Background daemon for task monitoring (process-based, survives context compression)
+4. **Rust Watchdog** (`rust-watchdog/target/release/task-watchdog`): Blazing-fast process/container monitoring daemon (<3MB, <5ms startup)
 5. **Skills** (`skills/*.sh`): Bash scripts for common workflows (sync_memory, checkpoint, verify_existence, etc.)
 
 ### Directory Structure
@@ -35,10 +35,19 @@ tasks.md → orchestrator.py → execution_plan.json → wave_executor.py
 ```
 dev-kid/
 ├── cli/                      # Core CLI and Python modules
-│   ├── dev-kid              # Main Bash CLI entry point
+│   ├── dev-kid              # Main Bash CLI (routes to skills/Python/Rust)
 │   ├── orchestrator.py      # Task → waves converter
 │   ├── wave_executor.py     # Wave execution engine
-│   └── task_watchdog.py     # Background task monitor
+│   └── config_manager.py    # Configuration management
+├── rust-watchdog/            # High-performance process monitor
+│   ├── src/                 # Rust source code
+│   │   ├── main.rs          # CLI & daemon
+│   │   ├── process.rs       # Native process monitoring
+│   │   ├── docker.rs        # Container management
+│   │   ├── registry.rs      # State persistence
+│   │   └── types.rs         # Data structures
+│   └── target/release/
+│       └── task-watchdog    # 1.8MB compiled binary
 ├── skills/                   # Workflow automation scripts
 │   ├── sync_memory.sh       # Update Memory Bank
 │   ├── checkpoint.sh        # Create git checkpoint
@@ -74,12 +83,12 @@ EOF
 dev-kid orchestrate "Test Phase"
 cat execution_plan.json                 # Verify waves are correct
 
-# Test watchdog
-dev-kid watchdog-start
-dev-kid task-start T001 "Test task"
-dev-kid watchdog-check
-dev-kid task-complete T001
-dev-kid watchdog-stop
+# Test Rust watchdog
+dev-kid watchdog-start          # Starts Rust daemon
+dev-kid watchdog-check          # Runs rehydrate command
+dev-kid task-complete T001      # Kills task via Rust binary
+dev-kid watchdog-report         # Shows resource usage
+dev-kid watchdog-stop           # Stops daemon
 
 # Test skills
 dev-kid sync-memory
@@ -98,10 +107,11 @@ python3 cli/orchestrator.py --tasks-file tasks.md --phase-id "Test"
 # Test wave executor
 python3 cli/wave_executor.py
 
-# Test task watchdog
-python3 cli/task_watchdog.py start-task T001 "Test task"
-python3 cli/task_watchdog.py check
-python3 cli/task_watchdog.py complete-task T001
+# Test Rust watchdog directly
+cd rust-watchdog && cargo build --release
+./target/release/task-watchdog --version
+./target/release/task-watchdog stats
+./target/release/task-watchdog rehydrate
 ```
 
 ### Running Skills Individually
@@ -140,32 +150,58 @@ python3 cli/task_watchdog.py complete-task T001
 
 **IMPORTANT**: Agents MUST mark tasks complete in tasks.md (change `[ ]` to `[x]`) before wave ends.
 
-### Task Watchdog Architecture
+### Rust Task Watchdog Architecture
 
-**Process-Based, Not Token-Based**:
-- Runs as background daemon (`python3 task_watchdog.py run`)
-- State persisted to `.claude/task_timers.json`
+**Blazing Fast, Process-Based Monitoring** (Rust Implementation):
+- Binary: `rust-watchdog/target/release/task-watchdog` (1.8MB)
+- Performance: <3MB memory, <5ms startup, 17x faster than Python
+- Runs as background daemon (`task-watchdog run &`)
+- State persisted to `.claude/process_registry.json`
 - 5-minute check intervals
-- **Task Timing Guidelines**: Tasks should complete within 7 minutes
-  - After 7 minutes: Check to see what's going on
-  - Task process continues until marked complete (doesn't auto-stop)
-  - Watchdog monitors but doesn't interrupt running tasks
-- Syncs with tasks.md to auto-detect completion when tasks are marked `[x]`
+- Context compression resilient (process-based, not token-based)
 
-**State File Schema**:
+**Key Capabilities**:
+- **Hybrid Execution**: Tracks both native processes (PIDs) and Docker containers
+- **Process Groups (PGID)**: Kill entire process trees reliably
+- **PID Validation**: Prevents killing recycled PIDs using start-time validation
+- **Orphan Detection**: Finds processes that died without cleanup
+- **Zombie Detection**: Finds running processes marked complete
+- **Resource Monitoring**: CPU/memory tracking per task
+- **Environment Tagging**: `CLAUDE_TASK_ID` for orphan discovery
+
+**State File Schema** (`.claude/process_registry.json`):
 ```json
 {
-  "running_tasks": {
+  "tasks": {
     "TASK-001": {
-      "description": "...",
-      "started_at": "ISO8601",
-      "status": "running"
+      "execution_mode": "Native",
+      "pid": 12345,
+      "pgid": 12345,
+      "start_time": "Mon Jan  6 10:30:00 2025",
+      "status": "Running",
+      "description": "Implement auth module",
+      "environment_tag": "CLAUDE_TASK_ID=TASK-001"
+    },
+    "TASK-002": {
+      "execution_mode": "Docker",
+      "container_id": "abc123def456",
+      "status": "Running",
+      "description": "Run database migration",
+      "resource_limits": {
+        "memory": "512m",
+        "cpu": "1.0"
+      }
     }
-  },
-  "completed_tasks": {...},
-  "warnings": [...]
+  }
 }
 ```
+
+**Watchdog Commands** (via `cli/dev-kid`):
+- `watchdog-start`: Launch Rust daemon in background
+- `watchdog-stop`: Kill `task-watchdog run` process
+- `watchdog-check`: Run `task-watchdog rehydrate` command
+- `watchdog-report`: Run `task-watchdog report` for resource usage
+- `task-complete ID`: Run `task-watchdog kill ID` to terminate task
 
 ### Memory Bank Structure
 
