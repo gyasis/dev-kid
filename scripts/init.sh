@@ -25,38 +25,72 @@ else
     TEMPLATES="$(dirname "$SCRIPT_DIR")/templates"
 fi
 
+# Verify templates directory exists
+if [ ! -d "$TEMPLATES" ]; then
+    echo "❌ Template directory not found"
+    echo "   Expected: $TEMPLATES"
+    echo ""
+    echo "To fix: ./scripts/install.sh"
+    exit 1
+fi
+
+# Validate critical templates
+CRITICAL_TEMPLATES=(
+    "memory-bank/shared/projectbrief.md"
+    "memory-bank/shared/systemPatterns.md"
+    ".claude/active_stack.md"
+    ".claude/AGENT_STATE.json"
+)
+
+MISSING=()
+for template in "${CRITICAL_TEMPLATES[@]}"; do
+    if [ ! -f "$TEMPLATES/$template" ]; then
+        MISSING+=("$template")
+    fi
+done
+
+if [ ${#MISSING[@]} -gt 0 ]; then
+    echo "❌ Critical templates missing:"
+    for t in "${MISSING[@]}"; do
+        echo "   - $t"
+    done
+    echo ""
+    echo "To fix: ./scripts/install.sh"
+    exit 1
+fi
+
 # Create Memory Bank templates
 echo "   Creating Memory Bank templates..."
 
 # Copy shared templates
-cp "$TEMPLATES/memory-bank/shared/projectbrief.md" memory-bank/shared/
-cp "$TEMPLATES/memory-bank/shared/systemPatterns.md" memory-bank/shared/
-cp "$TEMPLATES/memory-bank/shared/techContext.md" memory-bank/shared/
-cp "$TEMPLATES/memory-bank/shared/productContext.md" memory-bank/shared/
+cp "$TEMPLATES/memory-bank/shared/projectbrief.md" memory-bank/shared/ || { echo "❌ Failed to copy projectbrief.md"; exit 1; }
+cp "$TEMPLATES/memory-bank/shared/systemPatterns.md" memory-bank/shared/ || { echo "❌ Failed to copy systemPatterns.md"; exit 1; }
+cp "$TEMPLATES/memory-bank/shared/techContext.md" memory-bank/shared/ || { echo "❌ Failed to copy techContext.md"; exit 1; }
+cp "$TEMPLATES/memory-bank/shared/productContext.md" memory-bank/shared/ || { echo "❌ Failed to copy productContext.md"; exit 1; }
 
 # Copy private templates (USER placeholder gets replaced by actual username)
-cp "$TEMPLATES/memory-bank/private/USER/activeContext.md" "memory-bank/private/$USER/"
-cp "$TEMPLATES/memory-bank/private/USER/progress.md" "memory-bank/private/$USER/"
-cp "$TEMPLATES/memory-bank/private/USER/worklog.md" "memory-bank/private/$USER/"
+cp "$TEMPLATES/memory-bank/private/USER/activeContext.md" "memory-bank/private/$USER/" || { echo "❌ Failed to copy activeContext.md"; exit 1; }
+cp "$TEMPLATES/memory-bank/private/USER/progress.md" "memory-bank/private/$USER/" || { echo "❌ Failed to copy progress.md"; exit 1; }
+cp "$TEMPLATES/memory-bank/private/USER/worklog.md" "memory-bank/private/$USER/" || { echo "❌ Failed to copy worklog.md"; exit 1; }
 
 # Create Context Protection files
 echo "   Creating Context Protection..."
 
 # Copy static templates
-cp "$TEMPLATES/.claude/active_stack.md" .claude/
+cp "$TEMPLATES/.claude/active_stack.md" .claude/ || { echo "❌ Failed to copy active_stack.md"; exit 1; }
 
 # Copy templates with variable substitution
-sed "s|{{INIT_DATE}}|$(date +%Y-%m-%d)|g" "$TEMPLATES/.claude/activity_stream.md" > .claude/activity_stream.md
+sed "s|{{INIT_DATE}}|$(date +%Y-%m-%d)|g" "$TEMPLATES/.claude/activity_stream.md" > .claude/activity_stream.md || { echo "❌ Failed to create activity_stream.md"; exit 1; }
 
 sed -e "s|{{USER}}|$USER|g" \
     -e "s|{{PROJECT_PATH}}|$(pwd)|g" \
     -e "s|{{TIMESTAMP}}|$(date -Iseconds)|g" \
-    "$TEMPLATES/.claude/AGENT_STATE.json" > .claude/AGENT_STATE.json
+    "$TEMPLATES/.claude/AGENT_STATE.json" > .claude/AGENT_STATE.json || { echo "❌ Failed to create AGENT_STATE.json"; exit 1; }
 
-sed "s|{{TIMESTAMP}}|$(date -Iseconds)|g" "$TEMPLATES/.claude/system_bus.json" > .claude/system_bus.json
+sed "s|{{TIMESTAMP}}|$(date -Iseconds)|g" "$TEMPLATES/.claude/system_bus.json" > .claude/system_bus.json || { echo "❌ Failed to create system_bus.json"; exit 1; }
 
 # Copy task timers
-cp "$TEMPLATES/.claude/task_timers.json" .claude/
+cp "$TEMPLATES/.claude/task_timers.json" .claude/ || { echo "❌ Failed to copy task_timers.json"; exit 1; }
 
 # Initialize config.json
 echo "   Creating config.json..."
@@ -118,10 +152,26 @@ echo "   Installing post-checkout hook (speckit integration)..."
 cat > .git/hooks/post-checkout << 'EOF'
 #!/bin/bash
 # Post-checkout hook for dev-kid + speckit integration
-# Auto-symlinks tasks.md to current branch's spec folder
+# Auto-symlinks tasks.md and constitution to speckit locations
 
 BRANCH=$(git branch --show-current)
 SPEC_TASKS=".specify/specs/${BRANCH}/tasks.md"
+SPEC_CONSTITUTION=".specify/memory/constitution.md"
+MEMORY_BANK_CONSTITUTION="memory-bank/shared/.constitution.md"
+
+# ===== TASKS SYMLINKING =====
+
+# Backup existing tasks.md if it's a regular file with uncommitted changes
+if [ -f "tasks.md" ] && [ ! -L "tasks.md" ]; then
+    # Check if it has uncommitted changes
+    if ! git diff --quiet tasks.md 2>/dev/null; then
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        BACKUP_FILE=".claude/tasks.md.backup.$TIMESTAMP"
+        mkdir -p .claude
+        cp tasks.md "$BACKUP_FILE"
+        echo "⚠️  Backed up uncommitted tasks.md → $BACKUP_FILE"
+    fi
+fi
 
 # Remove existing tasks.md (symlink or regular file)
 if [ -L "tasks.md" ] || [ -f "tasks.md" ]; then
@@ -130,15 +180,60 @@ fi
 
 # Create symlink to branch's spec tasks if it exists
 if [ -f "$SPEC_TASKS" ]; then
-    echo "🔗 Linking tasks.md → $SPEC_TASKS"
-    ln -s "$SPEC_TASKS" tasks.md
-    echo "   Tasks loaded for branch: $BRANCH"
+    # Verify target is readable before creating symlink
+    if [ -r "$SPEC_TASKS" ]; then
+        echo "🔗 Linking tasks.md → $SPEC_TASKS"
+        ln -s "$SPEC_TASKS" tasks.md
+
+        # Verify symlink works
+        if [ -r "tasks.md" ]; then
+            echo "   ✅ Tasks loaded for branch: $BRANCH"
+        else
+            echo "   ❌ ERROR: Symlink created but target not readable"
+            rm tasks.md
+        fi
+    else
+        echo "   ❌ ERROR: $SPEC_TASKS exists but not readable"
+    fi
 else
     # Check if .specify exists to provide helpful message
     if [ -d ".specify/specs" ]; then
         echo "⚠️  No tasks.md found for branch $BRANCH"
         echo "   Expected: $SPEC_TASKS"
         echo "   Run /speckit.tasks to generate tasks for this feature"
+    fi
+fi
+
+# ===== CONSTITUTION SYMLINKING =====
+
+# Remove existing constitution symlink if it exists
+if [ -L "$MEMORY_BANK_CONSTITUTION" ]; then
+    rm "$MEMORY_BANK_CONSTITUTION"
+fi
+
+# Create symlink to speckit constitution if it exists
+if [ -f "$SPEC_CONSTITUTION" ]; then
+    # Verify target is readable before creating symlink
+    if [ -r "$SPEC_CONSTITUTION" ]; then
+        echo "🔗 Linking $MEMORY_BANK_CONSTITUTION → $SPEC_CONSTITUTION"
+        ln -s "../../.specify/memory/constitution.md" "$MEMORY_BANK_CONSTITUTION"
+
+        # Verify symlink works
+        if [ -r "$MEMORY_BANK_CONSTITUTION" ]; then
+            echo "   ✅ Constitution linked"
+        else
+            echo "   ❌ ERROR: Constitution symlink created but target not readable"
+            rm "$MEMORY_BANK_CONSTITUTION"
+        fi
+    else
+        echo "   ❌ ERROR: $SPEC_CONSTITUTION exists but not readable"
+    fi
+else
+    # Check if .specify exists to provide helpful message
+    if [ -d ".specify/memory" ]; then
+        echo "⚠️  No constitution found"
+        echo "   Expected: $SPEC_CONSTITUTION"
+        echo "   Run /speckit.constitution to create project constitution"
     fi
 fi
 EOF

@@ -22,7 +22,7 @@ class ConfigSchema:
     """Schema for dev-kid configuration"""
 
     # Task orchestration settings
-    task_watchdog_minutes: int = 7
+    task_watchdog_minutes: int = 15  # Increased from 7 to allow for complex tasks
     wave_size: int = 5
     max_parallel_tasks: int = 3
     checkpoint_auto_save: bool = True

@@ -11,8 +11,8 @@ Key Features:
 6. Survives context compression
 
 Task Timing Guidelines:
-- Tasks should complete within 7 minutes
-- After 7 minutes: Check to investigate what's going on
+- Tasks should complete within 15 minutes (guideline)
+- After 15 minutes: Check to investigate what's going on
 - Task process continues until marked complete (doesn't auto-stop)
 """
 
@@ -35,7 +35,31 @@ class TaskWatchdog:
     def load_state(self) -> None:
         """Load task timer state from disk"""
         if self.state_file.exists():
-            self.state = json.loads(self.state_file.read_text())
+            try:
+                self.state = json.loads(self.state_file.read_text(encoding='utf-8'))
+            except json.JSONDecodeError as e:
+                print(f"⚠️  Warning: Corrupted watchdog state file")
+                print(f"   Error: {e}")
+                # Backup corrupted state
+                backup_path = self.state_file.with_suffix('.json.corrupted')
+                if self.state_file.exists():
+                    import shutil
+                    shutil.copy(self.state_file, backup_path)
+                    print(f"   Corrupted state backed up to: {backup_path}")
+                # Reset to empty state
+                self.state = {
+                    "running_tasks": {},
+                    "completed_tasks": {},
+                    "warnings": []
+                }
+                print(f"   Watchdog state reset. Previous tasks may be lost.")
+            except Exception as e:
+                print(f"❌ Error loading watchdog state: {e}")
+                self.state = {
+                    "running_tasks": {},
+                    "completed_tasks": {},
+                    "warnings": []
+                }
         else:
             self.state = {
                 "running_tasks": {},
@@ -46,7 +70,15 @@ class TaskWatchdog:
     def save_state(self) -> None:
         """Persist state to disk (survives context compression)"""
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        self.state_file.write_text(json.dumps(self.state, indent=2))
+        try:
+            # Atomic write: write to temp file, then rename
+            temp_file = self.state_file.with_suffix('.tmp')
+            temp_file.write_text(json.dumps(self.state, indent=2), encoding='utf-8')
+            temp_file.rename(self.state_file)
+        except Exception as e:
+            print(f"⚠️  Warning: Failed to save watchdog state: {e}")
+            # Don't crash, just log the error
+            pass
 
     def start_task(self, task_id: str, description: str) -> None:
         """Start timer for a task"""
@@ -112,18 +144,18 @@ class TaskWatchdog:
             # Update last checked
             task["last_checked"] = now.isoformat()
 
-            # Check if task exceeds 7-minute guideline
-            if duration > 420:  # 7 minutes
+            # Check if task exceeds 15-minute guideline
+            if duration > 900:  # 15 minutes
                 warning = {
                     "type": "exceeds_guideline",
                     "task_id": task_id,
                     "description": task["description"],
                     "duration": self._format_duration(duration),
                     "timestamp": now.isoformat(),
-                    "message": "Task exceeds 7-minute guideline - investigate what's happening"
+                    "message": "Task exceeds 15-minute guideline - investigate what's happening"
                 }
                 warnings.append(warning)
-                print(f"⚠️  {task_id} running for {self._format_duration(duration)} (exceeds 7-min guideline)")
+                print(f"⚠️  {task_id} running for {self._format_duration(duration)} (exceeds 15-min guideline)")
                 print(f"   → Investigate: {task['description']}")
 
             # Check if task might be stalled (> 15 min since last check)
