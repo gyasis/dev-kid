@@ -92,6 +92,13 @@ sed "s|{{TIMESTAMP}}|$(date -Iseconds)|g" "$TEMPLATES/.claude/system_bus.json" >
 # Copy task timers
 cp "$TEMPLATES/.claude/task_timers.json" .claude/ || { echo "❌ Failed to copy task_timers.json"; exit 1; }
 
+# Copy hooks configuration and scripts
+echo "   Installing Claude Code hooks..."
+cp "$TEMPLATES/.claude/settings.json" .claude/ || { echo "❌ Failed to copy settings.json"; exit 1; }
+mkdir -p .claude/hooks
+cp -r "$TEMPLATES/.claude/hooks/"* .claude/hooks/ || { echo "❌ Failed to copy hooks"; exit 1; }
+chmod +x .claude/hooks/*.sh
+
 # Initialize config.json
 echo "   Creating config.json..."
 DEV_KID_ROOT="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
@@ -284,6 +291,7 @@ echo "📚 Memory Bank: memory-bank/"
 echo "🛡️  Context Protection: .claude/"
 echo "⏱️  Task Watchdog: .claude/task_timers.json"
 echo "📸 Snapshots: .claude/session_snapshots/"
+echo "🪝 Claude Code Hooks: .claude/hooks/ (auto-checkpoint, GitHub sync)"
 echo "🔗 Git Hooks: post-commit, post-checkout (speckit integration)"
 echo ""
 echo "Next steps:"

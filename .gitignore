@@ -3,6 +3,7 @@
 claude.md
 cursor.md
 .claude/
+!templates/.claude/  # Allow templates for hooks
 .cursor/
 
 # Python

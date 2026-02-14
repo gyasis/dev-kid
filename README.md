@@ -65,6 +65,15 @@ That's it! No `.sh` extension, no complex setup. One command installs everything
 - Constitution enforcement at checkpoints
 - Feature branch isolation with progress preservation
 
+### 🪝 Claude Code Hooks (Automated State Management)
+- **PreCompact Hook**: Auto-backup before context compression (prevents data loss)
+- **TaskCompleted Hook**: Auto-sync GitHub issues + create checkpoints after tasks
+- **PostToolUse Hook**: Auto-format code after edits (black, prettier, shfmt)
+- **UserPromptSubmit Hook**: Auto-inject project context (branch, constitution, progress)
+- **SessionStart/End Hooks**: Auto-restore context on startup, finalize on shutdown
+- Configuration: `.claude/settings.json` with 6 lifecycle hooks
+- [Full Hooks Reference →](HOOKS_REFERENCE.md)
+
 ## Dependencies
 
 ### Required

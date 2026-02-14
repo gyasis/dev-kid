@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "PreCompact": {
+      "command": ".claude/hooks/pre-compact.sh",
+      "blocking": true,
+      "description": "Emergency state backup before context compression"
+    },
+    "TaskCompleted": {
+      "command": ".claude/hooks/task-completed.sh",
+      "blocking": false,
+      "description": "Auto-checkpoint and sync GitHub issues after task completion"
+    },
+    "PostToolUse": {
+      "command": ".claude/hooks/post-tool-use.sh",
+      "blocking": false,
+      "description": "Format and lint after file edits"
+    },
+    "UserPromptSubmit": {
+      "command": ".claude/hooks/user-prompt-submit.sh",
+      "blocking": true,
+      "description": "Inject project context before prompt processing"
+    },
+    "SessionStart": {
+      "command": ".claude/hooks/session-start.sh",
+      "blocking": false,
+      "description": "Restore context from last session"
+    },
+    "SessionEnd": {
+      "command": ".claude/hooks/session-end.sh",
+      "blocking": false,
+      "description": "Finalize session and create snapshot"
+    }
+  },
+  "hookSettings": {
+    "timeout": 30000,
+    "env": {
+      "DEV_KID_HOOKS_ENABLED": "true",
+      "DEV_KID_AUTO_SYNC_GITHUB": "true",
+      "DEV_KID_AUTO_CHECKPOINT": "true"
+    }
+  }
+}
