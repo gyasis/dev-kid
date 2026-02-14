@@ -4,7 +4,7 @@
 set -e
 
 VERSION="2.0.0"
-DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Color output
 RED='\033[0;31m'
@@ -12,6 +12,40 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Rust-watchdog binary path resolution
+WATCHDOG_BINARY=""
+
+find_watchdog_binary() {
+    # Return cached result if already found
+    if [ -n "$WATCHDOG_BINARY" ] && [ -x "$WATCHDOG_BINARY" ]; then
+        echo "$WATCHDOG_BINARY"
+        return 0
+    fi
+
+    # Search paths in priority order
+    local search_paths=(
+        "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog"  # Development
+        "$HOME/.dev-kid/rust-watchdog/target/release/task-watchdog"    # Installed
+        "$(command -v task-watchdog 2>/dev/null || true)"              # System PATH
+    )
+
+    for path in "${search_paths[@]}"; do
+        if [ -x "$path" ]; then
+            WATCHDOG_BINARY="$path"
+            echo "$WATCHDOG_BINARY"
+            return 0
+        fi
+    done
+
+    # Provide helpful error
+    echo -e "${RED}❌ Rust watchdog binary not found${NC}" >&2
+    echo "" >&2
+    echo "To fix:" >&2
+    echo "  cd rust-watchdog && cargo build --release" >&2
+    echo "  OR: Task watchdog is optional, core features work without it" >&2
+    return 1
+}
 
 print_header() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -31,6 +65,8 @@ CORE COMMANDS:
   execute                  Execute waves from execution_plan.json
   sync-memory              Update Memory Bank with current state
   checkpoint [MESSAGE]     Create semantic git checkpoint
+  micro-checkpoint [MSG]   Quick commit (Ralph smart zone optimization)
+  context-check            Check Ralph smart zone budget (30% = safe)
   verify                   Run anti-hallucination verification
   recall                   Resume from last snapshot
   finalize                 Create session snapshot and checkpoint
@@ -51,6 +87,12 @@ TASK WATCHDOG (Survives context compression):
 MEMORY:
   memory-status            Show Memory Bank health
   memory-diff              Show changes since last sync
+
+GITHUB SYNC (Ralph-optimized crash recovery):
+  gh-sync                  Sync tasks.md to GitHub issues
+  gh-close                 Close completed GitHub issues
+  gh-wave [N]              Show GitHub issues for wave N
+  gh-status                Show GitHub issue sync status
 
 CONSTITUTION & CONFIG:
   constitution init        Initialize from template (python-api, typescript, etc.)
@@ -131,6 +173,22 @@ cmd_checkpoint() {
     "$DEV_KID_ROOT/skills/checkpoint.sh" "$message"
 }
 
+cmd_micro_checkpoint() {
+    local message="$1"
+
+    echo -e "${GREEN}⚡ Creating micro-checkpoint (Ralph smart zone)${NC}"
+
+    # Quick commit for frequent saves
+    python3 "$DEV_KID_ROOT/cli/micro_checkpoint.py" "$message" --auto
+}
+
+cmd_context_check() {
+    echo -e "${GREEN}📊 Checking Ralph Smart Zone Budget${NC}"
+    echo ""
+
+    python3 "$DEV_KID_ROOT/cli/context_monitor.py"
+}
+
 cmd_verify() {
     echo -e "${GREEN}🔍 Running verification${NC}"
 
@@ -189,7 +247,8 @@ cmd_watchdog_start() {
     echo ""
 
     # Run Rust watchdog in background
-    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" run &
+    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    "$watchdog_bin" run &
     WATCHDOG_PID=$!
 
     echo "✅ Watchdog started (PID: $WATCHDOG_PID)"
@@ -207,13 +266,15 @@ cmd_watchdog_stop() {
 cmd_watchdog_check() {
     echo -e "${GREEN}🔍 Running task check${NC}"
 
-    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" rehydrate
+    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    "$watchdog_bin" rehydrate
 }
 
 cmd_watchdog_report() {
     echo -e "${GREEN}📊 Task Timing Report${NC}"
 
-    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" report
+    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    "$watchdog_bin" report
 }
 
 cmd_task_start() {
@@ -240,7 +301,8 @@ cmd_task_complete() {
     fi
 
     # Kill the task and mark as complete in registry
-    "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" kill "$task_id"
+    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    "$watchdog_bin" kill "$task_id"
 }
 
 cmd_status() {
@@ -278,6 +340,19 @@ cmd_status() {
     # Check Context Protection
     if [ -d ".claude" ]; then
         echo -e "${GREEN}✅ Context Protection: Enabled${NC}"
+
+        # Check Ralph smart zone budget
+        if python3 "$DEV_KID_ROOT/cli/context_monitor.py" --check --warn-only 2>/dev/null; then
+            echo -e "   📊 Context Budget: ✅ Smart Zone (optimal)"
+        elif [ $? -eq 1 ]; then
+            echo -e "   📊 Context Budget: ⚠️  Approaching limit (30-40%)"
+        elif [ $? -eq 2 ]; then
+            echo -e "   📊 Context Budget: 🚨 DUMB ZONE (>40%)"
+            echo -e "      Run: dev-kid finalize && dev-kid recall"
+        else
+            echo -e "   📊 Context Budget: ❌ CRITICAL (>50%)"
+            echo -e "      STOP WORK - finalize immediately!"
+        fi
     else
         echo -e "${RED}❌ Context Protection: Not enabled${NC}"
     fi
@@ -285,7 +360,9 @@ cmd_status() {
     # Check Task Watchdog (Rust)
     if [ -f ".claude/process_registry.json" ]; then
         echo -e "${GREEN}✅ Task Watchdog: Active (Rust)${NC}"
-        "$DEV_KID_ROOT/../rust-watchdog/target/release/task-watchdog" stats 2>/dev/null | grep -E "(Running|Completed|Total)" | sed 's/^/   /'
+        if watchdog_bin=$(find_watchdog_binary 2>/dev/null); then
+            "$watchdog_bin" stats 2>/dev/null | grep -E "(Running|Completed|Total)" | sed 's/^/   /'
+        fi
     else
         echo -e "${YELLOW}⚠️  Task Watchdog: Not configured${NC}"
     fi
@@ -321,6 +398,50 @@ cmd_status() {
 cmd_validate() {
     echo -e "${GREEN}🔧 Validating system integrity${NC}"
     "$DEV_KID_ROOT/skills/maintain_integrity.sh"
+}
+
+# GitHub sync commands
+cmd_gh_sync() {
+    echo -e "${GREEN}📋 Syncing tasks.md to GitHub issues${NC}"
+    python3 "$DEV_KID_ROOT/cli/github_sync.py" sync "$@"
+}
+
+cmd_gh_close() {
+    echo -e "${GREEN}🔒 Closing completed GitHub issues${NC}"
+    python3 "$DEV_KID_ROOT/cli/github_sync.py" close "$@"
+}
+
+cmd_gh_wave() {
+    local wave_id="$1"
+
+    if [ -z "$wave_id" ]; then
+        echo -e "${RED}❌ Usage: dev-kid gh-wave WAVE_NUMBER${NC}"
+        exit 1
+    fi
+
+    echo -e "${GREEN}📋 GitHub Issues for Wave $wave_id${NC}"
+    python3 "$DEV_KID_ROOT/cli/github_sync.py" wave "$wave_id"
+}
+
+cmd_gh_status() {
+    echo -e "${GREEN}📊 GitHub Issue Status${NC}"
+    echo ""
+
+    # Check if gh CLI is available
+    if ! command -v gh &> /dev/null; then
+        echo -e "${RED}❌ GitHub CLI (gh) not installed${NC}"
+        echo ""
+        echo "Install: https://cli.github.com/"
+        exit 1
+    fi
+
+    # Show dev-kid issues
+    echo "Open dev-kid issues:"
+    gh issue list --label dev-kid --limit 10 || echo "   No issues found"
+
+    echo ""
+    echo "Closed dev-kid issues (last 5):"
+    gh issue list --label dev-kid --state closed --limit 5 || echo "   No closed issues"
 }
 
 # Constitution commands
@@ -420,6 +541,8 @@ main() {
         execute)            cmd_execute "$@" ;;
         sync-memory)        cmd_sync_memory "$@" ;;
         checkpoint)         cmd_checkpoint "$@" ;;
+        micro-checkpoint)   cmd_micro_checkpoint "$@" ;;
+        context-check)      cmd_context_check "$@" ;;
         verify)             cmd_verify "$@" ;;
         recall)             cmd_recall "$@" ;;
         finalize)           cmd_finalize "$@" ;;
@@ -430,6 +553,10 @@ main() {
         watchdog-report)    cmd_watchdog_report "$@" ;;
         task-start)         cmd_task_start "$@" ;;
         task-complete)      cmd_task_complete "$@" ;;
+        gh-sync)            cmd_gh_sync "$@" ;;
+        gh-close)           cmd_gh_close "$@" ;;
+        gh-wave)            cmd_gh_wave "$@" ;;
+        gh-status)          cmd_gh_status "$@" ;;
         constitution)       cmd_constitution "$@" ;;
         config)             cmd_config "$@" ;;
         status)             cmd_status "$@" ;;
