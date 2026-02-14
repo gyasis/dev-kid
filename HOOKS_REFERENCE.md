@@ -9,11 +9,39 @@ Dev-kid uses Claude Code's hooks system to automate state management, ensuring p
 Claude Code provides 14 lifecycle hook events that fire during AI agent execution. Dev-kid leverages 6 critical hooks to:
 
 1. **Auto-backup state before context compression** (PreCompact)
-2. **Auto-sync GitHub issues after task completion** (TaskCompleted)
-3. **Auto-format code after file edits** (PostToolUse)
-4. **Inject project context into prompts** (UserPromptSubmit)
-5. **Restore context on session start** (SessionStart)
-6. **Finalize session on exit** (SessionEnd)
+2. **Proactively trigger compression between waves** (when 5+ personas active)
+3. **Auto-sync GitHub issues after task completion** (TaskCompleted)
+4. **Auto-format code after file edits** (PostToolUse)
+5. **Inject project context into prompts** (UserPromptSubmit)
+6. **Restore context on session start** (SessionStart)
+7. **Finalize session on exit** (SessionEnd)
+
+## Proactive Pre-Compaction Strategy
+
+**NEW**: Dev-kid proactively triggers context compression **between waves** when 5+ personas/agents are detected. This prevents mid-wave compression (data loss risk) by controlling WHEN compression happens.
+
+**How It Works**:
+1. After wave checkpoint completes
+2. Context compactor checks active persona count
+3. If 5+ personas detected → triggers PreCompact hook proactively
+4. Hook backs up state to disk
+5. Context compresses at safe boundary
+6. Next wave starts with clean context
+
+**Benefits**:
+- ✅ Controlled compression timing (between waves, not during)
+- ✅ Full state backup before compression
+- ✅ No task interruption
+- ✅ Debugging possible before compression
+
+**Detection Methods**:
+- AGENT_STATE.json: Counts agents with status: active/running/in_progress
+- Task tool usage: Scans activity_stream.md for recent personas
+- Uses max(method1, method2) for conservative detection
+
+**Threshold**: 5+ personas (tunable via `ContextCompactor.persona_threshold`)
+
+**See**: [CONTEXT_COMPACTION_STRATEGY.md](CONTEXT_COMPACTION_STRATEGY.md) for complete details
 
 ## Architecture
 

@@ -67,12 +67,13 @@ That's it! No `.sh` extension, no complex setup. One command installs everything
 
 ### 🪝 Claude Code Hooks (Automated State Management)
 - **PreCompact Hook**: Auto-backup before context compression (prevents data loss)
+- **Proactive Pre-Compaction**: Triggers compression between waves when 5+ personas active
 - **TaskCompleted Hook**: Auto-sync GitHub issues + create checkpoints after tasks
 - **PostToolUse Hook**: Auto-format code after edits (black, prettier, shfmt)
 - **UserPromptSubmit Hook**: Auto-inject project context (branch, constitution, progress)
 - **SessionStart/End Hooks**: Auto-restore context on startup, finalize on shutdown
 - Configuration: `.claude/settings.json` with 6 lifecycle hooks
-- [Full Hooks Reference →](HOOKS_REFERENCE.md)
+- [Full Hooks Reference →](HOOKS_REFERENCE.md) | [Compaction Strategy →](CONTEXT_COMPACTION_STRATEGY.md)
 
 ## Dependencies
 
