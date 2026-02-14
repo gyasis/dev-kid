@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import time
 from constitution_parser import Constitution
+from context_compactor import ContextCompactor
 
 class WaveExecutor:
     """Executes waves with parallel task execution and checkpoints"""
@@ -22,10 +23,18 @@ class WaveExecutor:
         # Load constitution from memory-bank
         constitution_path = Path("memory-bank/shared/.constitution.md")
         if constitution_path.exists():
-            self.constitution: Optional[Constitution] = Constitution(str(constitution_path))
+            try:
+                self.constitution: Optional[Constitution] = Constitution(str(constitution_path))
+            except Exception as e:
+                print(f"⚠️  Warning: Failed to load constitution: {e}")
+                print(f"   Constitution validation will be skipped")
+                self.constitution = None
         else:
             self.constitution: Optional[Constitution] = None
             print("⚠️  Warning: Constitution file not found at memory-bank/shared/.constitution.md")
+
+        # Initialize context compactor for proactive pre-compaction
+        self.compactor = ContextCompactor()
 
     def load_plan(self) -> None:
         """Load execution plan from JSON"""
@@ -34,11 +43,28 @@ class WaveExecutor:
             print("   Run orchestrator.py first to generate execution plan")
             sys.exit(1)
 
-        self.plan = json.loads(self.plan_file.read_text())
+        try:
+            self.plan = json.loads(self.plan_file.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as e:
+            print(f"❌ Error: Invalid JSON in {self.plan_file}")
+            print(f"   {e}")
+            # Backup corrupted file
+            backup_path = self.plan_file.with_suffix('.json.corrupted')
+            self.plan_file.rename(backup_path)
+            print(f"   Corrupted file backed up to: {backup_path}")
+            print(f"   Re-run orchestrator to generate new execution plan")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ Error reading {self.plan_file}: {e}")
+            sys.exit(1)
 
     def verify_wave_completion(self, wave_id: int, tasks: List[Dict]) -> bool:
         """Verify all tasks in wave are marked complete in tasks.md"""
-        content = self.tasks_file.read_text()
+        try:
+            content = self.tasks_file.read_text(encoding='utf-8')
+        except Exception as e:
+            print(f"❌ Error reading tasks.md: {e}")
+            return False
 
         for task in tasks:
             task_desc = task['instruction']
@@ -220,6 +246,12 @@ class WaveExecutor:
                 self.execute_checkpoint(wave_id, wave['checkpoint_after'])
             else:
                 print(f"   ⏭️  Skipping checkpoint (disabled)")
+
+            # Proactive pre-compact check (if 5+ personas active)
+            # This prevents hitting token limit mid-wave by triggering compression
+            # at safe wave boundaries where PreCompact hook can save state
+            print(f"\n🔍 Checking context health before next wave...")
+            self.compactor.check_and_trigger(wave_id)
 
         print("\n✅ All waves complete!")
 
