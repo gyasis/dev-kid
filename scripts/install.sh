@@ -101,7 +101,15 @@ cp -r "$PROJECT_ROOT/skills" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/commands" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/scripts" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/templates" "$INSTALL_DIR/"
+
+# Copy documentation files
 cp "$PROJECT_ROOT/DEV_KID.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/CLAUDE.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/README.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/QUICKSTART.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/HOOKS_REFERENCE.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/INTEGRATION_GUIDE.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/CONTEXT_COMPACTION_STRATEGY.md" "$INSTALL_DIR/"
 
 # Copy rust-watchdog binary if it exists
 WATCHDOG_SRC="$PROJECT_ROOT/rust-watchdog/target/release/task-watchdog"
