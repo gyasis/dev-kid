@@ -50,13 +50,19 @@ class Constitution:
 
         Args:
             file_path: Path to constitution markdown file
+
+        Raises:
+            Exception: If constitution file is corrupted or cannot be parsed
         """
         self.file_path = Path(file_path)
         self.sections: Dict[str, ConstitutionSection] = {}
         self.rules: Dict[str, str] = {}
 
         if self.file_path.exists():
-            self.rules = self._parse(str(file_path))
+            try:
+                self.rules = self._parse(str(file_path))
+            except Exception as e:
+                raise Exception(f"Failed to parse constitution: {e}") from e
 
     def _parse(self, file_path: str) -> Dict[str, str]:
         """
@@ -67,8 +73,11 @@ class Constitution:
 
         Returns:
             Dictionary mapping rule names to rule definitions
+
+        Raises:
+            Exception: If file cannot be read or parsed
         """
-        content = self.file_path.read_text()
+        content = self.file_path.read_text(encoding='utf-8')
 
         # Extract sections (## Section Name)
         section_pattern = r'^## (.+)$'

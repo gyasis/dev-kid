@@ -103,6 +103,15 @@ cp -r "$PROJECT_ROOT/scripts" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/templates" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/DEV_KID.md" "$INSTALL_DIR/"
 
+# Copy rust-watchdog binary if it exists
+WATCHDOG_SRC="$PROJECT_ROOT/rust-watchdog/target/release/task-watchdog"
+if [ -f "$WATCHDOG_SRC" ]; then
+    echo "   Copying rust-watchdog binary..."
+    mkdir -p "$INSTALL_DIR/rust-watchdog/target/release"
+    cp "$WATCHDOG_SRC" "$INSTALL_DIR/rust-watchdog/target/release/"
+    chmod +x "$INSTALL_DIR/rust-watchdog/target/release/task-watchdog"
+fi
+
 # Make executables
 chmod +x "$INSTALL_DIR/cli/dev-kid"
 chmod +x "$INSTALL_DIR/cli"/*.py
@@ -110,10 +119,28 @@ chmod +x "$INSTALL_DIR/skills"/*.sh
 
 # Create symlink in PATH
 echo "   Creating symlink..."
+SYMLINK_CREATED=false
+
 if [ -w "/usr/local/bin" ]; then
-    ln -sf "$INSTALL_DIR/cli/dev-kid" /usr/local/bin/dev-kid
-else
-    sudo ln -sf "$INSTALL_DIR/cli/dev-kid" /usr/local/bin/dev-kid
+    ln -sf "$INSTALL_DIR/cli/dev-kid" /usr/local/bin/dev-kid && SYMLINK_CREATED=true
+elif command -v sudo &> /dev/null; then
+    if sudo ln -sf "$INSTALL_DIR/cli/dev-kid" /usr/local/bin/dev-kid 2>/dev/null; then
+        SYMLINK_CREATED=true
+    fi
+fi
+
+if [ "$SYMLINK_CREATED" = false ]; then
+    echo -e "   ${YELLOW}⚠${NC}  Could not create symlink to /usr/local/bin"
+    echo "   Alternative: Add dev-kid to your PATH manually:"
+    echo ""
+    echo "   For bash, add to ~/.bashrc:"
+    echo "     export PATH=\"\$HOME/.dev-kid/cli:\$PATH\""
+    echo ""
+    echo "   For zsh, add to ~/.zshrc:"
+    echo "     export PATH=\"\$HOME/.dev-kid/cli:\$PATH\""
+    echo ""
+    echo "   Then reload: source ~/.bashrc (or ~/.zshrc)"
+    echo ""
 fi
 
 # Create skills directory for Claude Code
@@ -145,13 +172,30 @@ SKILL_COUNT=$(ls -1 "$HOME/.claude/skills"/*.md 2>/dev/null | wc -l)
 CMD_COUNT=$(ls -1 "$HOME/.claude/commands"/devkid.*.md 2>/dev/null | wc -l)
 
 echo "📦 Installed:"
+echo "   Location: $INSTALL_DIR"
 echo "   Skills: $SKILL_COUNT auto-triggering workflows"
 echo "   Commands: $CMD_COUNT slash commands"
+
+if [ "$SYMLINK_CREATED" = true ]; then
+    echo "   Command: dev-kid (available globally)"
+else
+    echo -e "   ${YELLOW}Command: $INSTALL_DIR/cli/dev-kid (add to PATH)${NC}"
+fi
+
 echo ""
 echo "Quick start:"
 echo "  cd your-project"
-echo "  dev-kid init          # Initialize dev-kid"
-echo "  dev-kid status        # Check status"
+if [ "$SYMLINK_CREATED" = true ]; then
+    echo "  dev-kid init          # Initialize dev-kid"
+    echo "  dev-kid status        # Check status"
+else
+    echo "  $INSTALL_DIR/cli/dev-kid init      # Initialize dev-kid"
+    echo "  $INSTALL_DIR/cli/dev-kid status    # Check status"
+    echo ""
+    echo "  Or add to PATH (recommended):"
+    echo "    echo 'export PATH=\"\$HOME/.dev-kid/cli:\$PATH\"' >> ~/.bashrc"
+    echo "    source ~/.bashrc"
+fi
 echo ""
 echo "Claude Code Commands (slash commands):"
 echo "  /devkid.orchestrate   # Convert tasks to waves"

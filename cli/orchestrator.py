@@ -45,7 +45,12 @@ class TaskOrchestrator:
             print(f"❌ Error: {self.tasks_file} not found")
             sys.exit(1)
 
-        content = self.tasks_file.read_text()
+        try:
+            content = self.tasks_file.read_text(encoding='utf-8')
+        except Exception as e:
+            print(f"❌ Error reading {self.tasks_file}: {e}")
+            sys.exit(1)
+
         lines = content.split('\n')
 
         task_id = 1
@@ -256,10 +261,18 @@ class TaskOrchestrator:
 
         plan = self.generate_execution_plan(phase_id)
 
-        # Output to execution_plan.json
+        # Output to execution_plan.json (atomic write)
         output_file = Path("execution_plan.json")
-        output_file.write_text(json.dumps(plan, indent=2))
-        print(f"✅ Execution plan written to: {output_file}")
+        temp_file = output_file.with_suffix('.tmp')
+        try:
+            temp_file.write_text(json.dumps(plan, indent=2), encoding='utf-8')
+            temp_file.rename(output_file)  # Atomic on POSIX
+            print(f"✅ Execution plan written to: {output_file}")
+        except Exception as e:
+            print(f"❌ Error writing execution plan: {e}")
+            if temp_file.exists():
+                temp_file.unlink()
+            sys.exit(1)
 
         # Print summary
         print("\n📋 Wave Summary:")
