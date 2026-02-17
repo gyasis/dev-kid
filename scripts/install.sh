@@ -111,13 +111,31 @@ cp "$PROJECT_ROOT/HOOKS_REFERENCE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/INTEGRATION_GUIDE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/CONTEXT_COMPACTION_STRATEGY.md" "$INSTALL_DIR/"
 
-# Copy rust-watchdog binary if it exists
+# Copy rust-watchdog binary (build if needed)
 WATCHDOG_SRC="$PROJECT_ROOT/rust-watchdog/target/release/task-watchdog"
+WATCHDOG_DEST="$INSTALL_DIR/rust-watchdog/target/release"
+
+if [ ! -f "$WATCHDOG_SRC" ]; then
+    echo "   Rust watchdog binary not pre-built, attempting to compile..."
+    if command -v cargo &> /dev/null; then
+        (cd "$PROJECT_ROOT/rust-watchdog" && cargo build --release --quiet) && \
+            echo -e "   ${GREEN}✓${NC} Compiled rust-watchdog successfully" || \
+            echo -e "   ${YELLOW}⚠${NC}  cargo build failed — watchdog unavailable (non-fatal)"
+    else
+        echo -e "   ${YELLOW}⚠${NC}  cargo not found — skipping rust-watchdog (install Rust via https://rustup.rs)"
+    fi
+fi
+
 if [ -f "$WATCHDOG_SRC" ]; then
     echo "   Copying rust-watchdog binary..."
-    mkdir -p "$INSTALL_DIR/rust-watchdog/target/release"
-    cp "$WATCHDOG_SRC" "$INSTALL_DIR/rust-watchdog/target/release/"
-    chmod +x "$INSTALL_DIR/rust-watchdog/target/release/task-watchdog"
+    mkdir -p "$WATCHDOG_DEST"
+    cp "$WATCHDOG_SRC" "$WATCHDOG_DEST/"
+    chmod +x "$WATCHDOG_DEST/task-watchdog"
+    echo -e "   ${GREEN}✓${NC} task-watchdog installed"
+else
+    echo -e "   ${YELLOW}⚠${NC}  task-watchdog not installed — watchdog commands will be unavailable"
+    echo "   To fix later: cd $PROJECT_ROOT/rust-watchdog && cargo build --release"
+    echo "   Then re-run: $PROJECT_ROOT/scripts/install.sh"
 fi
 
 # Make executables

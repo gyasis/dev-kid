@@ -246,6 +246,17 @@ fi
 EOF
 chmod +x .git/hooks/post-checkout
 
+# Link speckit constitution immediately if it already exists
+SPEC_CONSTITUTION=".specify/memory/constitution.md"
+MEMORY_CONSTITUTION="memory-bank/shared/.constitution.md"
+if [ -f "$SPEC_CONSTITUTION" ]; then
+    echo "   Linking constitution from speckit..."
+    ln -sf "../../.specify/memory/constitution.md" "$MEMORY_CONSTITUTION"
+    echo "   ✅ Constitution linked: $MEMORY_CONSTITUTION → $SPEC_CONSTITUTION"
+elif [ -d ".specify/memory" ]; then
+    echo "   ⚠️  .specify/memory exists but no constitution.md — run /speckit.constitution to create one"
+fi
+
 # Create initial checkpoint
 git add .
 git commit -m "[MILESTONE] Dev-kid initialized
