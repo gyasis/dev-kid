@@ -44,6 +44,11 @@ env/
 .DS_Store
 Thumbs.db
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Logs
 *.log
 
