@@ -4,6 +4,7 @@ Wave Executor - Executes waves from execution_plan.json with checkpoints
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +12,24 @@ from typing import Dict, List, Optional
 import time
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
+
+
+def _find_watchdog_binary() -> Optional[str]:
+    """Locate the task-watchdog binary using the same search order as the dev-kid CLI."""
+    script_dir = Path(__file__).parent
+    dev_kid_root = script_dir.parent
+    candidates = [
+        dev_kid_root / "rust-watchdog" / "target" / "release" / "task-watchdog",  # dev
+        Path.home() / ".dev-kid" / "rust-watchdog" / "target" / "release" / "task-watchdog",  # installed
+    ]
+    for p in candidates:
+        if p.is_file() and os.access(p, os.X_OK):
+            return str(p)
+    # Fall back to PATH
+    result = subprocess.run(["which", "task-watchdog"], capture_output=True, text=True)
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return None
 
 class WaveExecutor:
     """Executes waves with parallel task execution and checkpoints"""
@@ -174,8 +193,14 @@ class WaveExecutor:
         command = task["instruction"]
         constitution_rules = task.get("constitution_rules", [])
 
+        # Locate watchdog binary
+        watchdog_bin = _find_watchdog_binary()
+        if not watchdog_bin:
+            print(f"      ⚠️  task-watchdog not found — skipping registration for {task_id}")
+            return
+
         # Build watchdog register command
-        cmd_parts = ["task-watchdog", "register", task_id, "--command", command]
+        cmd_parts = [watchdog_bin, "register", task_id, "--command", command]
 
         # Add constitution rules if present
         if constitution_rules:
