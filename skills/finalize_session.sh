@@ -4,14 +4,30 @@
 
 set -e
 
+# Helper function to find skills
+find_skill() {
+    local skill_name="$1"
+    local search_paths=(
+        "$SCRIPT_DIR/$skill_name"
+        "${DEV_KID_ROOT:-$HOME/.dev-kid}/skills/$skill_name"
+    )
+    for path in "${search_paths[@]}"; do
+        if [ -f "$path" ] && [ -x "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    return 1
+}
+
 echo "📦 Finalizing session..."
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Sync memory
-if [ -f "$SCRIPT_DIR/sync_memory.sh" ]; then
-    "$SCRIPT_DIR/sync_memory.sh"
+if sync_memory=$(find_skill "sync_memory.sh" 2>/dev/null); then
+    "$sync_memory"
 fi
 
 # Create snapshot
@@ -73,12 +89,18 @@ EOF
 ln -sf "$(basename $SNAPSHOT_FILE)" ".claude/session_snapshots/snapshot_latest.json"
 
 # Create final checkpoint
-if [ -f "$SCRIPT_DIR/checkpoint.sh" ]; then
-    "$SCRIPT_DIR/checkpoint.sh" "Session finalized - $COMPLETED/$TOTAL tasks complete"
+if checkpoint=$(find_skill "checkpoint.sh" 2>/dev/null); then
+    "$checkpoint" "Session finalized - $COMPLETED/$TOTAL tasks complete"
+else
+    # Fallback: create checkpoint manually
+    git add . 2>/dev/null || true
+    if ! git diff --cached --quiet 2>/dev/null; then
+        git commit -m "[FINALIZE] Session complete - $COMPLETED/$TOTAL tasks" 2>/dev/null || true
+    fi
 fi
 
 echo "✅ Session finalized"
 echo "   Snapshot: $SNAPSHOT_FILE"
 echo "   Progress: $COMPLETED/$TOTAL tasks ($PROGRESS%)"
 echo ""
-echo "   Next session: Run 'dev-kit recall' to resume"
+echo "   Next session: Run 'dev-kid recall' to resume"

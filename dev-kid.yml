@@ -1,0 +1,2 @@
+sentinel:
+  enabled: false  # disabled until Integration Sentinel is fully built (feature/001-integration-sentinel)

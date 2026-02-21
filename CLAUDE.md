@@ -591,3 +591,10 @@ dev-kid checkpoint "Test"
 **Progress Preservation**: Because tasks.md is symlinked (not copied), progress on each branch is automatically preserved. No manual syncing needed.
 
 **Constitution Sharing**: Constitution.md lives in project root, shared across all branches. This ensures quality standards are consistent across features.
+
+## Active Technologies
+- Python 3.11 (existing dev-kid codebase), Node.js 20+ (micro-agent runtime) + micro-agent CLI (`@builder.io/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re` (001-integration-sentinel)
+- `.claude/sentinel/<TASK-ID>/` directory tree (flat files: manifest.json, diff.patch, summary.md); dev-kid.yml for config; execution_plan.json for plan injection (001-integration-sentinel)
+
+## Recent Changes
+- 001-integration-sentinel: Added Python 3.11 (existing dev-kid codebase), Node.js 20+ (micro-agent runtime) + micro-agent CLI (`@builder.io/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re`
