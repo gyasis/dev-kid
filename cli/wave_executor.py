@@ -12,6 +12,19 @@ from typing import Dict, List, Optional
 import time
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
+from config_manager import ConfigManager
+
+# Sentinel runner (T009) — imported lazily to tolerate incomplete builds
+try:
+    from sentinel.runner import SentinelRunner as _SentinelRunner
+    _SENTINEL_AVAILABLE = True
+except ImportError:
+    _SentinelRunner = None  # type: ignore[assignment,misc]
+    _SENTINEL_AVAILABLE = False
+
+
+class WaveHaltError(Exception):
+    """Raised when a sentinel decides to halt wave execution."""
 
 
 def _find_watchdog_binary() -> Optional[str]:
@@ -38,6 +51,7 @@ class WaveExecutor:
         self.plan_file = Path(plan_file)
         self.plan = None
         self.tasks_file = Path("tasks.md")
+        self.project_root = Path.cwd()
 
         # Load constitution from memory-bank
         constitution_path = Path("memory-bank/shared/.constitution.md")
@@ -54,6 +68,12 @@ class WaveExecutor:
 
         # Initialize context compactor for proactive pre-compaction
         self.compactor = ContextCompactor()
+
+        # Load sentinel config
+        try:
+            self.config = ConfigManager().load()
+        except Exception:
+            self.config = None
 
     def load_plan(self) -> None:
         """Load execution plan from JSON"""
@@ -183,15 +203,59 @@ class WaveExecutor:
         commit_msg = f"[CHECKPOINT] Wave {wave_id} Complete\n\nAll tasks verified and validated"
         subprocess.run(['git', 'commit', '-m', commit_msg], check=False)  # Don't fail if nothing to commit
 
+    def _mark_task_complete(self, task_id: str, instruction: str) -> None:
+        """Mark a task [x] in tasks.md by finding its instruction line."""
+        try:
+            content = self.tasks_file.read_text(encoding='utf-8')
+            lines = content.split('\n')
+            for i, line in enumerate(lines):
+                if instruction in line and '- [ ]' in line:
+                    lines[i] = line.replace('- [ ]', '- [x]', 1)
+                    break
+                # Also match by task_id prefix
+                elif f'] {task_id} ' in line and '- [ ]' in line:
+                    lines[i] = line.replace('- [ ]', '- [x]', 1)
+                    break
+            self.tasks_file.write_text('\n'.join(lines), encoding='utf-8')
+        except Exception as e:
+            print(f"      ⚠️  Could not mark {task_id} complete in tasks.md: {e}")
+
     def execute_task(self, task: Dict) -> None:
-        """Execute a single task and register it with the watchdog
+        """Execute a single task and register it with the watchdog.
+
+        Sentinel tasks (agent_role="Sentinel") are routed to SentinelRunner.
+        Regular tasks are registered with the Rust task-watchdog.
 
         Args:
             task: Task dictionary with task_id, instruction, agent_role, and optional constitution_rules
+        Raises:
+            WaveHaltError: when a sentinel decides to halt wave execution
         """
         task_id = task["task_id"]
         command = task["instruction"]
         constitution_rules = task.get("constitution_rules", [])
+
+        # --- Sentinel routing (T009) ---
+        if task.get("agent_role") == "Sentinel":
+            if not _SENTINEL_AVAILABLE or _SentinelRunner is None:
+                print(f"      ⚠️  Sentinel module unavailable — skipping {task_id}")
+                self._mark_task_complete(task_id, command)
+                return
+            if self.config is None:
+                print(f"      ⚠️  Config not loaded — skipping sentinel {task_id}")
+                self._mark_task_complete(task_id, command)
+                return
+            print(f"      🛡️  Running sentinel: {task_id}")
+            runner = _SentinelRunner(self.config, self.project_root)
+            result = runner.run(task)
+            if result.should_halt_wave:
+                msg = result.error_message or f"Sentinel {task_id} halted wave"
+                print(f"      ❌ Sentinel HALT: {msg}")
+                raise WaveHaltError(msg)
+            status_icon = "✅" if result.result == "PASS" else "⚠️"
+            print(f"      {status_icon} Sentinel {task_id}: {result.result} (tier {result.tier_used})")
+            self._mark_task_complete(task_id, command)
+            return
 
         # Locate watchdog binary
         watchdog_bin = _find_watchdog_binary()
@@ -263,8 +327,13 @@ class WaveExecutor:
         for wave in waves:
             wave_id = wave['wave_id']
 
-            # Execute wave
-            self.execute_wave(wave)
+            # Execute wave (WaveHaltError from sentinel aborts execution)
+            try:
+                self.execute_wave(wave)
+            except WaveHaltError as e:
+                print(f"\n🚫 WAVE HALT: Sentinel halted wave {wave_id}: {e}")
+                print("   Review sentinel manifests in .claude/sentinel/ and fix issues.")
+                sys.exit(2)
 
             # Checkpoint after wave
             if wave['checkpoint_after']['enabled']:
