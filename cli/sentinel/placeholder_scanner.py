@@ -39,6 +39,7 @@ DEFAULT_PATTERNS: list[str] = [
 ALWAYS_EXCLUDE: list[str] = [
     'tests/',
     '__mocks__/',
+    r'(?:^|/)test_[^/]+\.py$',  # pytest-style prefix: test_auth.py
     r'.*\.test\.py$',
     r'.*\.spec\.py$',
     r'.*\.test\.ts$',

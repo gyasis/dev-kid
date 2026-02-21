@@ -8,6 +8,7 @@ Tests (using fixtures from tests/integration/sentinel/fixtures/):
 """
 
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -136,9 +137,15 @@ class TestPlaceholderBlocking:
         config = _make_config(sentinel_placeholder_fail_on_detect=True)
         runner = SentinelRunner(config, PROJECT_ROOT)
 
-        # Use the fixture file that has TODO comments
-        fixture = FIXTURES / "tasks_with_placeholder.py"
-        task = _task(file_locks=[str(fixture)])
+        # Write placeholder content to a temp file OUTSIDE tests/ so scanner won't exclude it
+        placeholder_content = (FIXTURES / "tasks_with_placeholder.py").read_text()
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.py', prefix='sentinel_prod_', dir='/tmp', delete=False
+        ) as f:
+            f.write(placeholder_content)
+            tmp_path = f.name
+
+        task = _task(file_locks=[tmp_path])
 
         # No need to mock test command — scanner should halt before test loop
         result = runner.run(task)
