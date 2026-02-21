@@ -105,6 +105,9 @@ CONSTITUTION & CONFIG:
   config set KEY VALUE     Set config value
   config validate          Validate config file
 
+SENTINEL:
+  sentinel-status          Show sentinel run history (task, tier, result, cost)
+
 SYSTEM:
   validate                 Validate system integrity
   status                   Show dev-kid status
@@ -395,6 +398,13 @@ cmd_status() {
     echo ""
 }
 
+cmd_sentinel_status() {
+    local project_root="${PROJECT_ROOT:-$(pwd)}"
+    echo -e "${GREEN}🛡️  Sentinel Run History${NC}"
+    echo ""
+    python3 "$DEV_KID_ROOT/cli/sentinel/status_reporter.py" --project-root "$project_root"
+}
+
 cmd_validate() {
     echo -e "${GREEN}🔧 Validating system integrity${NC}"
     "$DEV_KID_ROOT/skills/maintain_integrity.sh"
@@ -559,6 +569,7 @@ main() {
         gh-status)          cmd_gh_status "$@" ;;
         constitution)       cmd_constitution "$@" ;;
         config)             cmd_config "$@" ;;
+        sentinel-status)    cmd_sentinel_status "$@" ;;
         status)             cmd_status "$@" ;;
         validate)           cmd_validate "$@" ;;
         version)            echo "dev-kid v$VERSION" ;;

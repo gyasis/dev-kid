@@ -1,0 +1,634 @@
+{
+  "execution_plan": {
+    "phase_id": "Integration Sentinel",
+    "waves": [
+      {
+        "wave_id": 1,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave 1: 21 independent task(s) with no file conflicts",
+        "tasks": [
+          {
+            "task_id": "T001",
+            "agent_role": "Developer",
+            "instruction": "T001 Create `cli/sentinel/` directory and empty `cli/sentinel/__init__.py`",
+            "file_locks": [
+              "cli/sentinel/__init__.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T001 Create `cli/sentinel/` directory and empty `cli/sentinel/__init__.py`' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T002",
+            "agent_role": "Developer",
+            "instruction": "T002 [P] Create test directories `tests/unit/sentinel/`, `tests/integration/sentinel/fixtures/`, `tests/contract/sentinel/` with `__init__.py` files",
+            "file_locks": [
+              "__init__.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T002 [P] Create test directories `tests/unit/sentinel/`, `tests/integration/sentinel/fixtures/`, `tests/contract/sentinel/` with `__init__.py` files' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T003",
+            "agent_role": "Developer",
+            "instruction": "T003 [P] Create integration test fixtures: `tests/integration/sentinel/fixtures/execution_plan_simple.json` (3-task plan), `tests/integration/sentinel/fixtures/tasks_with_placeholder.py` (file with TODO), `tests/integration/sentinel/fixtures/tasks_clean.py` (clean production file)",
+            "file_locks": [
+              "tests/integration/sentinel/fixtures/execution_plan_simple.json",
+              "tests/integration/sentinel/fixtures/tasks_clean.py",
+              "tests/integration/sentinel/fixtures/tasks_with_placeholder.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T003 [P] Create integration test fixtures: `tests/integration/sentinel/fixtures/execution_plan_simple.json` (3-task plan), `tests/integration/sentinel/fixtures/tasks_with_placeholder.py` (file with TODO), `tests/integration/sentinel/fixtures/tasks_clean.py` (clean production file)' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T004",
+            "agent_role": "Developer",
+            "instruction": "T004 Extend `cli/config_manager.py` with full sentinel config block: add 17 new fields to `ConfigSchema` dataclass (sentinel_enabled, sentinel_mode, tier1/tier2 settings, radius budget, placeholder config) plus update `to_dict()`, `from_dict()`, and `validate()` methods per `contracts/config-schema.md`",
+            "file_locks": [
+              "contracts/config-schema.md",
+              "cli/config_manager.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T004 Extend `cli/config_manager.py` with full sentinel config block: add 17 new fields to `ConfigSchema` dataclass (sentinel_enabled, sentinel_mode, tier1/tier2 settings, radius budget, placeholder config) plus update `to_dict()`, `from_dict()`, and `validate()` methods per `contracts/config-schema.md`' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T005",
+            "agent_role": "Developer",
+            "instruction": "T005 [P] Add sentinel config section to `dev-kid.yml` with production defaults (`enabled: true`, `mode: auto`, `tier1.model: qwen3-coder:30b`, `tier1.ollama_url: http://192.168.0.159:11434`, `tier1.max_iterations: 5`, `tier2.model: claude-sonnet-4-20250514`, radius budget 3 files/150 lines, `fail_on_detect: true`)",
+            "file_locks": [
+              "dev-kid.yml"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T005 [P] Add sentinel config section to `dev-kid.yml` with production defaults (`enabled: true`, `mode: auto`, `tier1.model: qwen3-coder:30b`, `tier1.ollama_url: http://192.168.0.159:11434`, `tier1.max_iterations: 5`, `tier2.model: claude-sonnet-4-20250514`, radius budget 3 files/150 lines, `fail_on_detect: true`)' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T007",
+            "agent_role": "Developer",
+            "instruction": "T007 [P] Implement `detect_test_command(working_dir: Path) -> Optional[str]` in `cli/sentinel/runner.py`: check for `pyproject.toml`/`setup.py` \u2192 `python -m pytest`; `package.json` with vitest/jest \u2192 `npx vitest run`/`npm test`; `Cargo.toml` \u2192 `cargo test`; return `None` if no framework found",
+            "file_locks": [
+              "Cargo.toml",
+              "package.json",
+              "cli/sentinel/runner.py",
+              "pyproject.toml",
+              "setup.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T007 [P] Implement `detect_test_command(working_dir: Path) -> Optional[str]` in `cli/sentinel/runner.py`: check for `pyproject.toml`/`setup.py` \u2192 `python -m pytest`; `package.json` with vitest/jest \u2192 `npx vitest run`/`npm test`; `Cargo.toml` \u2192 `cargo test`; return `None` if no framework found' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T008",
+            "agent_role": "Developer",
+            "instruction": "T008 Modify `cli/orchestrator.py` to inject sentinel tasks post-wave-assignment: after `_assign_waves()`, when `config.sentinel_enabled`, insert `SENTINEL-<task_id>` task (agent_role=\"Sentinel\", dependencies=[task_id], inherits file_locks) after each regular task in each wave; atomically append matching `- [ ] SENTINEL-<task_id>: Sentinel validation for <task_id>` lines to `tasks.md`; when `sentinel.enabled: false` produce identical plan with zero SENTINEL tasks (satisfies FR-001, FR-002, FR-003)",
+            "file_locks": [
+              "cli/orchestrator.py",
+              "tasks.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T008 Modify `cli/orchestrator.py` to inject sentinel tasks post-wave-assignment: after `_assign_waves()`, when `config.sentinel_enabled`, insert `SENTINEL-<task_id>` task (agent_role=\"Sentinel\", dependencies=[task_id], inherits file_locks) after each regular task in each wave; atomically append matching `- [ ] SENTINEL-<task_id>: Sentinel validation for <task_id>` lines to `tasks.md`; when `sentinel.enabled: false` produce identical plan with zero SENTINEL tasks (satisfies FR-001, FR-002, FR-003)' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T010",
+            "agent_role": "Developer",
+            "instruction": "T010 [US1] Implement Ollama connectivity check in `cli/sentinel/tier_runner.py`: `check_ollama_available(base_url: str) -> bool` using `subprocess.run(['curl', '-sf', f'{base_url}/api/tags'], timeout=5)` \u2014 returns False on any exception or non-zero exit",
+            "file_locks": [
+              "subprocess.run",
+              "cli/sentinel/tier_runner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T010 [US1] Implement Ollama connectivity check in `cli/sentinel/tier_runner.py`: `check_ollama_available(base_url: str) -> bool` using `subprocess.run(['curl', '-sf', f'{base_url}/api/tags'], timeout=5)` \u2014 returns False on any exception or non-zero exit' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T015",
+            "agent_role": "Developer",
+            "instruction": "T015 [P] [US1] Write unit tests for `TierRunner` in `tests/unit/sentinel/test_tier_runner.py`: mock subprocess calls to test Tier 1 success, Tier 1 failure \u2192 Tier 2 escalation, Ollama unreachable \u2192 skip to Tier 2, Tier 2 success, both tiers exhausted; test output parser with sample stdout",
+            "file_locks": [
+              "tests/unit/sentinel/test_tier_runner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T015 [P] [US1] Write unit tests for `TierRunner` in `tests/unit/sentinel/test_tier_runner.py`: mock subprocess calls to test Tier 1 success, Tier 1 failure \u2192 Tier 2 escalation, Ollama unreachable \u2192 skip to Tier 2, Tier 2 success, both tiers exhausted; test output parser with sample stdout' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T016",
+            "agent_role": "Developer",
+            "instruction": "T016 [US1] Write integration test for US1 acceptance scenarios in `tests/integration/sentinel/test_sentinel_runner.py`: using fixture execution plan, verify (1) PASS path produces result=PASS, (2) FAIL path halts wave and sets should_halt_wave=True, (3) Ollama unreachable triggers Tier 2",
+            "file_locks": [
+              "tests/integration/sentinel/test_sentinel_runner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T016 [US1] Write integration test for US1 acceptance scenarios in `tests/integration/sentinel/test_sentinel_runner.py`: using fixture execution plan, verify (1) PASS path produces result=PASS, (2) FAIL path halts wave and sets should_halt_wave=True, (3) Ollama unreachable triggers Tier 2' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T017",
+            "agent_role": "Developer",
+            "instruction": "T017 [US2] Implement `PlaceholderScanner` class in `cli/sentinel/placeholder_scanner.py`: `__init__(patterns, exclude_paths)`; `scan(files: list[Path]) -> list[PlaceholderViolation]`; compile patterns as regex; for each non-excluded file read line-by-line and collect violations with 1-based line numbers and \u00b12 lines context; `is_excluded(file_path)` using glob matching against `ALWAYS_EXCLUDE` union user config; `from_config(config) -> PlaceholderScanner` factory per `contracts/placeholder-scanner.md`",
+            "file_locks": [
+              "contracts/placeholder-scanner.md",
+              "cli/sentinel/placeholder_scanner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T017 [US2] Implement `PlaceholderScanner` class in `cli/sentinel/placeholder_scanner.py`: `__init__(patterns, exclude_paths)`; `scan(files: list[Path]) -> list[PlaceholderViolation]`; compile patterns as regex; for each non-excluded file read line-by-line and collect violations with 1-based line numbers and \u00b12 lines context; `is_excluded(file_path)` using glob matching against `ALWAYS_EXCLUDE` union user config; `from_config(config) -> PlaceholderScanner` factory per `contracts/placeholder-scanner.md`' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T019",
+            "agent_role": "Developer",
+            "instruction": "T019 [P] [US2] Write unit tests for `PlaceholderScanner` in `tests/unit/sentinel/test_placeholder_scanner.py`: test each built-in pattern matches; test excluded paths (tests/, __mocks__/, *.test.py, *.spec.ts) are never flagged; test `fail_on_detect: false` returns violations but does not halt; test clean file returns empty list",
+            "file_locks": [
+              "test.py",
+              "tests/unit/sentinel/test_placeholder_scanner.py",
+              "spec.ts"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T019 [P] [US2] Write unit tests for `PlaceholderScanner` in `tests/unit/sentinel/test_placeholder_scanner.py`: test each built-in pattern matches; test excluded paths (tests/, __mocks__/, *.test.py, *.spec.ts) are never flagged; test `fail_on_detect: false` returns violations but does not halt; test clean file returns empty list' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T020",
+            "agent_role": "Developer",
+            "instruction": "T022 [US3] Implement `ManifestWriter` class in `cli/sentinel/manifest_writer.py`: `__init__(output_dir: Path)`; `write(data: ManifestData) -> ManifestPaths`; writes `manifest.json` (validated JSON), `diff.patch` (from `git diff HEAD -- <files>`, empty file if no changes), `summary.md` (PASS and FAIL templates from `contracts/change-manifest.md`); creates output dir if not exists; never raises on FAIL result",
+            "file_locks": [
+              "manifest.json",
+              "cli/sentinel/manifest_writer.py",
+              "contracts/change-manifest.md",
+              "summary.md",
+              "diff.patch"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T022 [US3] Implement `ManifestWriter` class in `cli/sentinel/manifest_writer.py`: `__init__(output_dir: Path)`; `write(data: ManifestData) -> ManifestPaths`; writes `manifest.json` (validated JSON), `diff.patch` (from `git diff HEAD -- <files>`, empty file if no changes), `summary.md` (PASS and FAIL templates from `contracts/change-manifest.md`); creates output dir if not exists; never raises on FAIL result' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T025",
+            "agent_role": "Developer",
+            "instruction": "T027 [US4] Implement `InterfaceDiff.compare(file_path, pre_content, post_content) -> InterfaceChangeReport` in `cli/sentinel/interface_diff.py`: auto-detect language from file extension; Python: use `ast.parse()` + `ast.walk()` to extract public functions/classes, compare pre vs post symbols, classify removed/added/signature-changed; `get_pre_content(file_path, git_ref=\"HEAD\") -> str` via `git show HEAD:{file}` subprocess; return `InterfaceChangeReport` per `contracts/interface-diff.md`",
+            "file_locks": [
+              "contracts/interface-diff.md",
+              "cli/sentinel/interface_diff.py",
+              "ast.walk"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T027 [US4] Implement `InterfaceDiff.compare(file_path, pre_content, post_content) -> InterfaceChangeReport` in `cli/sentinel/interface_diff.py`: auto-detect language from file extension; Python: use `ast.parse()` + `ast.walk()` to extract public functions/classes, compare pre vs post symbols, classify removed/added/signature-changed; `get_pre_content(file_path, git_ref=\"HEAD\") -> str` via `git show HEAD:{file}` subprocess; return `InterfaceChangeReport` per `contracts/interface-diff.md`' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T028",
+            "agent_role": "Developer",
+            "instruction": "T030 [US4] Implement `ChangeRadiusEvaluator` in `cli/sentinel/cascade_analyzer.py`: `evaluate(files_changed, interface_reports, execution_plan) -> ChangeRadiusReport`; check three axes: `files_changed_count > config.radius_max_files`, `lines_changed_total > config.radius_max_lines`, `interface_changes_count > 0 and not allow_interface_changes`; detect cross-wave violations by comparing modified files against `execution_plan.json` task file_locks in other waves; return `ChangeRadiusReport` with `budget_exceeded` and `violations` list",
+            "file_locks": [
+              "cli/sentinel/cascade_analyzer.py",
+              "execution_plan.json"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T030 [US4] Implement `ChangeRadiusEvaluator` in `cli/sentinel/cascade_analyzer.py`: `evaluate(files_changed, interface_reports, execution_plan) -> ChangeRadiusReport`; check three axes: `files_changed_count > config.radius_max_files`, `lines_changed_total > config.radius_max_lines`, `interface_changes_count > 0 and not allow_interface_changes`; detect cross-wave violations by comparing modified files against `execution_plan.json` task file_locks in other waves; return `ChangeRadiusReport` with `budget_exceeded` and `violations` list' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T032",
+            "agent_role": "Developer",
+            "instruction": "T034 [P] [US4] Write unit tests for `InterfaceDiff` in `tests/unit/sentinel/test_interface_diff.py`: test Python AST detects added/removed/changed function; test TypeScript regex detects exported function names; test Rust regex detects pub fn; test unknown file type returns empty report; test SyntaxError returns empty report without raising",
+            "file_locks": [
+              "tests/unit/sentinel/test_interface_diff.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T034 [P] [US4] Write unit tests for `InterfaceDiff` in `tests/unit/sentinel/test_interface_diff.py`: test Python AST detects added/removed/changed function; test TypeScript regex detects exported function names; test Rust regex detects pub fn; test unknown file type returns empty report; test SyntaxError returns empty report without raising' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T033",
+            "agent_role": "Developer",
+            "instruction": "T035 [P] [US4] Write unit tests for `CascadeAnalyzer` in `tests/unit/sentinel/test_cascade_analyzer.py`: test radius budget passes (1 file, 15 lines); test radius exceeded (4 files); test cascade annotates correct pending tasks; test completed tasks `[x]` are not annotated; test human-gated mode raises WaveHaltError on 'h' input",
+            "file_locks": [
+              "tests/unit/sentinel/test_cascade_analyzer.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T035 [P] [US4] Write unit tests for `CascadeAnalyzer` in `tests/unit/sentinel/test_cascade_analyzer.py`: test radius budget passes (1 file, 15 lines); test radius exceeded (4 files); test cascade annotates correct pending tasks; test completed tasks `[x]` are not annotated; test human-gated mode raises WaveHaltError on 'h' input' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T034",
+            "agent_role": "Developer",
+            "instruction": "T036 [US5] Add `sentinel-status` command routing in `cli/dev-kid` (Bash): add `sentinel-status)` case to command routing; call `python3 cli/sentinel/status_reporter.py --project-root \"$PROJECT_ROOT\"`",
+            "file_locks": [
+              "cli/sentinel/status_reporter.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T036 [US5] Add `sentinel-status` command routing in `cli/dev-kid` (Bash): add `sentinel-status)` case to command routing; call `python3 cli/sentinel/status_reporter.py --project-root \"$PROJECT_ROOT\"`' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T037",
+            "agent_role": "Developer",
+            "instruction": "T039 [P] Update `CLAUDE.md` sentinel subsystem section: document `cli/sentinel/` module map (runner, tier_runner, placeholder_scanner, interface_diff, manifest_writer, cascade_analyzer, status_reporter), `.claude/sentinel/` runtime output convention, new `sentinel-status` CLI command",
+            "file_locks": [
+              "CLAUDE.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T039 [P] Update `CLAUDE.md` sentinel subsystem section: document `cli/sentinel/` module map (runner, tier_runner, placeholder_scanner, interface_diff, manifest_writer, cascade_analyzer, status_reporter), `.claude/sentinel/` runtime output convention, new `sentinel-status` CLI command' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T038",
+            "agent_role": "Developer",
+            "instruction": "T040 [P] Update `memory-bank/shared/systemPatterns.md` with Integration Sentinel pattern: sentinel task injection flow, manifest-always-written invariant, cascade radius decision tree",
+            "file_locks": [
+              "memory-bank/shared/systemPatterns.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T040 [P] Update `memory-bank/shared/systemPatterns.md` with Integration Sentinel pattern: sentinel task injection flow, manifest-always-written invariant, cascade radius decision tree' to [x]",
+            "dependencies": []
+          },
+          {
+            "task_id": "T039",
+            "agent_role": "Developer",
+            "instruction": "T041 Run quickstart.md end-to-end validation: execute all steps in `quickstart.md` against a real test project initialized with `dev-kid init`; verify sentinel runs, manifest files appear, status dashboard shows correct data; document any deviations",
+            "file_locks": [
+              "quickstart.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T041 Run quickstart.md end-to-end validation: execute all steps in `quickstart.md` against a real test project initialized with `dev-kid init`; verify sentinel runs, manifest files appear, status dashboard shows correct data; document any deviations' to [x]",
+            "dependencies": []
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 1 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 2,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave 2: 5 independent task(s) with no file conflicts",
+        "tasks": [
+          {
+            "task_id": "T006",
+            "agent_role": "Developer",
+            "instruction": "T006 Populate `cli/sentinel/__init__.py` with all shared dataclasses: `SentinelResult`, `TierResult`, `ManifestData`, `PlaceholderViolation`, `InterfaceChangeReport`, `ChangeRadiusReport`, `CascadeAnnotation` \u2014 matching field definitions in `data-model.md` and all contracts",
+            "file_locks": [
+              "cli/sentinel/__init__.py",
+              "data-model.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T006 Populate `cli/sentinel/__init__.py` with all shared dataclasses: `SentinelResult`, `TierResult`, `ManifestData`, `PlaceholderViolation`, `InterfaceChangeReport`, `ChangeRadiusReport`, `CascadeAnnotation` \u2014 matching field definitions in `data-model.md` and all contracts' to [x]",
+            "dependencies": [
+              "T001"
+            ]
+          },
+          {
+            "task_id": "T009",
+            "agent_role": "Developer",
+            "instruction": "T009 Modify `cli/wave_executor.py` to route sentinel tasks: in `execute_task()`, check `task.get(\"agent_role\") == \"Sentinel\"` \u2192 call `SentinelRunner(config, project_root).run(task)` \u2192 if `result.should_halt_wave` raise `WaveHaltError(result.error_message)` \u2192 otherwise mark SENTINEL task `[x]` in tasks.md; import `SentinelRunner` from `cli/sentinel/runner.py`",
+            "file_locks": [
+              "cli/sentinel/runner.py",
+              "cli/wave_executor.py",
+              "tasks.md",
+              "task.get"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T009 Modify `cli/wave_executor.py` to route sentinel tasks: in `execute_task()`, check `task.get(\"agent_role\") == \"Sentinel\"` \u2192 call `SentinelRunner(config, project_root).run(task)` \u2192 if `result.should_halt_wave` raise `WaveHaltError(result.error_message)` \u2192 otherwise mark SENTINEL task `[x]` in tasks.md; import `SentinelRunner` from `cli/sentinel/runner.py`' to [x]",
+            "dependencies": [
+              "T007",
+              "T008"
+            ]
+          },
+          {
+            "task_id": "T011",
+            "agent_role": "Developer",
+            "instruction": "T011 [US1] Implement `TierRunner.run_tier1(objective, test_cmd, config) -> TierResult` in `cli/sentinel/tier_runner.py`: invoke micro-agent subprocess with `['micro-agent', '--objective', ..., '--test', ..., '--max-iterations', '5', '--simple', '5', '--no-escalate', '--artisan', 'ollama:qwen3-coder:30b']`; set `env={'OLLAMA_BASE_URL': config.sentinel_tier1_ollama_url}`; `timeout=300`; `capture_output=True, text=True, check=False`; if Ollama unavailable skip with warning (return `TierResult(attempted=True, skipped=True)`)",
+            "file_locks": [
+              "cli/sentinel/tier_runner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T011 [US1] Implement `TierRunner.run_tier1(objective, test_cmd, config) -> TierResult` in `cli/sentinel/tier_runner.py`: invoke micro-agent subprocess with `['micro-agent', '--objective', ..., '--test', ..., '--max-iterations', '5', '--simple', '5', '--no-escalate', '--artisan', 'ollama:qwen3-coder:30b']`; set `env={'OLLAMA_BASE_URL': config.sentinel_tier1_ollama_url}`; `timeout=300`; `capture_output=True, text=True, check=False`; if Ollama unavailable skip with warning (return `TierResult(attempted=True, skipped=True)`)' to [x]",
+            "dependencies": [
+              "T010"
+            ]
+          },
+          {
+            "task_id": "T022",
+            "agent_role": "Developer",
+            "instruction": "T024 [US3] Extend UserPromptSubmit hook in `.claude/hooks/user-prompt-submit.sh`: after existing git branch/constitution injection, check for latest sentinel `summary.md` in `.claude/sentinel/` for current task context; if found, inject contents into hook output JSON `additionalContext` field; only inject most recent summary (not all)",
+            "file_locks": [
+              ".claude/hooks/user-prompt-submit.sh",
+              "claude/hooks/user-prompt-submit.sh",
+              "summary.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T024 [US3] Extend UserPromptSubmit hook in `.claude/hooks/user-prompt-submit.sh`: after existing git branch/constitution injection, check for latest sentinel `summary.md` in `.claude/sentinel/` for current task context; if found, inject contents into hook output JSON `additionalContext` field; only inject most recent summary (not all)' to [x]",
+            "dependencies": [
+              "T020"
+            ]
+          },
+          {
+            "task_id": "T026",
+            "agent_role": "Developer",
+            "instruction": "T028 [P] [US4] Add TypeScript/JavaScript regex detection to `cli/sentinel/interface_diff.py`: compile patterns for `export (async )?function \\w+`, `export const \\w+ =`, `export (abstract )?class \\w+`, `export (default )?interface \\w+`; extract symbol names from pre and post content; classify added/removed",
+            "file_locks": [
+              "cli/sentinel/interface_diff.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T028 [P] [US4] Add TypeScript/JavaScript regex detection to `cli/sentinel/interface_diff.py`: compile patterns for `export (async )?function \\w+`, `export const \\w+ =`, `export (abstract )?class \\w+`, `export (default )?interface \\w+`; extract symbol names from pre and post content; classify added/removed' to [x]",
+            "dependencies": [
+              "T025"
+            ]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 2 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 3,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave 3: 5 independent task(s) with no file conflicts",
+        "tasks": [
+          {
+            "task_id": "T012",
+            "agent_role": "Developer",
+            "instruction": "T012 [P] [US1] Implement `TierRunner.run_tier2(objective, test_cmd, config) -> TierResult` in `cli/sentinel/tier_runner.py`: invoke micro-agent subprocess with `['micro-agent', '--objective', ..., '--test', ..., '--max-iterations', '10', '--artisan', 'claude-sonnet-4-20250514', '--max-budget', '2.0', '--max-duration', '10']`; requires `ANTHROPIC_API_KEY` in env; `timeout=600`",
+            "file_locks": [
+              "cli/sentinel/tier_runner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T012 [P] [US1] Implement `TierRunner.run_tier2(objective, test_cmd, config) -> TierResult` in `cli/sentinel/tier_runner.py`: invoke micro-agent subprocess with `['micro-agent', '--objective', ..., '--test', ..., '--max-iterations', '10', '--artisan', 'claude-sonnet-4-20250514', '--max-budget', '2.0', '--max-duration', '10']`; requires `ANTHROPIC_API_KEY` in env; `timeout=600`' to [x]",
+            "dependencies": [
+              "T011",
+              "T010"
+            ]
+          },
+          {
+            "task_id": "T014",
+            "agent_role": "Developer",
+            "instruction": "T014 [US1] Implement `SentinelRunner.run(task: dict) -> SentinelResult` core pipeline in `cli/sentinel/runner.py`: resolve working dir from task file_locks; call `detect_test_command()`; if no framework log warning and skip test loop; call `TierRunner.run_tier1()` \u2192 if FAIL call `TierRunner.run_tier2()` \u2192 if still FAIL set `result=FAIL, should_halt_wave=True`; set `result=PASS` on first tier success; return `SentinelResult` (stub out placeholder/manifest/cascade integration points as no-ops for now)",
+            "file_locks": [
+              "cli/sentinel/runner.py",
+              "SentinelRunner.run"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T014 [US1] Implement `SentinelRunner.run(task: dict) -> SentinelResult` core pipeline in `cli/sentinel/runner.py`: resolve working dir from task file_locks; call `detect_test_command()`; if no framework log warning and skip test loop; call `TierRunner.run_tier1()` \u2192 if FAIL call `TierRunner.run_tier2()` \u2192 if still FAIL set `result=FAIL, should_halt_wave=True`; set `result=PASS` on first tier success; return `SentinelResult` (stub out placeholder/manifest/cascade integration points as no-ops for now)' to [x]",
+            "dependencies": [
+              "T007",
+              "T009"
+            ]
+          },
+          {
+            "task_id": "T023",
+            "agent_role": "Developer",
+            "instruction": "T025 [P] [US3] Write unit tests for `ManifestWriter` in `tests/unit/sentinel/test_manifest_writer.py`: test manifest.json written with correct schema; test diff.patch written (empty when no changes); test summary.md written for PASS and FAIL cases; test no exception raised on FAIL result",
+            "file_locks": [
+              "manifest.json",
+              "summary.md",
+              "tests/unit/sentinel/test_manifest_writer.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T025 [P] [US3] Write unit tests for `ManifestWriter` in `tests/unit/sentinel/test_manifest_writer.py`: test manifest.json written with correct schema; test diff.patch written (empty when no changes); test summary.md written for PASS and FAIL cases; test no exception raised on FAIL result' to [x]",
+            "dependencies": [
+              "T020",
+              "T022"
+            ]
+          },
+          {
+            "task_id": "T027",
+            "agent_role": "Developer",
+            "instruction": "T029 [P] [US4] Add Rust regex detection to `cli/sentinel/interface_diff.py`: compile patterns for `pub (async )?fn \\w+`, `pub struct \\w+`, `pub trait \\w+`, `pub enum \\w+`; extract symbol names; classify added/removed",
+            "file_locks": [
+              "cli/sentinel/interface_diff.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T029 [P] [US4] Add Rust regex detection to `cli/sentinel/interface_diff.py`: compile patterns for `pub (async )?fn \\w+`, `pub struct \\w+`, `pub trait \\w+`, `pub enum \\w+`; extract symbol names; classify added/removed' to [x]",
+            "dependencies": [
+              "T025",
+              "T026"
+            ]
+          },
+          {
+            "task_id": "T029",
+            "agent_role": "Developer",
+            "instruction": "T031 [US4] Implement `CascadeAnalyzer.annotate_tasks(affected_task_ids, sentinel_id, interface_changes) -> list[CascadeAnnotation]` in `cli/sentinel/cascade_analyzer.py`: for each affected pending task (`- [ ]` in tasks.md), find its line in tasks.md and append the cascade warning block (format from `data-model.md`); only target incomplete tasks; write updated tasks.md atomically; return list of applied annotations",
+            "file_locks": [
+              "cli/sentinel/cascade_analyzer.py",
+              "tasks.md",
+              "data-model.md"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T031 [US4] Implement `CascadeAnalyzer.annotate_tasks(affected_task_ids, sentinel_id, interface_changes) -> list[CascadeAnnotation]` in `cli/sentinel/cascade_analyzer.py`: for each affected pending task (`- [ ]` in tasks.md), find its line in tasks.md and append the cascade warning block (format from `data-model.md`); only target incomplete tasks; write updated tasks.md atomically; return list of applied annotations' to [x]",
+            "dependencies": [
+              "T009",
+              "T028",
+              "T008",
+              "T006"
+            ]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 3 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 4,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave 4: 5 independent task(s) with no file conflicts",
+        "tasks": [
+          {
+            "task_id": "T013",
+            "agent_role": "Developer",
+            "instruction": "T013 [P] [US1] Implement `_parse_micro_agent_output(stdout: str) -> dict` in `cli/sentinel/tier_runner.py`: regex-extract `iterations`, `cost_usd`, `duration_sec` from micro-agent stdout summary block (`Iterations: X total`, `Cost: $X.XXX total`, `Duration: X.Xs`); return zero-values if no match",
+            "file_locks": [
+              "Duration: X.Xs",
+              "cli/sentinel/tier_runner.py",
+              "X.XXX",
+              "X.Xs"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T013 [P] [US1] Implement `_parse_micro_agent_output(stdout: str) -> dict` in `cli/sentinel/tier_runner.py`: regex-extract `iterations`, `cost_usd`, `duration_sec` from micro-agent stdout summary block (`Iterations: X total`, `Cost: $X.XXX total`, `Duration: X.Xs`); return zero-values if no match' to [x]",
+            "dependencies": [
+              "T011",
+              "T012",
+              "T010"
+            ]
+          },
+          {
+            "task_id": "T018",
+            "agent_role": "Developer",
+            "instruction": "T018 [P] [US2] Integrate `PlaceholderScanner` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: call scanner before test loop on files derived from task file_locks; if violations found and `fail_on_detect: true` set `result=FAIL, should_halt_wave=True` immediately (skip test loop); store violations in result for manifest",
+            "file_locks": [
+              "cli/sentinel/runner.py",
+              "SentinelRunner.run"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T018 [P] [US2] Integrate `PlaceholderScanner` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: call scanner before test loop on files derived from task file_locks; if violations found and `fail_on_detect: true` set `result=FAIL, should_halt_wave=True` immediately (skip test loop); store violations in result for manifest' to [x]",
+            "dependencies": [
+              "T007",
+              "T009",
+              "T014"
+            ]
+          },
+          {
+            "task_id": "T024",
+            "agent_role": "Developer",
+            "instruction": "T026 [P] [US3] Write contract test for manifest.json schema in `tests/contract/sentinel/test_manifest_schema.py`: validate all required fields present (result, timestamp, tier_used, tiers, files_changed, interface_changes, tests_fixed, tests_still_failing, radius); validate result is one of PASS/FAIL/ERROR",
+            "file_locks": [
+              "tests/contract/sentinel/test_manifest_schema.py",
+              "manifest.json"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T026 [P] [US3] Write contract test for manifest.json schema in `tests/contract/sentinel/test_manifest_schema.py`: validate all required fields present (result, timestamp, tier_used, tiers, files_changed, interface_changes, tests_fixed, tests_still_failing, radius); validate result is one of PASS/FAIL/ERROR' to [x]",
+            "dependencies": [
+              "T020",
+              "T023"
+            ]
+          },
+          {
+            "task_id": "T030",
+            "agent_role": "Developer",
+            "instruction": "T032 [US4] Implement human-gated cascade mode in `cli/sentinel/cascade_analyzer.py`: `cascade_human_gated(affected_tasks, sentinel_id)`: print affected tasks with cascade details; prompt user for `[a]uto-apply / [r]eview-and-halt / [h]alt`; if `r` or `h` raise `WaveHaltError` with explanation; if `a` proceed to auto-annotate (call `annotate_tasks`)",
+            "file_locks": [
+              "cli/sentinel/cascade_analyzer.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T032 [US4] Implement human-gated cascade mode in `cli/sentinel/cascade_analyzer.py`: `cascade_human_gated(affected_tasks, sentinel_id)`: print affected tasks with cascade details; prompt user for `[a]uto-apply / [r]eview-and-halt / [h]alt`; if `r` or `h` raise `WaveHaltError` with explanation; if `a` proceed to auto-annotate (call `annotate_tasks`)' to [x]",
+            "dependencies": [
+              "T028",
+              "T029"
+            ]
+          },
+          {
+            "task_id": "T036",
+            "agent_role": "Developer",
+            "instruction": "T038 [P] [US5] Write integration test for sentinel-disabled scenario in `tests/integration/sentinel/test_injection_round_trip.py`: load config with `sentinel_enabled=False`; run orchestrator on fixture tasks.md; assert zero SENTINEL tasks in resulting execution_plan.json; assert tasks.md unchanged (no SENTINEL lines appended); verify plan is identical to pre-sentinel baseline",
+            "file_locks": [
+              "tests/integration/sentinel/test_injection_round_trip.py",
+              "tasks.md",
+              "execution_plan.json"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T038 [P] [US5] Write integration test for sentinel-disabled scenario in `tests/integration/sentinel/test_injection_round_trip.py`: load config with `sentinel_enabled=False`; run orchestrator on fixture tasks.md; assert zero SENTINEL tasks in resulting execution_plan.json; assert tasks.md unchanged (no SENTINEL lines appended); verify plan is identical to pre-sentinel baseline' to [x]",
+            "dependencies": [
+              "T009",
+              "T029",
+              "T008",
+              "T028"
+            ]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 4 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 5,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave 5: 3 independent task(s) with no file conflicts",
+        "tasks": [
+          {
+            "task_id": "T021",
+            "agent_role": "Developer",
+            "instruction": "T023 [US3] Integrate `ManifestWriter` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: call after test loop and placeholder scan complete (win or lose); assemble full `ManifestData` from tier results, placeholder violations, files changed (from git diff stats), interface changes, cascade info; write to `.claude/sentinel/<sentinel_id>/`; ensure manifest write happens even in ERROR result path (use try/finally)",
+            "file_locks": [
+              "cli/sentinel/runner.py",
+              "SentinelRunner.run"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T023 [US3] Integrate `ManifestWriter` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: call after test loop and placeholder scan complete (win or lose); assemble full `ManifestData` from tier results, placeholder violations, files changed (from git diff stats), interface changes, cascade info; write to `.claude/sentinel/<sentinel_id>/`; ensure manifest write happens even in ERROR result path (use try/finally)' to [x]",
+            "dependencies": [
+              "T007",
+              "T009",
+              "T018",
+              "T014"
+            ]
+          },
+          {
+            "task_id": "T035",
+            "agent_role": "Developer",
+            "instruction": "T037 [US5] Implement `cli/sentinel/status_reporter.py`: scan `.claude/sentinel/*/manifest.json` files; parse each manifest; render ASCII table with columns: Task, Sentinel ID, Tier Used, Iterations, Files Changed, Lines Changed, Placeholders, Result, Duration; sort by timestamp; print session totals (total runs, tier1-only count, tier2-escalation count, failure count)",
+            "file_locks": [
+              "cli/sentinel/status_reporter.py",
+              ".claude/sentinel/*/manifest.json",
+              "manifest.json"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T037 [US5] Implement `cli/sentinel/status_reporter.py`: scan `.claude/sentinel/*/manifest.json` files; parse each manifest; render ASCII table with columns: Task, Sentinel ID, Tier Used, Iterations, Files Changed, Lines Changed, Placeholders, Result, Duration; sort by timestamp; print session totals (total runs, tier1-only count, tier2-escalation count, failure count)' to [x]",
+            "dependencies": [
+              "T034",
+              "T020",
+              "T024",
+              "T023"
+            ]
+          },
+          {
+            "task_id": "T040",
+            "agent_role": "Developer",
+            "instruction": "T042 [P] Security review of subprocess calls in `cli/sentinel/tier_runner.py`: verify all subprocess inputs are sanitized (objective string, test command, file paths); no shell=True usage; no credential leakage in logged output; no path traversal in manifest output directory",
+            "file_locks": [
+              "cli/sentinel/tier_runner.py"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T042 [P] Security review of subprocess calls in `cli/sentinel/tier_runner.py`: verify all subprocess inputs are sanitized (objective string, test command, file paths); no shell=True usage; no credential leakage in logged output; no path traversal in manifest output directory' to [x]",
+            "dependencies": [
+              "T011",
+              "T013",
+              "T012",
+              "T010"
+            ]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 5 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 6,
+        "strategy": "SEQUENTIAL_MERGE",
+        "rationale": "Wave 6: 1 independent task(s) with no file conflicts",
+        "tasks": [
+          {
+            "task_id": "T031",
+            "agent_role": "Developer",
+            "instruction": "T033 [US4] Integrate `InterfaceDiff`, `ChangeRadiusEvaluator`, and `CascadeAnalyzer` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: after test loop, for each modified file call `InterfaceDiff.compare()`; call `ChangeRadiusEvaluator.evaluate()`; if `budget_exceeded` and `mode=auto` call `annotate_tasks()`; if `mode=human-gated` call `cascade_human_gated()`; populate cascade fields in `ManifestData`",
+            "file_locks": [
+              "cli/sentinel/runner.py",
+              "SentinelRunner.run"
+            ],
+            "constitution_rules": [],
+            "completion_handshake": "Upon success, update tasks.md line containing 'T033 [US4] Integrate `InterfaceDiff`, `ChangeRadiusEvaluator`, and `CascadeAnalyzer` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: after test loop, for each modified file call `InterfaceDiff.compare()`; call `ChangeRadiusEvaluator.evaluate()`; if `budget_exceeded` and `mode=auto` call `annotate_tasks()`; if `mode=human-gated` call `cascade_human_gated()`; populate cascade fields in `ManifestData`' to [x]",
+            "dependencies": [
+              "T014",
+              "T018",
+              "T021",
+              "T009",
+              "T007"
+            ]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 6 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      }
+    ]
+  }
+}

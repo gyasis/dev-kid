@@ -224,6 +224,96 @@ class TaskOrchestrator:
             self.waves.append(wave)
             wave_id += 1
 
+    def _load_sentinel_config(self) -> bool:
+        """Return True if sentinel injection is enabled via dev-kid.yml."""
+        try:
+            import yaml  # optional dependency
+        except ImportError:
+            try:
+                # Minimal YAML parsing without the yaml library
+                yml_path = Path("dev-kid.yml")
+                if not yml_path.exists():
+                    return False
+                content = yml_path.read_text(encoding='utf-8')
+                # Find 'enabled:' under 'sentinel:' block
+                in_sentinel = False
+                for line in content.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith('sentinel:'):
+                        in_sentinel = True
+                        continue
+                    if in_sentinel:
+                        if stripped.startswith('enabled:'):
+                            value = stripped.split(':', 1)[1].strip().lower()
+                            return value not in ('false', '0', 'no', 'off')
+                        elif stripped and not stripped.startswith('#') and ':' in stripped and not line.startswith(' '):
+                            # New top-level key — sentinel block ended
+                            break
+                return False
+            except Exception:
+                return False
+
+        try:
+            yml_path = Path("dev-kid.yml")
+            if not yml_path.exists():
+                return False
+            data = yaml.safe_load(yml_path.read_text(encoding='utf-8'))
+            return bool(data.get('sentinel', {}).get('enabled', False))
+        except Exception:
+            return False
+
+    def _inject_sentinel_tasks(self, waves: List['Wave'], tasks_file: Path) -> None:
+        """Insert SENTINEL-<task_id> tasks after each developer task in each wave.
+
+        Atomically appends matching '- [ ] SENTINEL-<id>: ...' lines to tasks.md.
+        Called only when sentinel.enabled = true in dev-kid.yml.
+
+        Args:
+            waves: List of Wave objects (modified in-place).
+            tasks_file: Path to tasks.md for atomic append.
+        """
+        sentinel_lines_to_append: List[str] = []
+
+        for wave in waves:
+            # Build list of sentinel tasks to insert (one per developer task)
+            injected: List[Dict] = []
+            for task in list(wave.tasks):
+                injected.append(task)
+                sentinel_id = f"SENTINEL-{task['task_id']}"
+                sentinel_instruction = f"Sentinel validation for {task['task_id']}: verify implementation passes tests"
+                sentinel_task = {
+                    "task_id": sentinel_id,
+                    "agent_role": "Sentinel",
+                    "instruction": sentinel_instruction,
+                    "file_locks": list(task.get("file_locks", [])),  # inherit file locks
+                    "constitution_rules": [],
+                    "completion_handshake": (
+                        f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
+                    ),
+                    "dependencies": [task["task_id"]],
+                    "parent_task_id": task["task_id"],
+                }
+                injected.append(sentinel_task)
+                sentinel_lines_to_append.append(
+                    f"- [ ] {sentinel_id}: {sentinel_instruction}"
+                )
+            wave.tasks = injected
+
+        # Atomic append to tasks.md
+        if sentinel_lines_to_append and tasks_file.exists():
+            existing = tasks_file.read_text(encoding='utf-8')
+            # Only append lines not already present
+            new_lines = [
+                line for line in sentinel_lines_to_append
+                if line not in existing
+            ]
+            if new_lines:
+                separator = '\n' if existing.endswith('\n') else '\n\n'
+                updated = existing + separator + '\n'.join(new_lines) + '\n'
+                temp = tasks_file.with_suffix('.tmp')
+                temp.write_text(updated, encoding='utf-8')
+                temp.rename(tasks_file)
+
     def generate_execution_plan(self, phase_id: str = "default") -> Dict:
         """Generate complete execution plan in JSON schema format"""
         return {
@@ -258,6 +348,18 @@ class TaskOrchestrator:
         print("🌊 Creating execution waves...")
         self.create_waves()
         print(f"   Organized into {len(self.waves)} waves")
+
+        # Sentinel injection (post-wave-assignment, only if enabled)
+        if self._load_sentinel_config():
+            print("🛡️  Injecting sentinel tasks (sentinel.enabled=true)...")
+            self._inject_sentinel_tasks(self.waves, self.tasks_file)
+            sentinel_count = sum(
+                1 for w in self.waves for t in w.tasks
+                if isinstance(t, dict) and t.get('agent_role') == 'Sentinel'
+            )
+            print(f"   Injected {sentinel_count} SENTINEL tasks")
+        else:
+            print("ℹ️  Sentinel injection skipped (sentinel.enabled=false)")
 
         plan = self.generate_execution_plan(phase_id)
 

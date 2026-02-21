@@ -184,3 +184,17 @@ Task T003 will now have a `[SENTINEL CASCADE WARNING]` note in tasks.md.
 | `.claude/sentinel/<ID>/diff.patch` | Exact code changes |
 | `.claude/sentinel/<ID>/summary.md` | Context injection text |
 | `cli/sentinel/` | Sentinel Python subpackage |
+
+---
+
+## Validation Status (Wave 1 Build)
+
+**Unit tests**: All sentinel modules have corresponding unit tests covering the core contract:
+- `tests/unit/sentinel/test_tier_runner.py` — TierRunner + check_ollama_available + _parse_micro_agent_output
+- `tests/unit/sentinel/test_placeholder_scanner.py` — PlaceholderScanner built-in patterns, exclusions, from_config
+- `tests/unit/sentinel/test_interface_diff.py` — Python AST, TypeScript regex, Rust regex, unknown/SyntaxError
+- `tests/unit/sentinel/test_cascade_analyzer.py` — ChangeRadiusEvaluator, annotate_tasks, cascade_human_gated
+
+**Integration tests**: `tests/integration/sentinel/test_sentinel_runner.py` covers US1 acceptance scenarios (PASS/FAIL/Ollama-unreachable/no-framework/placeholder-blocking) with mocked subprocess calls.
+
+**End-to-end validation** (requires micro-agent installed + Ollama running): Execute after Wave 6 completes and `sentinel.enabled: true` is set. Run `dev-kid orchestrate` on a real project, execute waves, verify manifest files appear in `.claude/sentinel/`, and validate `dev-kid sentinel-status` output matches expected format.

@@ -1,0 +1,47 @@
+{
+  "execution_plan": {
+    "phase_id": "Sentinel Test Fixture",
+    "waves": [
+      {
+        "wave_id": 1,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Wave 1: 3 independent tasks for sentinel integration testing",
+        "tasks": [
+          {
+            "task_id": "T001",
+            "agent_role": "Developer",
+            "instruction": "T001 Implement hello function in src/hello.py",
+            "file_locks": ["src/hello.py"],
+            "constitution_rules": [],
+            "completion_handshake": "Mark T001 [x] in tasks.md",
+            "dependencies": []
+          },
+          {
+            "task_id": "T002",
+            "agent_role": "Developer",
+            "instruction": "T002 Implement greet function in src/greet.py",
+            "file_locks": ["src/greet.py"],
+            "constitution_rules": [],
+            "completion_handshake": "Mark T002 [x] in tasks.md",
+            "dependencies": []
+          },
+          {
+            "task_id": "T003",
+            "agent_role": "Developer",
+            "instruction": "T003 Implement farewell function in src/farewell.py",
+            "file_locks": ["src/farewell.py"],
+            "constitution_rules": [],
+            "completion_handshake": "Mark T003 [x] in tasks.md",
+            "dependencies": []
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 1 tasks are marked [x] in tasks.md",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      }
+    ]
+  }
+}

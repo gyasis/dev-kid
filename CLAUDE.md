@@ -598,3 +598,108 @@ dev-kid checkpoint "Test"
 
 ## Recent Changes
 - 001-integration-sentinel: Added Python 3.11 (existing dev-kid codebase), Node.js 20+ (micro-agent runtime) + micro-agent CLI (`@builder.io/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re`
+
+## Integration Sentinel Subsystem
+
+The Integration Sentinel is a per-task micro-agent test-and-fix loop injected into dev-kid's wave execution pipeline. It validates every completed task's output before the wave checkpoint is committed.
+
+### Module Map (`cli/sentinel/`)
+
+```
+cli/sentinel/
+├── __init__.py           # Shared dataclasses: TierResult, SentinelResult, PlaceholderViolation,
+│                         #   InterfaceChangeReport, ChangeRadiusReport, CascadeAnnotation,
+│                         #   ManifestData, ManifestPaths
+├── runner.py             # SentinelRunner.run(task) — main pipeline orchestrator
+│                         #   detect_test_command(working_dir) — framework auto-detection
+├── tier_runner.py        # TierRunner class + check_ollama_available()
+│                         #   run_tier1() — Ollama qwen3-coder:30b (Tier 1, free, max 5 iter)
+│                         #   run_tier2() — claude-sonnet-4-20250514 (Tier 2, max $2, 10 iter)
+│                         #   _parse_micro_agent_output() — parses micro-agent stdout
+├── placeholder_scanner.py# PlaceholderScanner — detects TODO/FIXME/mock_*/stub_* in prod code
+│                         #   Always excludes: tests/, __mocks__/, *.test.*, *.spec.*
+├── interface_diff.py     # InterfaceDiff.compare() — public API surface diff
+│                         #   Python: ast.parse/walk/unparse (precise signature change detection)
+│                         #   TypeScript/JS: export function/class/interface/type regex
+│                         #   Rust: pub fn/struct/trait/enum regex
+├── manifest_writer.py    # ManifestWriter — writes 3 files per sentinel run (always)
+│                         #   manifest.json, diff.patch, summary.md
+├── cascade_analyzer.py   # ChangeRadiusEvaluator + CascadeAnalyzer + WaveHaltError
+│                         #   Three-axis budget: ≤3 files, ≤150 lines, no interface changes
+└── status_reporter.py    # sentinel-status dashboard — reads .claude/sentinel/*/manifest.json
+```
+
+### Runtime Output Convention (`.claude/sentinel/`)
+
+Every sentinel run writes three files to `.claude/sentinel/<SENTINEL-ID>/` regardless of pass/fail:
+
+```
+.claude/sentinel/
+└── SENTINEL-T001/
+    ├── manifest.json     # Full structured record (result, tier, iterations, cost, files, etc.)
+    ├── diff.patch        # git diff HEAD output (empty file if no changes)
+    └── summary.md        # Human-readable summary injected into next task agent's context
+```
+
+The `summary.md` is automatically injected into the next task's context via the UserPromptSubmit hook (`.claude/hooks/user-prompt-submit.sh`).
+
+### Configuration (`dev-kid.yml`)
+
+```yaml
+sentinel:
+  enabled: true          # false during sentinel's own build (bootstrap problem)
+  mode: auto             # or "human-gated" (pauses for approval on cascade)
+  tier1:
+    model: qwen3-coder:30b
+    ollama_url: http://192.168.0.159:11434
+    max_iterations: 5
+  tier2:
+    model: claude-sonnet-4-20250514
+    max_iterations: 10
+    max_budget_usd: 2.0
+    max_duration_min: 10
+  change_radius:
+    max_files: 3
+    max_lines: 150
+    allow_interface_changes: false
+  placeholder:
+    fail_on_detect: true
+    patterns: []          # merged with 13 built-in patterns
+    exclude_paths: []     # merged with always-excluded dirs
+```
+
+### CLI Command
+
+```bash
+dev-kid sentinel-status   # ASCII table: task, tier, iterations, files, result, cost
+```
+
+### Pipeline Flow
+
+```
+Task completed → SentinelRunner.run(task)
+  1. PlaceholderScanner.scan(file_locks)
+     └─ violations + fail_on_detect? → FAIL, halt wave immediately
+  2. detect_test_command(working_dir) → if None, skip test loop → PASS
+  3. TierRunner.run_tier1() → PASS? done
+     └─ FAIL → TierRunner.run_tier2() → PASS? done
+        └─ FAIL → result=FAIL, should_halt_wave=True
+  4. InterfaceDiff.compare() per modified file
+  5. ChangeRadiusEvaluator.evaluate() → budget exceeded?
+     ├─ mode=auto → CascadeAnalyzer.annotate_tasks()
+     └─ mode=human-gated → cascade_human_gated() → WaveHaltError on halt
+  6. ManifestWriter.write() — ALWAYS (try/finally)
+```
+
+### Bootstrap Problem
+
+`sentinel.enabled: false` during the sentinel's own build prevents the incomplete sentinel from validating itself. Set `enabled: true` only after all waves complete and tests pass.
+
+### When Working on Integration Sentinel
+
+- **Manifest MUST always be written**: Use try/finally in SentinelRunner.run() — the manifest write must succeed even on ERROR/exception paths
+- **No shell=True**: All subprocess calls use list form to prevent injection
+- **Tier 1 is free**: Ollama local model, no cost. Only escalate to Tier 2 on failure
+- **Bootstrap invariant**: Never set `sentinel.enabled: true` while sentinel modules have unimplemented stubs
+- **Change radius is additive**: Violations in `violations` list (strings: "files", "lines", "interface", "cross_wave") — always a list, never a single bool
+- **Private symbols excluded**: InterfaceDiff ignores Python functions/classes starting with `_`; TypeScript non-exported; Rust non-pub

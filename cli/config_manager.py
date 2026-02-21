@@ -44,6 +44,33 @@ class ConfigSchema:
     preferred_model: str = "sonnet"
     agent_timeout_minutes: int = 30
 
+    # Sentinel: master toggle
+    sentinel_enabled: bool = True
+
+    # Sentinel: operation mode
+    sentinel_mode: str = "auto"  # "auto" | "human-gated"
+
+    # Sentinel: Tier 1 (local Ollama)
+    sentinel_tier1_model: str = "qwen3-coder:30b"
+    sentinel_tier1_ollama_url: str = "http://192.168.0.159:11434"
+    sentinel_tier1_max_iterations: int = 5
+
+    # Sentinel: Tier 2 (cloud)
+    sentinel_tier2_model: str = "claude-sonnet-4-20250514"
+    sentinel_tier2_max_iterations: int = 10
+    sentinel_tier2_max_budget_usd: float = 2.0
+    sentinel_tier2_max_duration_min: int = 10
+
+    # Sentinel: change radius
+    sentinel_radius_max_files: int = 3
+    sentinel_radius_max_lines: int = 150
+    sentinel_radius_allow_interface_changes: bool = False
+
+    # Sentinel: placeholder scanner
+    sentinel_placeholder_fail_on_detect: bool = True
+    sentinel_placeholder_patterns: list = field(default_factory=list)
+    sentinel_placeholder_exclude_paths: list = field(default_factory=list)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return {
@@ -67,6 +94,31 @@ class ConfigSchema:
             "agents": {
                 "preferred_model": self.preferred_model,
                 "timeout_minutes": self.agent_timeout_minutes
+            },
+            "sentinel": {
+                "enabled": self.sentinel_enabled,
+                "mode": self.sentinel_mode,
+                "tier1": {
+                    "model": self.sentinel_tier1_model,
+                    "ollama_url": self.sentinel_tier1_ollama_url,
+                    "max_iterations": self.sentinel_tier1_max_iterations,
+                },
+                "tier2": {
+                    "model": self.sentinel_tier2_model,
+                    "max_iterations": self.sentinel_tier2_max_iterations,
+                    "max_budget_usd": self.sentinel_tier2_max_budget_usd,
+                    "max_duration_min": self.sentinel_tier2_max_duration_min,
+                },
+                "change_radius": {
+                    "max_files": self.sentinel_radius_max_files,
+                    "max_lines": self.sentinel_radius_max_lines,
+                    "allow_interface_changes": self.sentinel_radius_allow_interface_changes,
+                },
+                "placeholder": {
+                    "fail_on_detect": self.sentinel_placeholder_fail_on_detect,
+                    "patterns": self.sentinel_placeholder_patterns,
+                    "exclude_paths": self.sentinel_placeholder_exclude_paths,
+                }
             }
         }
 
@@ -78,6 +130,12 @@ class ConfigSchema:
         mcp = data.get("mcp_servers", {})
         cli = data.get("cli", {})
         agents = data.get("agents", {})
+
+        sentinel = data.get("sentinel", {})
+        tier1 = sentinel.get("tier1", {})
+        tier2 = sentinel.get("tier2", {})
+        radius = sentinel.get("change_radius", {})
+        placeholder = sentinel.get("placeholder", {})
 
         return cls(
             task_watchdog_minutes=task_orch.get("task_watchdog_minutes", 7),
@@ -92,7 +150,22 @@ class ConfigSchema:
             auto_git_commit=cli.get("auto_git_commit", False),
             git_commit_prefix=cli.get("git_commit_prefix", "[dev-kid]"),
             preferred_model=agents.get("preferred_model", "sonnet"),
-            agent_timeout_minutes=agents.get("timeout_minutes", 30)
+            agent_timeout_minutes=agents.get("timeout_minutes", 30),
+            sentinel_enabled=sentinel.get("enabled", True),
+            sentinel_mode=sentinel.get("mode", "auto"),
+            sentinel_tier1_model=tier1.get("model", "qwen3-coder:30b"),
+            sentinel_tier1_ollama_url=tier1.get("ollama_url", "http://192.168.0.159:11434"),
+            sentinel_tier1_max_iterations=tier1.get("max_iterations", 5),
+            sentinel_tier2_model=tier2.get("model", "claude-sonnet-4-20250514"),
+            sentinel_tier2_max_iterations=tier2.get("max_iterations", 10),
+            sentinel_tier2_max_budget_usd=tier2.get("max_budget_usd", 2.0),
+            sentinel_tier2_max_duration_min=tier2.get("max_duration_min", 10),
+            sentinel_radius_max_files=radius.get("max_files", 3),
+            sentinel_radius_max_lines=radius.get("max_lines", 150),
+            sentinel_radius_allow_interface_changes=radius.get("allow_interface_changes", False),
+            sentinel_placeholder_fail_on_detect=placeholder.get("fail_on_detect", True),
+            sentinel_placeholder_patterns=placeholder.get("patterns", []),
+            sentinel_placeholder_exclude_paths=placeholder.get("exclude_paths", []),
         )
 
 
@@ -351,6 +424,22 @@ class ConfigManager:
 
         if self.schema.agent_timeout_minutes < 5 or self.schema.agent_timeout_minutes > 120:
             issues.append("agent_timeout_minutes must be 5-120")
+
+        # Validate sentinel settings
+        if self.schema.sentinel_mode not in ("auto", "human-gated"):
+            issues.append(f"sentinel.mode must be 'auto' or 'human-gated', got: {self.schema.sentinel_mode!r}")
+
+        if self.schema.sentinel_tier1_max_iterations < 1:
+            issues.append("sentinel.tier1.max_iterations must be >= 1")
+
+        if self.schema.sentinel_tier2_max_budget_usd <= 0:
+            issues.append("sentinel.tier2.max_budget_usd must be > 0")
+
+        if self.schema.sentinel_radius_max_files < 1:
+            issues.append("sentinel.change_radius.max_files must be >= 1")
+
+        if self.schema.sentinel_radius_max_lines < 1:
+            issues.append("sentinel.change_radius.max_lines must be >= 1")
 
         is_valid = len(issues) == 0
 
