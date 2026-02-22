@@ -99,9 +99,17 @@ mkdir -p .claude/hooks
 cp -r "$TEMPLATES/.claude/hooks/"* .claude/hooks/ || { echo "❌ Failed to copy hooks"; exit 1; }
 chmod +x .claude/hooks/*.sh
 
+# Copy dev-kid.yml (sentinel + orchestration config) if not already present
+DEV_KID_ROOT="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+if [ ! -f "dev-kid.yml" ]; then
+    if [ -f "$DEV_KID_ROOT/dev-kid.yml" ]; then
+        cp "$DEV_KID_ROOT/dev-kid.yml" dev-kid.yml
+        echo "   ✅ Copied dev-kid.yml (sentinel config — edit to enable)"
+    fi
+fi
+
 # Initialize config.json
 echo "   Creating config.json..."
-DEV_KID_ROOT="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 python3 "$DEV_KID_ROOT/cli/config_manager.py" init --force > /dev/null 2>&1
 
 # Ask about constitution setup

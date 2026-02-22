@@ -149,6 +149,27 @@ cmd_orchestrate() {
 
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
 
+    # Auto-detect tasks.md if missing — check speckit locations
+    if [ ! -f "tasks.md" ] && [ ! -L "tasks.md" ]; then
+        BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+        FOUND=""
+
+        # Check .specify/specs/{branch}/tasks.md (speckit standard)
+        if [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+            FOUND=".specify/specs/$BRANCH/tasks.md"
+        fi
+
+        # Check specs/*/tasks.md (dev-kid speckit convention)
+        if [ -z "$FOUND" ]; then
+            FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | head -1)
+        fi
+
+        if [ -n "$FOUND" ]; then
+            echo -e "   ${YELLOW}ℹ${NC}  tasks.md not found — symlinking from speckit: $FOUND"
+            ln -sf "$FOUND" tasks.md
+        fi
+    fi
+
     # Run orchestrator
     python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
 }
