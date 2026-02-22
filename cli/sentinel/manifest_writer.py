@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cli.sentinel import ManifestData, ManifestPaths, TierResult
+    from . import ManifestData, ManifestPaths, TierResult
 
 
 class ManifestWriter:
@@ -51,7 +51,7 @@ class ManifestWriter:
         Raises:
             IOError: Only if the output directory cannot be created.
         """
-        from cli.sentinel import ManifestPaths
+        from . import ManifestPaths
 
         manifest_path = self._write_manifest_json(data)
         patch_path = self.write_diff_patch([fc['path'] for fc in data.files_changed])

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cli.sentinel import (
+    from . import (
         CascadeAnnotation,
         ChangeRadiusReport,
         InterfaceChangeReport,
@@ -50,7 +50,7 @@ class ChangeRadiusEvaluator:
         Returns:
             ChangeRadiusReport with budget_exceeded flag and violation list.
         """
-        from cli.sentinel import ChangeRadiusReport
+        from . import ChangeRadiusReport
 
         files_count = len(files_changed)
         lines_total = sum(
@@ -141,7 +141,7 @@ class CascadeAnalyzer:
         Returns:
             List of applied CascadeAnnotation objects.
         """
-        from cli.sentinel import CascadeAnnotation
+        from . import CascadeAnnotation
 
         if not tasks_file.exists():
             return []

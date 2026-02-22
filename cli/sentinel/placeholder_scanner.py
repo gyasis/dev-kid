@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cli.sentinel import PlaceholderViolation, SentinelConfig
+    from . import PlaceholderViolation, SentinelConfig
 
 
 # Built-in patterns that signal unfinished production code
@@ -84,7 +84,7 @@ class PlaceholderScanner:
         Returns:
             List of PlaceholderViolation objects (empty = clean).
         """
-        from cli.sentinel import PlaceholderViolation
+        from . import PlaceholderViolation
 
         violations: list[PlaceholderViolation] = []
 

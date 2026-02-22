@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cli.sentinel import SentinelConfig, SentinelResult
+    from . import SentinelConfig, SentinelResult
 
 
 def detect_test_command(working_dir: Path) -> str | None:
@@ -99,7 +99,7 @@ class SentinelRunner:
         Returns:
             SentinelResult with result, should_halt_wave, and pipeline data.
         """
-        from cli.sentinel import SentinelResult, TierResult
+        from . import SentinelResult, TierResult
 
         task_id = task.get('task_id', 'UNKNOWN')
         sentinel_id = f'SENTINEL-{task_id}'
@@ -121,7 +121,7 @@ class SentinelRunner:
         # Phase 1 (US2): Placeholder scan
         # ------------------------------------------------------------------
         try:
-            from cli.sentinel.placeholder_scanner import PlaceholderScanner
+            from .placeholder_scanner import PlaceholderScanner
             scanner = PlaceholderScanner.from_config(self._config)
             violations = scanner.scan(files)
             result_obj.placeholder_violations = violations
@@ -153,7 +153,7 @@ class SentinelRunner:
         # Phase 3 (US1): Tiered micro-agent test loop
         # ------------------------------------------------------------------
         try:
-            from cli.sentinel.tier_runner import TierRunner
+            from .tier_runner import TierRunner
             runner = TierRunner(self._config)
 
             objective = task.get('instruction', f'Verify task {task_id} output passes tests')
@@ -224,9 +224,9 @@ class SentinelRunner:
             result_obj: SentinelResult to update with cascade information.
             files: Resolved file paths that may have been modified.
         """
-        from cli.sentinel import InterfaceChangeReport
-        from cli.sentinel.cascade_analyzer import CascadeAnalyzer, ChangeRadiusEvaluator
-        from cli.sentinel.interface_diff import InterfaceDiff
+        from . import InterfaceChangeReport
+        from .cascade_analyzer import CascadeAnalyzer, ChangeRadiusEvaluator
+        from .interface_diff import InterfaceDiff
 
         if not files:
             return
@@ -297,7 +297,7 @@ class SentinelRunner:
         mode = getattr(self._config, 'sentinel_mode', 'auto')
 
         if mode == 'human-gated':
-            from cli.sentinel.cascade_analyzer import cascade_human_gated
+            from .cascade_analyzer import cascade_human_gated
             from cli.wave_executor import WaveHaltError  # type: ignore[import]
             try:
                 cascade_human_gated(affected_ids, result_obj.sentinel_id)
@@ -328,8 +328,8 @@ class SentinelRunner:
         import subprocess
         from datetime import datetime, timezone
 
-        from cli.sentinel import ManifestData, TierResult
-        from cli.sentinel.manifest_writer import ManifestWriter
+        from . import ManifestData, TierResult
+        from .manifest_writer import ManifestWriter
 
         sentinel_id = result_obj.sentinel_id
         output_dir = self._project_root / '.claude' / 'sentinel' / sentinel_id

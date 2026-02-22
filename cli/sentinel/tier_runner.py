@@ -17,7 +17,7 @@ import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cli.sentinel import SentinelConfig, TierResult
+    from . import SentinelConfig, TierResult
 
 
 def check_ollama_available(base_url: str) -> bool:
@@ -68,7 +68,7 @@ class TierRunner:
         Returns:
             TierResult with attempted/skipped/passed flags.
         """
-        from cli.sentinel import TierResult
+        from . import TierResult
 
         ollama_url = getattr(config, 'sentinel_tier1_ollama_url', 'http://192.168.0.159:11434')
         model = getattr(config, 'sentinel_tier1_model', 'qwen3-coder:30b')
@@ -141,7 +141,7 @@ class TierRunner:
         Returns:
             TierResult with full result data.
         """
-        from cli.sentinel import TierResult
+        from . import TierResult
 
         model = getattr(config, 'sentinel_tier2_model', 'claude-sonnet-4-20250514')
         max_iter = getattr(config, 'sentinel_tier2_max_iterations', 10)

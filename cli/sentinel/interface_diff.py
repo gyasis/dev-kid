@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cli.sentinel import InterfaceChangeReport
+    from . import InterfaceChangeReport
 
 # ---------------------------------------------------------------------------
 # TypeScript / JavaScript patterns
@@ -72,7 +72,7 @@ class InterfaceDiff:
         Returns:
             InterfaceChangeReport — never raises.
         """
-        from cli.sentinel import InterfaceChangeReport
+        from . import InterfaceChangeReport
 
         ext = Path(file_path).suffix.lower()
         language = self._EXT_MAP.get(ext, 'unknown')
@@ -108,7 +108,7 @@ class InterfaceDiff:
         base: 'InterfaceChangeReport',
     ) -> 'InterfaceChangeReport':
         """Python AST-based comparison."""
-        from cli.sentinel import InterfaceChangeReport
+        from . import InterfaceChangeReport
 
         try:
             pre_syms = _extract_python_symbols(pre)
@@ -171,7 +171,7 @@ class InterfaceDiff:
         base: 'InterfaceChangeReport',
     ) -> 'InterfaceChangeReport':
         """TypeScript/JavaScript regex-based comparison."""
-        from cli.sentinel import InterfaceChangeReport
+        from . import InterfaceChangeReport
 
         pre_syms = _extract_ts_symbols(pre)
         post_syms = _extract_ts_symbols(post)
@@ -198,7 +198,7 @@ class InterfaceDiff:
         base: 'InterfaceChangeReport',
     ) -> 'InterfaceChangeReport':
         """Rust regex-based comparison."""
-        from cli.sentinel import InterfaceChangeReport
+        from . import InterfaceChangeReport
 
         pre_syms = _extract_rust_symbols(pre)
         post_syms = _extract_rust_symbols(post)
