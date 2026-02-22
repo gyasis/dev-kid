@@ -14,6 +14,8 @@ cd dev-kid
 
 That's it! No `.sh` extension, no complex setup. One command installs everything.
 
+> **Integration Sentinel** is configured in `dev-kid.yml` with `sentinel.enabled: true/false`. Enable it to activate automatic micro-agent test validation after every task before wave checkpoints commit.
+
 ## Key Features
 
 ### 🌊 Wave-Based Task Orchestration
@@ -37,6 +39,15 @@ That's it! No `.sh` extension, no complex setup. One command installs everything
 - **Active Context**: Current focus and next actions
 - **Progress Tracking**: Task completion metrics
 - **Work Log**: Daily work entries
+
+### 🛡️ Integration Sentinel (Micro-Agent Test Loop)
+- **Automatic Validation**: After every task, a micro-agent runs your test suite before the wave checkpoint commits
+- **Tiered Model Strategy**: Tier 1 = local Ollama (free, fast, max 5 iterations) → Tier 2 = cloud model (on Tier 1 exhaustion)
+- **Placeholder Scanner**: Detects TODO/FIXME/stub patterns in production code — blocks checkpoint on violation
+- **Cascade Analysis**: If a task's changes exceed the change radius budget (>3 files, >150 lines, or interface breaks), pending tasks are annotated with cascade warnings
+- **Granularity Control**: Choose per-task, per-wave, or per-N injection in dev-kid.yml
+- **Always-Written Manifest**: Each sentinel run writes manifest.json + diff.patch + summary.md to .claude/sentinel/<id>/
+- **Context Injection**: Latest sentinel summary auto-injected into every Claude Code prompt via hook
 
 ### 🛡️ Context Protection
 - **Active Stack**: <500 token current focus

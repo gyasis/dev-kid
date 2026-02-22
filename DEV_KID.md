@@ -11,11 +11,12 @@
 1. [Overview](#overview)
 2. [Task Orchestration System](#task-orchestration-system)
 3. [Claude Code Hooks](#claude-code-hooks)
-4. [Complete CLI Implementation](#complete-cli-implementation)
-5. [Core Skills (All 6)](#core-skills)
-6. [Bash Scripts & Runtime](#bash-scripts--runtime)
-7. [Installation](#installation)
-8. [Usage](#usage)
+4. [Integration Sentinel Subsystem](#integration-sentinel-subsystem)
+5. [Complete CLI Implementation](#complete-cli-implementation)
+6. [Core Skills (All 6)](#core-skills)
+7. [Bash Scripts & Runtime](#bash-scripts--runtime)
+8. [Installation](#installation)
+9. [Usage](#usage)
 
 ---
 
@@ -24,6 +25,7 @@
 **Dev-Kid** is a complete development workflow system that provides:
 
 - **Wave-Based Task Orchestration**: Parallel execution with dependency management and file locking
+- **Integration Sentinel**: Per-task micro-agent test loop validates every task output before wave checkpoint
 - **Memory Bank**: Persistent institutional memory across sessions
 - **Skills Layer**: Auto-activating workflows for common operations
 - **Context Protection**: Compression-aware state management
@@ -749,6 +751,139 @@ Hooks active immediately
 ```
 
 **Reference**: See [HOOKS_REFERENCE.md](HOOKS_REFERENCE.md) for complete guide.
+
+---
+
+## Integration Sentinel Subsystem
+
+The Integration Sentinel is a per-task micro-agent validation loop that runs automatically after each developer task completes, before the wave checkpoint is committed.
+
+### Module Map (`cli/sentinel/`)
+
+```
+cli/sentinel/
+├── __init__.py            # Shared dataclasses: SentinelResult, TierResult,
+│                          #   ManifestData, PlaceholderViolation, etc.
+├── runner.py              # SentinelRunner.run() — main pipeline entry point
+│                          #   + detect_test_command()
+├── tier_runner.py         # TierRunner: run_tier1(), run_tier2()
+│                          #   + check_ollama_available()
+├── placeholder_scanner.py # PlaceholderScanner: scan() + is_excluded()
+├── interface_diff.py      # InterfaceDiff.compare() — Python AST, TS regex, Rust
+├── manifest_writer.py     # ManifestWriter: write(), write_diff_patch(),
+│                          #   write_summary_md()
+├── cascade_analyzer.py    # ChangeRadiusEvaluator.evaluate()
+│                          #   + CascadeAnalyzer.annotate_tasks()
+│                          #   + cascade_human_gated()
+└── status_reporter.py     # sentinel-status ASCII dashboard
+```
+
+### Pipeline Flow
+
+```
+wave_executor.py: execute_task()
+  └── task["agent_role"] == "Sentinel"
+        └── SentinelRunner.run(task)
+              ├── Phase 1: PlaceholderScanner.scan(files)
+              │     └── violations + fail_on_detect → FAIL + halt
+              ├── Phase 2: detect_test_command(project_root)
+              │     └── None → PASS (skip loop, no framework)
+              ├── Phase 3: TierRunner
+              │     ├── run_tier1()  [Ollama, free, max 5 iter]
+              │     │     └── pass → PASS, tier_used=1
+              │     └── run_tier2()  [cloud, $2 budget, max 10 iter]
+              │           ├── pass → PASS, tier_used=2
+              │           └── fail → FAIL + WaveHaltError
+              ├── Phase 4: _run_cascade_phase()
+              │     ├── InterfaceDiff.compare() per file
+              │     ├── ChangeRadiusEvaluator.evaluate()
+              │     └── budget_exceeded → CascadeAnalyzer.annotate_tasks()
+              └── Phase 5: _write_manifest()
+                    └── .claude/sentinel/<sentinel_id>/
+                          ├── manifest.json
+                          ├── diff.patch
+                          └── summary.md   ← injected into next prompt
+```
+
+### Configuration (`dev-kid.yml`)
+
+```yaml
+sentinel:
+  enabled: true              # false to disable entirely
+  mode: auto                 # auto | human-gated
+
+  # Injection granularity — how often sentinel tasks are inserted:
+  injection_granularity: per-task   # per-task | per-wave | per-n
+  injection_n: 3                    # used when per-n is selected
+
+  tier1:
+    model: qwen3-coder:30b
+    ollama_url: http://192.168.0.159:11434
+    max_iterations: 5
+
+  tier2:
+    model: claude-sonnet-4-20250514
+    max_iterations: 10
+    max_budget_usd: 2.0
+    max_duration_min: 10
+
+  change_radius:
+    max_files: 3
+    max_lines: 150
+    allow_interface_changes: false
+
+  placeholder:
+    fail_on_detect: true
+    patterns: []        # extra regex patterns beyond built-ins
+    exclude_paths: []   # extra paths beyond tests/, __mocks__/, test_*.py
+```
+
+### Injection Granularity Modes
+
+| Mode | Sentinel tasks inserted | Best for |
+|------|------------------------|----------|
+| `per-task` | After every developer task | Maximum coverage (default) |
+| `per-wave` | One at end of each wave | Fastest execution, large waves |
+| `per-n` | Every N developer tasks | Balanced — set `injection_n` |
+
+### Runtime Output
+
+Each sentinel run writes to `.claude/sentinel/<SENTINEL-ID>/`:
+
+| File | Contents |
+|------|----------|
+| `manifest.json` | Full structured result: tier used, iterations, cost, files changed, violations, cascade info |
+| `diff.patch` | `git diff HEAD` output for modified files |
+| `summary.md` | Human-readable markdown — auto-injected into next Claude Code prompt |
+
+### Orchestrator Announcement
+
+When `dev-kid orchestrate` runs, it prints whether sentinel is active:
+
+```
+🛡️  Integration Sentinel: ENABLED
+   Tier 1 → micro-agent via Ollama  (qwen3-coder:30b @ http://192.168.0.159:11434)
+   Tier 2 → micro-agent via cloud   (claude-sonnet-4-20250514, on Tier 1 exhaustion)
+   Granularity: per-task  (SENTINEL after every task)
+   Injected 6 SENTINEL tasks across waves
+```
+
+or when disabled:
+
+```
+⬜ Integration Sentinel: DISABLED  (no micro-agent testing)
+   Set sentinel.enabled: true in dev-kid.yml to activate.
+```
+
+### CLI Command
+
+```bash
+dev-kid sentinel-status   # ASCII dashboard of all sentinel runs this session
+```
+
+### Bootstrap Note
+
+`sentinel.enabled` should be `false` while building the sentinel subsystem itself (prevents an incomplete sentinel from validating its own construction). Set it to `true` for all other features.
 
 ---
 
