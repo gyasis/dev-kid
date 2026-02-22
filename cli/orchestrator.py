@@ -166,15 +166,26 @@ class TaskOrchestrator:
         """Group tasks into execution waves"""
         dependency_graph = self.analyze_dependencies()
 
-        # Track which tasks are completed (wave assignment)
-        assigned_tasks = set()
+        # Skip tasks already marked [x] in tasks.md — never re-execute
+        pending_tasks = [t for t in self.tasks if not t.completed]
+        skipped = len(self.tasks) - len(pending_tasks)
+        if skipped:
+            print(f"   Skipping {skipped} already-completed task(s) [x]")
+
+        # Track which tasks are assigned (seed with completed task IDs so
+        # dependency resolution works correctly for remaining tasks)
+        assigned_tasks = {t.id for t in self.tasks if t.completed}
         wave_id = 1
 
         while len(assigned_tasks) < len(self.tasks):
+            # Only consider pending (incomplete) tasks for wave assignment
+            remaining = [t for t in pending_tasks if t.id not in assigned_tasks]
+            if not remaining:
+                break
             wave_tasks = []
             wave_files = set()
 
-            for task in self.tasks:
+            for task in remaining:
                 if task.id in assigned_tasks:
                     continue
 
