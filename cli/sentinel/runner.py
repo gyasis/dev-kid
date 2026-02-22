@@ -298,7 +298,7 @@ class SentinelRunner:
 
         if mode == 'human-gated':
             from .cascade_analyzer import cascade_human_gated
-            from cli.wave_executor import WaveHaltError  # type: ignore[import]
+            from ..wave_executor import WaveHaltError  # type: ignore[import]
             try:
                 cascade_human_gated(affected_ids, result_obj.sentinel_id)
             except WaveHaltError:

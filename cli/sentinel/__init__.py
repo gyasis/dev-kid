@@ -164,7 +164,7 @@ class ManifestPaths:
 # consistent naming across sentinel modules.
 
 try:
-    from cli.config_manager import ConfigSchema as SentinelConfig  # type: ignore[attr-defined]
+    from ..config_manager import ConfigSchema as SentinelConfig  # type: ignore[attr-defined]
 except ImportError:
     SentinelConfig = object  # type: ignore[misc,assignment]
 
