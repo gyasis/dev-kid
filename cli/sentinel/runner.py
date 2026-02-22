@@ -192,9 +192,12 @@ class SentinelRunner:
             print(f"      ❌ Sentinel error: {exc}")
 
         # ------------------------------------------------------------------
-        # Phase 4 (US3/US4): Interface diff, radius, cascade — stubbed
-        # Full integration deferred to Wave 6 (T033).
+        # Phase 4 (US3/US4): Interface diff, change radius, cascade (T033)
         # ------------------------------------------------------------------
+        try:
+            self._run_cascade_phase(result_obj, files)
+        except Exception as exc:
+            print(f"      ⚠️  Cascade analysis error (non-fatal): {exc}")
 
         # ------------------------------------------------------------------
         # Phase 5 (US3): Manifest writing (T023)
@@ -206,6 +209,107 @@ class SentinelRunner:
             print(f"      ⚠️  Manifest write error (non-fatal): {exc}")
 
         return result_obj
+
+    def _run_cascade_phase(
+        self,
+        result_obj: 'SentinelResult',
+        files: list,
+    ) -> None:
+        """Run InterfaceDiff, ChangeRadiusEvaluator, and CascadeAnalyzer.
+
+        Populates result_obj.interface_changes, cascade_triggered, and
+        cascade_tasks_annotated in place.
+
+        Args:
+            result_obj: SentinelResult to update with cascade information.
+            files: Resolved file paths that may have been modified.
+        """
+        from cli.sentinel import InterfaceChangeReport
+        from cli.sentinel.cascade_analyzer import CascadeAnalyzer, ChangeRadiusEvaluator
+        from cli.sentinel.interface_diff import InterfaceDiff
+
+        if not files:
+            return
+
+        # --- Interface diff for each modified file ---
+        differ = InterfaceDiff()
+        interface_reports: list[InterfaceChangeReport] = []
+        for f in files:
+            if not f.exists():
+                continue
+            try:
+                post_content = f.read_text(encoding='utf-8', errors='replace')
+                # Use git show HEAD:<file> as pre-content (fallback: empty)
+                import subprocess
+                rel = str(f.relative_to(self._project_root)) if f.is_absolute() else str(f)
+                git_result = subprocess.run(
+                    ['git', 'show', f'HEAD:{rel}'],
+                    capture_output=True, text=True, check=False, timeout=10,
+                    cwd=str(self._project_root),
+                )
+                pre_content = git_result.stdout if git_result.returncode == 0 else ''
+                report = differ.compare(f, pre_content, post_content)
+                interface_reports.append(report)
+            except Exception:
+                continue
+
+        # --- Change radius evaluation ---
+        files_changed = [
+            {'path': str(f.relative_to(self._project_root) if f.is_absolute() else f),
+             'lines_added': 0, 'lines_removed': 0}
+            for f in files if f.exists()
+        ]
+
+        # Load execution plan for cross-wave detection (best-effort)
+        execution_plan: dict = {}
+        try:
+            import json
+            ep_path = self._project_root / 'execution_plan.json'
+            if ep_path.exists():
+                execution_plan = json.loads(ep_path.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+
+        evaluator = ChangeRadiusEvaluator(self._config)
+        radius_report = evaluator.evaluate(files_changed, interface_reports, execution_plan)
+
+        # Store interface reports in result_obj for manifest assembly
+        result_obj.interface_reports = interface_reports
+
+        if not radius_report.budget_exceeded:
+            return
+
+        # --- Cascade analysis ---
+        result_obj.cascade_triggered = True
+
+        # Find pending tasks in other waves that may be affected
+        affected_ids: list[str] = []
+        try:
+            for wave in execution_plan.get('execution_plan', {}).get('waves', []):
+                for t in wave.get('tasks', []):
+                    if t.get('task_id') != result_obj.task_id:
+                        affected_ids.append(t['task_id'])
+        except Exception:
+            pass
+
+        cascade = CascadeAnalyzer()
+        tasks_file = self._project_root / 'tasks.md'
+        mode = getattr(self._config, 'sentinel_mode', 'auto')
+
+        if mode == 'human-gated':
+            from cli.sentinel.cascade_analyzer import cascade_human_gated
+            from cli.wave_executor import WaveHaltError  # type: ignore[import]
+            try:
+                cascade_human_gated(affected_ids, result_obj.sentinel_id)
+            except WaveHaltError:
+                result_obj.should_halt_wave = True
+                result_obj.result = 'FAIL'
+                return
+
+        annotations = cascade.annotate_tasks(
+            affected_ids, result_obj.sentinel_id, interface_reports, tasks_file
+        )
+        result_obj.cascade_tasks_annotated = [a.task_id for a in annotations]
 
     def _write_manifest(
         self,
@@ -255,6 +359,19 @@ class SentinelRunner:
         tier1 = result_obj.tier1_result or TierResult()
         tier2 = result_obj.tier2_result or TierResult()
 
+        # Build interface_changes dict for ManifestData from stored reports
+        iface_reports = getattr(result_obj, 'interface_reports', []) or []
+        breaking: list[str] = []
+        non_breaking: list[str] = []
+        for r in iface_reports:
+            breaking.extend(getattr(r, 'breaking_changes', []))
+            non_breaking.extend(getattr(r, 'non_breaking_changes', []))
+        interface_changes = {
+            'breaking': breaking,
+            'non_breaking': non_breaking,
+            'is_breaking': bool(breaking),
+        }
+
         data = ManifestData(
             task_id=result_obj.task_id,
             sentinel_id=sentinel_id,
@@ -268,8 +385,10 @@ class SentinelRunner:
                 for v in (result_obj.placeholder_violations or [])
             ],
             files_changed=files_changed,
+            interface_changes=interface_changes,
             fix_reason=getattr(result_obj, 'error_message', '') or '',
             cascade_triggered=bool(getattr(result_obj, 'cascade_triggered', False)),
+            cascade_tasks_annotated=list(getattr(result_obj, 'cascade_tasks_annotated', []) or []),
         )
 
         writer.write(data)
