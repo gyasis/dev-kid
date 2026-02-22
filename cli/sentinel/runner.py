@@ -193,12 +193,84 @@ class SentinelRunner:
 
         # ------------------------------------------------------------------
         # Phase 4 (US3/US4): Interface diff, radius, cascade — stubbed
-        # Populated by Wave 3/4 implementation of SentinelRunner.run() integration.
+        # Full integration deferred to Wave 6 (T033).
         # ------------------------------------------------------------------
 
         # ------------------------------------------------------------------
-        # Phase 5 (US3): Manifest writing — stubbed
-        # ManifestWriter integration added in T023 (Wave 3).
+        # Phase 5 (US3): Manifest writing (T023)
+        # Runs in try/finally so manifest is ALWAYS written (even on ERROR).
         # ------------------------------------------------------------------
+        try:
+            self._write_manifest(result_obj, files)
+        except Exception as exc:
+            print(f"      ⚠️  Manifest write error (non-fatal): {exc}")
 
         return result_obj
+
+    def _write_manifest(
+        self,
+        result_obj: 'SentinelResult',
+        files: list,
+    ) -> None:
+        """Assemble ManifestData from result_obj and write all three manifest files.
+
+        Output directory: <project_root>/.claude/sentinel/<sentinel_id>/
+
+        Args:
+            result_obj: Completed SentinelResult.
+            task: Original task dict (for instruction / parent context).
+            files: Resolved file paths that were scanned / modified.
+        """
+        import subprocess
+        from datetime import datetime, timezone
+
+        from cli.sentinel import ManifestData, TierResult
+        from cli.sentinel.manifest_writer import ManifestWriter
+
+        sentinel_id = result_obj.sentinel_id
+        output_dir = self._project_root / '.claude' / 'sentinel' / sentinel_id
+        writer = ManifestWriter(output_dir)
+
+        # Collect git diff stats for each file (lines added/removed)
+        files_changed: list[dict] = []
+        for f in files:
+            rel = str(f.relative_to(self._project_root)) if f.is_absolute() else str(f)
+            try:
+                diff_stat = subprocess.run(
+                    ['git', 'diff', '--numstat', 'HEAD', '--', rel],
+                    capture_output=True, text=True, check=False, timeout=10,
+                    cwd=str(self._project_root),
+                )
+                if diff_stat.returncode == 0 and diff_stat.stdout.strip():
+                    parts = diff_stat.stdout.strip().split()
+                    added = int(parts[0]) if parts[0].isdigit() else 0
+                    removed = int(parts[1]) if parts[1].isdigit() else 0
+                    files_changed.append({'path': rel, 'lines_added': added, 'lines_removed': removed})
+                elif f.exists():
+                    files_changed.append({'path': rel, 'lines_added': 0, 'lines_removed': 0})
+            except Exception:
+                if f.exists():
+                    files_changed.append({'path': rel, 'lines_added': 0, 'lines_removed': 0})
+
+        tier1 = result_obj.tier1_result or TierResult()
+        tier2 = result_obj.tier2_result or TierResult()
+
+        data = ManifestData(
+            task_id=result_obj.task_id,
+            sentinel_id=sentinel_id,
+            result=result_obj.result,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            tier_used=getattr(result_obj, 'tier_used', 1),
+            tier1_result=tier1,
+            tier2_result=tier2,
+            placeholder_violations=[
+                {'file': str(v.file_path), 'line': v.line_number, 'pattern': v.matched_pattern}
+                for v in (result_obj.placeholder_violations or [])
+            ],
+            files_changed=files_changed,
+            fix_reason=getattr(result_obj, 'error_message', '') or '',
+            cascade_triggered=bool(getattr(result_obj, 'cascade_triggered', False)),
+        )
+
+        writer.write(data)
+        writer.write_diff_patch([fc['path'] for fc in files_changed])

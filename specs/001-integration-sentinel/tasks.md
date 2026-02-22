@@ -85,7 +85,7 @@
 ### Implementation for User Story 3
 
 - [x] T022 [US3] Implement `ManifestWriter` class in `cli/sentinel/manifest_writer.py`: `__init__(output_dir: Path)`; `write(data: ManifestData) -> ManifestPaths`; writes `manifest.json` (validated JSON), `diff.patch` (from `git diff HEAD -- <files>`, empty file if no changes), `summary.md` (PASS and FAIL templates from `contracts/change-manifest.md`); creates output dir if not exists; never raises on FAIL result
-- [ ] T023 [US3] Integrate `ManifestWriter` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: call after test loop and placeholder scan complete (win or lose); assemble full `ManifestData` from tier results, placeholder violations, files changed (from git diff stats), interface changes, cascade info; write to `.claude/sentinel/<sentinel_id>/`; ensure manifest write happens even in ERROR result path (use try/finally)
+- [x] T023 [US3] Integrate `ManifestWriter` into `SentinelRunner.run()` in `cli/sentinel/runner.py`: call after test loop and placeholder scan complete (win or lose); assemble full `ManifestData` from tier results, placeholder violations, files changed (from git diff stats), interface changes, cascade info; write to `.claude/sentinel/<sentinel_id>/`; ensure manifest write happens even in ERROR result path (use try/finally)
 - [x] T024 [US3] Extend UserPromptSubmit hook in `.claude/hooks/user-prompt-submit.sh`: after existing git branch/constitution injection, check for latest sentinel `summary.md` in `.claude/sentinel/` for current task context; if found, inject contents into hook output JSON `additionalContext` field; only inject most recent summary (not all)
 - [x] T025 [P] [US3] Write unit tests for `ManifestWriter` in `tests/unit/sentinel/test_manifest_writer.py`: test manifest.json written with correct schema; test diff.patch written (empty when no changes); test summary.md written for PASS and FAIL cases; test no exception raised on FAIL result
 - [x] T026 [P] [US3] Write contract test for manifest.json schema in `tests/contract/sentinel/test_manifest_schema.py`: validate all required fields present (result, timestamp, tier_used, tiers, files_changed, interface_changes, tests_fixed, tests_still_failing, radius); validate result is one of PASS/FAIL/ERROR
@@ -125,7 +125,7 @@
 ### Implementation for User Story 5
 
 - [x] T036 [US5] Add `sentinel-status` command routing in `cli/dev-kid` (Bash): add `sentinel-status)` case to command routing; call `python3 cli/sentinel/status_reporter.py --project-root "$PROJECT_ROOT"`
-- [ ] T037 [US5] Implement `cli/sentinel/status_reporter.py`: scan `.claude/sentinel/*/manifest.json` files; parse each manifest; render ASCII table with columns: Task, Sentinel ID, Tier Used, Iterations, Files Changed, Lines Changed, Placeholders, Result, Duration; sort by timestamp; print session totals (total runs, tier1-only count, tier2-escalation count, failure count)
+- [x] T037 [US5] Implement `cli/sentinel/status_reporter.py`: scan `.claude/sentinel/*/manifest.json` files; parse each manifest; render ASCII table with columns: Task, Sentinel ID, Tier Used, Iterations, Files Changed, Lines Changed, Placeholders, Result, Duration; sort by timestamp; print session totals (total runs, tier1-only count, tier2-escalation count, failure count)
 - [x] T038 [P] [US5] Write integration test for sentinel-disabled scenario in `tests/integration/sentinel/test_injection_round_trip.py`: load config with `sentinel_enabled=False`; run orchestrator on fixture tasks.md; assert zero SENTINEL tasks in resulting execution_plan.json; assert tasks.md unchanged (no SENTINEL lines appended); verify plan is identical to pre-sentinel baseline
 
 **Checkpoint**: US5 complete — full operational control and monitoring verified.
@@ -139,7 +139,7 @@
 - [x] T039 [P] Update `CLAUDE.md` sentinel subsystem section: document `cli/sentinel/` module map (runner, tier_runner, placeholder_scanner, interface_diff, manifest_writer, cascade_analyzer, status_reporter), `.claude/sentinel/` runtime output convention, new `sentinel-status` CLI command
 - [x] T040 [P] Update `memory-bank/shared/systemPatterns.md` with Integration Sentinel pattern: sentinel task injection flow, manifest-always-written invariant, cascade radius decision tree
 - [x] T041 Run quickstart.md end-to-end validation: execute all steps in `quickstart.md` against a real test project initialized with `dev-kid init`; verify sentinel runs, manifest files appear, status dashboard shows correct data; document any deviations
-- [ ] T042 [P] Security review of subprocess calls in `cli/sentinel/tier_runner.py`: verify all subprocess inputs are sanitized (objective string, test command, file paths); no shell=True usage; no credential leakage in logged output; no path traversal in manifest output directory
+- [x] T042 [P] Security review of subprocess calls in `cli/sentinel/tier_runner.py`: verify all subprocess inputs are sanitized (objective string, test command, file paths); no shell=True usage; no credential leakage in logged output; no path traversal in manifest output directory
 
 ---
 
