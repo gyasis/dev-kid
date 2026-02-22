@@ -262,8 +262,79 @@ class TaskOrchestrator:
         except Exception:
             return False
 
+    def _load_sentinel_tier_info(self) -> tuple:
+        """Return (tier1_model, tier1_url, tier2_model) from dev-kid.yml, with defaults."""
+        defaults = ('qwen3-coder:30b', 'http://192.168.0.159:11434', 'claude-sonnet-4-20250514')
+        try:
+            yml_path = Path("dev-kid.yml")
+            if not yml_path.exists():
+                return defaults
+            content = yml_path.read_text(encoding='utf-8')
+            t1_model = t1_url = t2_model = None
+            in_sentinel = in_tier1 = in_tier2 = False
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith('sentinel:'):
+                    in_sentinel = True
+                    continue
+                if in_sentinel:
+                    if stripped.startswith('tier1:'):
+                        in_tier1, in_tier2 = True, False
+                    elif stripped.startswith('tier2:'):
+                        in_tier1, in_tier2 = False, True
+                    elif stripped and not line.startswith(' ') and ':' in stripped:
+                        break  # left sentinel block
+                    if in_tier1:
+                        if stripped.startswith('model:'):
+                            t1_model = stripped.split(':', 1)[1].strip()
+                        elif stripped.startswith('ollama_url:'):
+                            t1_url = stripped.split(':', 1)[1].strip()
+                    if in_tier2 and stripped.startswith('model:'):
+                        t2_model = stripped.split(':', 1)[1].strip()
+            return (
+                t1_model or defaults[0],
+                t1_url or defaults[1],
+                t2_model or defaults[2],
+            )
+        except Exception:
+            return defaults
+
+    def _load_sentinel_granularity(self) -> tuple:
+        """Return (granularity, n) from dev-kid.yml. Defaults: ('per-task', 3)."""
+        granularity = 'per-task'
+        n = 3
+        try:
+            yml_path = Path("dev-kid.yml")
+            if not yml_path.exists():
+                return (granularity, n)
+            content = yml_path.read_text(encoding='utf-8')
+            in_sentinel = False
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith('sentinel:'):
+                    in_sentinel = True
+                    continue
+                if in_sentinel:
+                    if stripped and not line.startswith(' ') and ':' in stripped:
+                        break
+                    if stripped.startswith('injection_granularity:'):
+                        granularity = stripped.split(':', 1)[1].strip()
+                    elif stripped.startswith('injection_n:'):
+                        try:
+                            n = int(stripped.split(':', 1)[1].strip())
+                        except ValueError:
+                            pass
+        except Exception:
+            pass
+        return (granularity, max(1, n))
+
     def _inject_sentinel_tasks(self, waves: List['Wave'], tasks_file: Path) -> None:
-        """Insert SENTINEL-<task_id> tasks after each developer task in each wave.
+        """Insert SENTINEL tasks according to injection_granularity in dev-kid.yml.
+
+        Granularity modes:
+          per-task : one SENTINEL after every developer task (default)
+          per-wave : one SENTINEL at end of each wave (covers all tasks in wave)
+          per-n    : one SENTINEL every N developer tasks within a wave
 
         Atomically appends matching '- [ ] SENTINEL-<id>: ...' lines to tasks.md.
         Called only when sentinel.enabled = true in dev-kid.yml.
@@ -272,31 +343,91 @@ class TaskOrchestrator:
             waves: List of Wave objects (modified in-place).
             tasks_file: Path to tasks.md for atomic append.
         """
+        granularity, n = self._load_sentinel_granularity()
         sentinel_lines_to_append: List[str] = []
 
         for wave in waves:
-            # Build list of sentinel tasks to insert (one per developer task)
+            dev_tasks = list(wave.tasks)
             injected: List[Dict] = []
-            for task in list(wave.tasks):
-                injected.append(task)
-                sentinel_id = f"SENTINEL-{task['task_id']}"
-                sentinel_instruction = f"Sentinel validation for {task['task_id']}: verify implementation passes tests"
+
+            if granularity == 'per-wave':
+                # One sentinel at the end of the wave, covering all tasks
+                injected.extend(dev_tasks)
+                last_task = dev_tasks[-1]
+                covered = ', '.join(t['task_id'] for t in dev_tasks)
+                sentinel_id = f"SENTINEL-W{wave.wave_id}"
+                sentinel_instruction = (
+                    f"Sentinel validation for wave {wave.wave_id} "
+                    f"({covered}): verify all implementations pass tests"
+                )
                 sentinel_task = {
                     "task_id": sentinel_id,
                     "agent_role": "Sentinel",
                     "instruction": sentinel_instruction,
-                    "file_locks": list(task.get("file_locks", [])),  # inherit file locks
+                    "file_locks": list(last_task.get("file_locks", [])),
                     "constitution_rules": [],
                     "completion_handshake": (
                         f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
                     ),
-                    "dependencies": [task["task_id"]],
-                    "parent_task_id": task["task_id"],
+                    "dependencies": [t['task_id'] for t in dev_tasks],
+                    "parent_task_id": last_task['task_id'],
                 }
                 injected.append(sentinel_task)
-                sentinel_lines_to_append.append(
-                    f"- [ ] {sentinel_id}: {sentinel_instruction}"
-                )
+                sentinel_lines_to_append.append(f"- [ ] {sentinel_id}: {sentinel_instruction}")
+
+            elif granularity == 'per-n':
+                # One sentinel every N developer tasks
+                for i, task in enumerate(dev_tasks):
+                    injected.append(task)
+                    if (i + 1) % n == 0 or i == len(dev_tasks) - 1:
+                        batch = dev_tasks[max(0, i + 1 - n):i + 1]
+                        covered = ', '.join(t['task_id'] for t in batch)
+                        sentinel_id = f"SENTINEL-{task['task_id']}"
+                        sentinel_instruction = (
+                            f"Sentinel validation for {covered}: verify implementations pass tests"
+                        )
+                        sentinel_task = {
+                            "task_id": sentinel_id,
+                            "agent_role": "Sentinel",
+                            "instruction": sentinel_instruction,
+                            "file_locks": list(task.get("file_locks", [])),
+                            "constitution_rules": [],
+                            "completion_handshake": (
+                                f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
+                            ),
+                            "dependencies": [t['task_id'] for t in batch],
+                            "parent_task_id": task['task_id'],
+                        }
+                        injected.append(sentinel_task)
+                        sentinel_lines_to_append.append(
+                            f"- [ ] {sentinel_id}: {sentinel_instruction}"
+                        )
+
+            else:
+                # per-task (default): one SENTINEL after every developer task
+                for task in dev_tasks:
+                    injected.append(task)
+                    sentinel_id = f"SENTINEL-{task['task_id']}"
+                    sentinel_instruction = (
+                        f"Sentinel validation for {task['task_id']}: verify implementation passes tests"
+                    )
+                    sentinel_task = {
+                        "task_id": sentinel_id,
+                        "agent_role": "Sentinel",
+                        "instruction": sentinel_instruction,
+                        "file_locks": list(task.get("file_locks", [])),
+                        "constitution_rules": [],
+                        "completion_handshake": (
+                            f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
+                        ),
+                        "dependencies": [task["task_id"]],
+                        "parent_task_id": task["task_id"],
+                    }
+                    injected.append(sentinel_task)
+                    sentinel_lines_to_append.append(
+                        f"- [ ] {sentinel_id}: {sentinel_instruction}"
+                    )
+
             wave.tasks = injected
 
         # Atomic append to tasks.md
@@ -351,15 +482,26 @@ class TaskOrchestrator:
 
         # Sentinel injection (post-wave-assignment, only if enabled)
         if self._load_sentinel_config():
-            print("🛡️  Injecting sentinel tasks (sentinel.enabled=true)...")
+            tier1_model, tier1_url, tier2_model = self._load_sentinel_tier_info()
+            granularity, n = self._load_sentinel_granularity()
+            granularity_label = {
+                'per-task': 'per-task  (SENTINEL after every task)',
+                'per-wave': 'per-wave  (one SENTINEL at end of each wave)',
+                'per-n':    f'per-{n}    (SENTINEL every {n} tasks)',
+            }.get(granularity, granularity)
+            print("🛡️  Integration Sentinel: ENABLED")
+            print(f"   Tier 1 → micro-agent via Ollama  ({tier1_model} @ {tier1_url})")
+            print(f"   Tier 2 → micro-agent via cloud   ({tier2_model}, on Tier 1 exhaustion)")
+            print(f"   Granularity: {granularity_label}")
             self._inject_sentinel_tasks(self.waves, self.tasks_file)
             sentinel_count = sum(
                 1 for w in self.waves for t in w.tasks
                 if isinstance(t, dict) and t.get('agent_role') == 'Sentinel'
             )
-            print(f"   Injected {sentinel_count} SENTINEL tasks")
+            print(f"   Injected {sentinel_count} SENTINEL tasks across waves")
         else:
-            print("ℹ️  Sentinel injection skipped (sentinel.enabled=false)")
+            print("⬜ Integration Sentinel: DISABLED  (no micro-agent testing)")
+            print("   Set sentinel.enabled: true in dev-kid.yml to activate.")
 
         plan = self.generate_execution_plan(phase_id)
 

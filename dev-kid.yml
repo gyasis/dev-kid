@@ -2,6 +2,13 @@ sentinel:
   enabled: false  # disabled until Integration Sentinel is fully built (feature/001-integration-sentinel)
   mode: auto
 
+  # Injection granularity — controls how often sentinel tasks are inserted:
+  #   per-task  : one SENTINEL after every developer task (default, maximum coverage)
+  #   per-wave  : one SENTINEL at the end of each wave (fastest, least granular)
+  #   per-n     : one SENTINEL every N developer tasks (balanced)
+  injection_granularity: per-task   # per-task | per-wave | per-n
+  injection_n: 3                    # only used when injection_granularity: per-n
+
   tier1:
     model: qwen3-coder:30b
     ollama_url: http://192.168.0.159:11434
