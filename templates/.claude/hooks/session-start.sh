@@ -1,51 +1,33 @@
 #!/usr/bin/env bash
 # SessionStart Hook - Restore context from last session
+# Claude Code: exit 0 = success
 
-set -e
+read -r EVENT_DATA || true
 
-# Read stdin
-read -r EVENT_DATA
+echo "" >> .claude/activity_stream.md 2>/dev/null || true
+echo "### $(date '+%Y-%m-%d %H:%M:%S') - Session Started" >> .claude/activity_stream.md 2>/dev/null || true
 
-# Log the event
-echo "" >> .claude/activity_stream.md
-echo "### $(date +%Y-%m-%d\ %H:%M:%S) - Session Started" >> .claude/activity_stream.md
-
-# Check if dev-kid is available
-if ! command -v dev-kid &> /dev/null; then
-    echo '{"status": "skipped", "message": "dev-kid not in PATH"}'
-    exit 0
+# Update AGENT_STATE
+if [ -f .claude/AGENT_STATE.json ]; then
+    python3 -c "
+import json, uuid
+from pathlib import Path
+from datetime import datetime
+f = Path('.claude/AGENT_STATE.json')
+try:
+    s = json.loads(f.read_text())
+    s['session_id'] = str(uuid.uuid4())
+    s['status'] = 'active'
+    s['last_session_start'] = datetime.now().isoformat()
+    f.write_text(json.dumps(s, indent=2))
+except Exception:
+    pass
+" 2>/dev/null || true
 fi
 
 # Restore from last snapshot
-if [ -f .claude/session_snapshots/snapshot_latest.json ]; then
-    echo "🔄 Restoring from last session..." >> .claude/activity_stream.md
-    dev-kid recall 2>/dev/null || echo "   ⚠️ Recall skipped (snapshot may be incomplete)"
-else
-    echo "ℹ️  No previous snapshot found - starting fresh" >> .claude/activity_stream.md
+if command -v dev-kid &>/dev/null && [ -f .claude/session_snapshots/snapshot_latest.json ]; then
+    dev-kid recall 2>/dev/null || true
 fi
 
-# Update AGENT_STATE with new session
-if [ -f .claude/AGENT_STATE.json ]; then
-    python3 << 'PYTHON'
-import json
-from pathlib import Path
-from datetime import datetime
-import uuid
-
-state_file = Path('.claude/AGENT_STATE.json')
-if state_file.exists():
-    with open(state_file) as f:
-        state = json.load(f)
-
-    state['session_id'] = str(uuid.uuid4())
-    state['status'] = 'active'
-    state['last_session_start'] = datetime.now().isoformat()
-
-    with open(state_file, 'w') as f:
-        json.dump(state, f, indent=2)
-PYTHON
-fi
-
-# Return success
-echo '{"status": "success", "message": "Session context restored"}'
 exit 0

@@ -1,44 +1,31 @@
 #!/usr/bin/env bash
 # SessionEnd Hook - Finalize session and create snapshot
+# Claude Code: exit 0 = success
 
-set -e
+read -r EVENT_DATA || true
 
-# Read stdin
-read -r EVENT_DATA
-
-# Log the event
-echo "" >> .claude/activity_stream.md
-echo "### $(date +%Y-%m-%d\ %H:%M:%S) - Session Ended" >> .claude/activity_stream.md
-
-# Check if dev-kid is available
-if ! command -v dev-kid &> /dev/null; then
-    echo '{"status": "skipped", "message": "dev-kid not in PATH"}'
-    exit 0
-fi
-
-# Finalize session (creates snapshot + checkpoint if needed)
-dev-kid finalize 2>/dev/null || echo "   ⚠️ Finalization skipped (may not be in dev-kid project)"
+echo "" >> .claude/activity_stream.md 2>/dev/null || true
+echo "### $(date '+%Y-%m-%d %H:%M:%S') - Session Ended" >> .claude/activity_stream.md 2>/dev/null || true
 
 # Update AGENT_STATE
 if [ -f .claude/AGENT_STATE.json ]; then
-    python3 << 'PYTHON'
+    python3 -c "
 import json
 from pathlib import Path
 from datetime import datetime
-
-state_file = Path('.claude/AGENT_STATE.json')
-if state_file.exists():
-    with open(state_file) as f:
-        state = json.load(f)
-
-    state['status'] = 'finalized'
-    state['last_session_end'] = datetime.now().isoformat()
-
-    with open(state_file, 'w') as f:
-        json.dump(state, f, indent=2)
-PYTHON
+f = Path('.claude/AGENT_STATE.json')
+try:
+    s = json.loads(f.read_text())
+    s['status'] = 'finalized'
+    s['last_session_end'] = datetime.now().isoformat()
+    f.write_text(json.dumps(s, indent=2))
+except Exception:
+    pass
+" 2>/dev/null || true
 fi
 
-# Return success
-echo '{"status": "success", "message": "Session finalized"}'
+if command -v dev-kid &>/dev/null; then
+    dev-kid finalize 2>/dev/null || true
+fi
+
 exit 0
