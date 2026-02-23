@@ -1,0 +1,154 @@
+{
+  "execution_plan": {
+    "phase_id": "Rebranding & Security Fixes",
+    "waves": [
+      {
+        "wave_id": 1,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "All documentation files are independent - can be updated simultaneously without conflicts",
+        "tasks": [
+          {
+            "task_id": "REBRAND-001",
+            "agent_role": "documentation-specialist",
+            "instruction": "Update README.md: Replace all 'claude-watchdog' with 'task-watchdog', 'Claude Watchdog' with 'Task Watchdog', 'CLAUDE_TASK_ID' with 'TASK_ID', and 'claude-task-' with 'dev-task-'",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/README.md"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-001 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "REBRAND-002",
+            "agent_role": "documentation-specialist",
+            "instruction": "Update INTEGRATION.md: Replace all 'claude-watchdog' with 'task-watchdog'",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/INTEGRATION.md"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-002 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "REBRAND-003",
+            "agent_role": "documentation-specialist",
+            "instruction": "Update DEV_PLANE.md: Replace all 'claude-watchdog' with 'task-watchdog'",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/DEV_PLANE.md"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-003 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "REBRAND-004",
+            "agent_role": "build-engineer",
+            "instruction": "Update build.sh: Replace 'claude-watchdog' binary references with 'task-watchdog'",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/build.sh"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-004 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "REBRAND-005",
+            "agent_role": "documentation-specialist",
+            "instruction": "Update SUPPORTED_TOOLS.md: Replace 'CLAUDE_TASK_ID' with 'TASK_ID' and 'claude-task-' with 'dev-task-'",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/SUPPORTED_TOOLS.md"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-005 as [x] in execution tracking",
+            "dependencies": []
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all Wave 1 tasks (REBRAND-001 through REBRAND-005) are marked [x] and no 'claude-watchdog' references remain in documentation",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 2,
+        "strategy": "SEQUENTIAL_MERGE",
+        "rationale": "Build must happen after documentation updates complete; verification depends on successful build",
+        "tasks": [
+          {
+            "task_id": "REBRAND-006",
+            "agent_role": "rust-pro",
+            "instruction": "Clean build artifacts: Run 'cargo clean' to remove old claude-watchdog binaries",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/target/*"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-006 as [x] in execution tracking",
+            "dependencies": ["REBRAND-004"]
+          },
+          {
+            "task_id": "REBRAND-007",
+            "agent_role": "rust-pro",
+            "instruction": "Build release binary: Execute './build.sh' and verify task-watchdog binary created at target/release/task-watchdog",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/target/release/task-watchdog"
+            ],
+            "completion_handshake": "Upon success, mark REBRAND-007 as [x] in execution tracking",
+            "dependencies": ["REBRAND-006"]
+          },
+          {
+            "task_id": "REBRAND-008",
+            "agent_role": "debugger",
+            "instruction": "Verification: Run 'grep -r \"claude-watchdog\" --include=\"*.md\" --include=\"*.sh\" --include=\"*.rs\" . | grep -v \"REBRANDING_\"' and confirm ZERO results",
+            "file_locks": [],
+            "completion_handshake": "Upon success, mark REBRAND-008 as [x] in execution tracking",
+            "dependencies": ["REBRAND-007"]
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify task-watchdog binary exists, runs successfully (--version check), and no old branding references remain",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      },
+      {
+        "wave_id": 3,
+        "strategy": "PARALLEL_SWARM",
+        "rationale": "Security fix is independent of rebranding - can run in parallel with Wave 2",
+        "tasks": [
+          {
+            "task_id": "SECURITY-001",
+            "agent_role": "security-auditor",
+            "instruction": "Fix command injection vulnerability in src/docker.rs:46-52. Replace 'bash -c' + command.join() with direct command execution using Docker exec API. Ensure commands array is passed directly without shell interpolation.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/src/docker.rs"
+            ],
+            "completion_handshake": "Upon success, mark SECURITY-001 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "SECURITY-002",
+            "agent_role": "security-auditor",
+            "instruction": "Add path validation to registry_path parameter in main.rs. Prevent path traversal attacks by validating path is within allowed directories.",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/src/main.rs"
+            ],
+            "completion_handshake": "Upon success, mark SECURITY-002 as [x] in execution tracking",
+            "dependencies": []
+          },
+          {
+            "task_id": "SECURITY-003",
+            "agent_role": "security-auditor",
+            "instruction": "Update registry file permissions: Modify registry.rs to create files with mode 0600 (owner read/write only) instead of default 0644",
+            "file_locks": [
+              "/home/gyasis/Documents/code/dev-kid/rust-watchdog/src/registry.rs"
+            ],
+            "completion_handshake": "Upon success, mark SECURITY-003 as [x] in execution tracking",
+            "dependencies": []
+          }
+        ],
+        "checkpoint_after": {
+          "enabled": true,
+          "verification_criteria": "Verify all security fixes compile, pass security audit checks, and no new vulnerabilities introduced",
+          "git_agent": "git-version-manager",
+          "memory_bank_agent": "memory-bank-keeper"
+        }
+      }
+    ]
+  }
+}

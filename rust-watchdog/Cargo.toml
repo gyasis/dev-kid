@@ -1,0 +1,47 @@
+[package]
+name = "task-watchdog"
+version = "2.0.0"
+edition = "2021"
+authors = ["Dev-Kid Team"]
+description = "High-performance process monitoring daemon for AI coding tools (Claude-tested)"
+license = "MIT"
+
+[lib]
+name = "task_watchdog"
+path = "src/lib.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# JSON serialization (blazing fast with serde)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Docker API
+bollard = "0.16"
+futures-util = "0.3"
+
+# Process information (cross-platform)
+sysinfo = "0.30"
+
+# CLI interface
+clap = { version = "4.4", features = ["derive"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Unix system calls (Linux/Mac)
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.27", features = ["signal", "process"] }
+
+[profile.release]
+# Optimize for small binary size and fast execution
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization (slower compile, faster binary)
+strip = true        # Strip debug symbols
+panic = "abort"     # Smaller binary, no unwinding
