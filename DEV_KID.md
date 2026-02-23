@@ -575,7 +575,7 @@ Claude continues execution
 **Why Critical**: Context compression can lose current wave/task state. This hook ensures state persisted to disk BEFORE compression occurs.
 
 #### 2. TaskCompleted Hook
-**Fires**: After task marked `[x]` in tasks.md
+**Fires**: When Claude Code marks a task complete via its internal task system (TodoWrite). Does NOT fire on manual edits to tasks.md.
 
 **Purpose**: Auto-checkpoint and sync GitHub issues
 
@@ -649,16 +649,26 @@ Claude continues execution
 ```json
 {
   "hooks": {
-    "PreCompact": {
-      "command": ".claude/hooks/pre-compact.sh",
-      "blocking": true,
-      "description": "Emergency state backup before context compression"
-    },
-    "TaskCompleted": {
-      "command": ".claude/hooks/task-completed.sh",
-      "blocking": false,
-      "description": "Auto-checkpoint and sync GitHub issues"
-    }
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/task-completed.sh"
+          }
+        ]
+      }
+    ]
   },
   "hookSettings": {
     "timeout": 30000,

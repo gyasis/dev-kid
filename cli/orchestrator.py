@@ -527,17 +527,44 @@ class TaskOrchestrator:
         # dbt dependency ordering: if dbt_project.yml exists, override wave assignments
         if Path("dbt_project.yml").exists():
             try:
+                import re as _re
                 import sys as _sys
                 _sys.path.insert(0, str(Path(__file__).parent))
                 from dbt_graph import DBTGraph, DBTTopologicalSort, CycleDetector
 
                 graph = DBTGraph().load(".")
+                print(f"   🌿 dbt project detected — applying DAG-aware wave ordering")
+
                 if graph.nodes:
                     cycle = CycleDetector.detect_cycle(graph)
                     if cycle:
-                        print(f"❌ Circular dbt dependency detected: {cycle}")
+                        print(f"   ❌ Circular dependency detected: {cycle}")
                         print("   Halting orchestration. Fix the circular ref() before proceeding.")
                         _sys.exit(1)
+
+                    def _find_dbt_model_name(task_dict: dict, _graph: DBTGraph, _file_to_model: dict) -> "str | None":
+                        """Find a dbt model name for a task by checking:
+                        1. File locks ending in .sql — extract stem (filename without .sql)
+                        2. Task instruction text — look for any word matching a known graph node
+                        """
+                        # Check file locks for .sql paths
+                        for fl in task_dict.get("file_locks", []):
+                            # Direct file_path → model lookup from manifest/regex data
+                            model_name = _file_to_model.get(fl)
+                            if model_name:
+                                return model_name
+                            # Stem-based fallback: models/stg_orders.sql → stg_orders
+                            if fl.endswith(".sql"):
+                                stem = Path(fl).stem
+                                if stem in _graph.nodes:
+                                    return stem
+                        # Check instruction text for known model names
+                        instruction = task_dict.get("instruction", "")
+                        words = _re.findall(r'\b\w+\b', instruction.lower())
+                        for word in words:
+                            if word in _graph.nodes:
+                                return word
+                        return None
 
                     # Map file_path → model_name for tasks in the plan
                     file_to_model = graph.get_file_to_model_map()
@@ -545,31 +572,37 @@ class TaskOrchestrator:
                     task_to_model: dict[str, str] = {}
                     for wave in plan["execution_plan"]["waves"]:
                         for task in wave["tasks"]:
-                            for fl in task.get("file_locks", []):
-                                model_name = file_to_model.get(fl)
-                                if model_name:
-                                    task_model_names.append(model_name)
-                                    task_to_model[task["task_id"]] = model_name
+                            model_name = _find_dbt_model_name(task, graph, file_to_model)
+                            if model_name and task["task_id"] not in task_to_model:
+                                task_model_names.append(model_name)
+                                task_to_model[task["task_id"]] = model_name
+
+                    print(f"   📊 {len(task_model_names)} dbt model task(s) identified")
 
                     if task_model_names:
                         wave_overrides = DBTTopologicalSort.assign_waves(task_model_names, graph)
 
-                        # Rebuild waves based on dbt overrides
+                        # Snapshot original wave assignments for non-dbt tasks
+                        task_id_to_orig_wave: dict[str, int] = {}
+                        for orig_wave in plan["execution_plan"]["waves"]:
+                            for task in orig_wave["tasks"]:
+                                task_id_to_orig_wave[task["task_id"]] = orig_wave["wave_id"]
+
+                        # Collect all tasks by id for rebuild
                         all_tasks_by_id: dict[str, dict] = {}
-                        for wave in plan["execution_plan"]["waves"]:
-                            for task in wave["tasks"]:
+                        for orig_wave in plan["execution_plan"]["waves"]:
+                            for task in orig_wave["tasks"]:
                                 all_tasks_by_id[task["task_id"]] = task
 
                         new_waves_by_num: dict[int, list] = {}
                         for task_id, task in all_tasks_by_id.items():
                             model = task_to_model.get(task_id)
-                            wave_num = wave_overrides.get(model, 1) if model else 1
-                            # Find original wave_num for non-dbt tasks and keep it
-                            if model is None:
-                                for orig_wave in plan["execution_plan"]["waves"]:
-                                    if any(t["task_id"] == task_id for t in orig_wave["tasks"]):
-                                        wave_num = orig_wave["wave_id"]
-                                        break
+                            if model:
+                                # dbt task: use DAG-derived wave number
+                                wave_num = wave_overrides.get(model, 1)
+                            else:
+                                # Non-dbt task: preserve original file-lock-derived wave
+                                wave_num = task_id_to_orig_wave.get(task_id, 1)
                             new_waves_by_num.setdefault(wave_num, []).append(task)
 
                         if new_waves_by_num:
@@ -577,17 +610,38 @@ class TaskOrchestrator:
                             new_waves = []
                             for wid in range(1, max_wave + 1):
                                 tasks_in_wave = new_waves_by_num.get(wid, [])
-                                if tasks_in_wave:
-                                    strategy = "PARALLEL_SWARM" if len(tasks_in_wave) > 1 else "SEQUENTIAL_MERGE"
-                                    new_waves.append({
-                                        "wave_id": wid,
-                                        "strategy": strategy,
-                                        "rationale": f"dbt dependency-ordered wave {wid}",
-                                        "tasks": tasks_in_wave,
-                                        "checkpoint_after": {"enabled": True, "verify_tasks": True}
-                                    })
+                                if not tasks_in_wave:
+                                    continue
+                                # Determine strategy: SEQUENTIAL_MERGE if any file lock
+                                # conflicts exist within this wave, else PARALLEL_SWARM
+                                wave_file_locks: set[str] = set()
+                                has_conflict = False
+                                for wt in tasks_in_wave:
+                                    for fl in wt.get("file_locks", []):
+                                        if fl in wave_file_locks:
+                                            has_conflict = True
+                                            break
+                                        wave_file_locks.add(fl)
+                                    if has_conflict:
+                                        break
+                                if has_conflict or len(tasks_in_wave) == 1:
+                                    strategy = "SEQUENTIAL_MERGE"
+                                else:
+                                    strategy = "PARALLEL_SWARM"
+                                new_waves.append({
+                                    "wave_id": wid,
+                                    "strategy": strategy,
+                                    "rationale": f"dbt dependency-ordered wave {wid}",
+                                    "tasks": tasks_in_wave,
+                                    "checkpoint_after": {
+                                        "enabled": True,
+                                        "verification_criteria": f"Verify all Wave {wid} tasks are marked [x] in tasks.md",
+                                        "git_agent": "git-version-manager",
+                                        "memory_bank_agent": "memory-bank-keeper"
+                                    }
+                                })
                             plan["execution_plan"]["waves"] = new_waves
-                            print(f"   🌿 dbt dependency graph applied: {len(task_model_names)} model(s) reordered across {len(new_waves)} wave(s)")
+                            print(f"   dbt DAG applied: {len(task_model_names)} model(s) reordered across {len(new_waves)} wave(s)")
             except SystemExit:
                 raise
             except Exception as _dbt_err:

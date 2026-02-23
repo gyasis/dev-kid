@@ -2,6 +2,11 @@
 # UserPromptSubmit Hook - Inject project context before prompt processing
 # Claude Code: stdout text is injected as context into the prompt
 
+# Master kill-switch
+if [ "${DEV_KID_HOOKS_ENABLED:-true}" = "false" ]; then
+    exit 0
+fi
+
 # Read stdin safely
 read -r EVENT_DATA || true
 

@@ -143,6 +143,29 @@ chmod +x "$INSTALL_DIR/cli/dev-kid"
 chmod +x "$INSTALL_DIR/cli"/*.py
 chmod +x "$INSTALL_DIR/skills"/*.sh
 
+# Make hook templates executable
+if [ -d "$INSTALL_DIR/templates/.claude/hooks" ]; then
+    chmod +x "$INSTALL_DIR/templates/.claude/hooks"/*.sh 2>/dev/null || true
+    echo "✅ Hook templates made executable"
+fi
+
+# Deploy hooks globally to ~/.claude/hooks/ so any project can reference them
+GLOBAL_CLAUDE="$HOME/.claude"
+mkdir -p "$GLOBAL_CLAUDE/hooks"
+if [ -d "$INSTALL_DIR/templates/.claude/hooks" ]; then
+    cp "$INSTALL_DIR/templates/.claude/hooks"/*.sh "$GLOBAL_CLAUDE/hooks/"
+    chmod +x "$GLOBAL_CLAUDE/hooks"/*.sh 2>/dev/null || true
+    echo "✅ Hooks deployed globally to $GLOBAL_CLAUDE/hooks/"
+fi
+
+# Deploy settings.json globally if not already present
+if [ ! -f "$GLOBAL_CLAUDE/settings.json" ] && [ -f "$INSTALL_DIR/templates/.claude/settings.json" ]; then
+    cp "$INSTALL_DIR/templates/.claude/settings.json" "$GLOBAL_CLAUDE/settings.json"
+    echo "✅ settings.json deployed to $GLOBAL_CLAUDE/settings.json"
+elif [ -f "$INSTALL_DIR/templates/.claude/settings.json" ]; then
+    echo "ℹ️  $GLOBAL_CLAUDE/settings.json already exists — not overwriting"
+fi
+
 # Create symlink in PATH
 echo "   Creating symlink..."
 SYMLINK_CREATED=false

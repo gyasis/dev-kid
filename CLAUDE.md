@@ -241,7 +241,7 @@ Dev-kid uses Claude Code's lifecycle hooks to automate state management across s
    - **Prevents data loss during compression**
 
 2. **TaskCompleted Hook**
-   - Fires after task marked `[x]` in tasks.md
+   - Fires when Claude Code marks a task complete via its internal task system (TodoWrite). Does NOT fire on manual edits to tasks.md.
    - Auto-runs `dev-kid gh-sync` (syncs GitHub issues)
    - Creates micro-checkpoint
    - **Automates GitHub synchronization**
@@ -275,14 +275,26 @@ Dev-kid uses Claude Code's lifecycle hooks to automate state management across s
 ```json
 {
   "hooks": {
-    "PreCompact": {
-      "command": ".claude/hooks/pre-compact.sh",
-      "blocking": true
-    },
-    "TaskCompleted": {
-      "command": ".claude/hooks/task-completed.sh",
-      "blocking": false
-    }
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/task-completed.sh"
+          }
+        ]
+      }
+    ]
   },
   "hookSettings": {
     "timeout": 30000,

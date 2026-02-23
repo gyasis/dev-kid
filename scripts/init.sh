@@ -99,6 +99,21 @@ mkdir -p .claude/hooks
 cp -r "$TEMPLATES/.claude/hooks/"* .claude/hooks/ || { echo "❌ Failed to copy hooks"; exit 1; }
 chmod +x .claude/hooks/*.sh
 
+# Remove orphaned nested hooks/ dir created by glob expansion
+rm -rf .claude/hooks/hooks/
+
+# Validate hooks deployed correctly
+for hook in pre-compact.sh task-completed.sh post-tool-use.sh user-prompt-submit.sh session-start.sh session-end.sh; do
+    if [ ! -f ".claude/hooks/$hook" ]; then
+        echo "⚠️  Warning: Hook not deployed: .claude/hooks/$hook"
+    else
+        chmod +x ".claude/hooks/$hook"
+    fi
+done
+if [ ! -f ".claude/settings.json" ]; then
+    echo "⚠️  Warning: .claude/settings.json not deployed"
+fi
+
 # Copy dev-kid.yml (sentinel + orchestration config) if not already present
 DEV_KID_ROOT="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 if [ ! -f "dev-kid.yml" ]; then

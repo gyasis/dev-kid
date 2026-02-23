@@ -137,6 +137,32 @@ fi
 
 echo ""
 
+# 6b. Check Claude Code hooks
+echo ""
+echo "🪝 Claude Code Hooks"
+HOOKS_OK=true
+for hook in pre-compact.sh task-completed.sh post-tool-use.sh user-prompt-submit.sh session-start.sh session-end.sh; do
+    if [ -f "$HOME/.dev-kid/templates/.claude/hooks/$hook" ]; then
+        echo -e "   ${GREEN}✓${NC} Template hook: $hook"
+    else
+        echo -e "   ${RED}✗${NC} Missing template hook: $hook"
+        HOOKS_OK=false
+        ERRORS=$((ERRORS + 1))
+    fi
+done
+
+if [ -f "$HOME/.dev-kid/templates/.claude/settings.json" ]; then
+    echo -e "   ${GREEN}✓${NC} Template settings.json present"
+else
+    echo -e "   ${RED}✗${NC} Missing template settings.json"
+    HOOKS_OK=false
+    ERRORS=$((ERRORS + 1))
+fi
+
+if [ "$HOOKS_OK" = false ]; then
+    echo "⚠️  Some hooks missing — run: ./scripts/install.sh to redeploy"
+fi
+
 # 7. Summary
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ $ERRORS -eq 0 ]; then

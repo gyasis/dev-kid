@@ -2,6 +2,11 @@
 # SessionEnd Hook - Finalize session and create snapshot
 # Claude Code: exit 0 = success
 
+# Master kill-switch
+if [ "${DEV_KID_HOOKS_ENABLED:-true}" = "false" ]; then
+    exit 0
+fi
+
 read -r EVENT_DATA || true
 
 echo "" >> .claude/activity_stream.md 2>/dev/null || true

@@ -2,6 +2,11 @@
 # TaskCompleted Hook - Auto-checkpoint and sync GitHub issues after task completion
 # Claude Code: exit 0 = success
 
+# Master kill-switch
+if [ "${DEV_KID_HOOKS_ENABLED:-true}" = "false" ]; then
+    exit 0
+fi
+
 read -r EVENT_DATA || true
 
 echo "$(date -Iseconds) TaskCompleted" >> .claude/activity_stream.md 2>/dev/null || true

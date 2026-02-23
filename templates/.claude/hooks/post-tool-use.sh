@@ -2,6 +2,11 @@
 # PostToolUse Hook - Format and lint after file edits
 # Claude Code: exit 0 = success, non-zero = hook error
 
+# Master kill-switch
+if [ "${DEV_KID_HOOKS_ENABLED:-true}" = "false" ]; then
+    exit 0
+fi
+
 # Read stdin safely (never use set -e with read)
 read -r EVENT_DATA || true
 

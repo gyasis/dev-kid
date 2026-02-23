@@ -68,16 +68,26 @@ Hooks are configured in `.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "PreCompact": {
-      "command": ".claude/hooks/pre-compact.sh",
-      "blocking": true,
-      "description": "Emergency state backup before context compression"
-    },
-    "TaskCompleted": {
-      "command": ".claude/hooks/task-completed.sh",
-      "blocking": false,
-      "description": "Auto-checkpoint and sync GitHub issues"
-    }
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/task-completed.sh"
+          }
+        ]
+      }
+    ]
   },
   "hookSettings": {
     "timeout": 30000,
@@ -92,9 +102,8 @@ Hooks are configured in `.claude/settings.json`:
 
 ### Hook Properties
 
+- **type**: Must be `"command"` for shell script hooks
 - **command**: Path to executable script (relative to project root)
-- **blocking**: If `true`, Claude waits for hook completion before continuing
-- **description**: Human-readable explanation (for debugging)
 
 ### Environment Variables
 
@@ -135,7 +144,7 @@ Claude executing Wave 3, Task 12 of 15
 
 ### 2. TaskCompleted Hook
 
-**When**: Fires after a logical work unit completes (task marked `[x]` in tasks.md)
+**When**: Fires when Claude Code marks a task complete via its internal task system (TodoWrite). It does NOT fire on manual edits to tasks.md.
 
 **Purpose**: Auto-checkpoint and sync GitHub issues
 
@@ -376,10 +385,16 @@ You can create custom hooks by:
 ```json
 {
   "hooks": {
-    "TaskCompleted": {
-      "command": ".claude/hooks/my-custom-hook.sh",
-      "blocking": false
-    }
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/my-custom-hook.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```

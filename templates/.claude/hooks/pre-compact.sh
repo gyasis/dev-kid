@@ -2,6 +2,11 @@
 # PreCompact Hook - Emergency state backup before context compression
 # Claude Code: exit 0 allows compression to proceed
 
+# Master kill-switch
+if [ "${DEV_KID_HOOKS_ENABLED:-true}" = "false" ]; then
+    exit 0
+fi
+
 # Read stdin safely
 read -r EVENT_DATA || true
 
