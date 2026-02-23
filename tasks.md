@@ -1,1 +1,1 @@
-specs/001-integration-sentinel/tasks.md
+specs/001-sql-dbt-support/tasks.md
