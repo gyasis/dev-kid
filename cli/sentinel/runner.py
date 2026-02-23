@@ -142,6 +142,56 @@ class SentinelRunner:
             print(f"      ⚠️  Placeholder scan error: {exc}")
 
         # ------------------------------------------------------------------
+        # Phase 1b: SQL/dbt constitution scan (.sql and .yml files)
+        # ------------------------------------------------------------------
+        sql_files = [f for f in files if f.suffix in ('.sql', '.yml', '.yaml')]
+        if sql_files and self._config is not None:
+            try:
+                from ..constitution_parser import Constitution
+                constitution_path = self._project_root / 'memory-bank' / 'shared' / '.constitution.md'
+                if constitution_path.exists():
+                    constitution = Constitution(str(constitution_path))
+                    sql_violations: list = []
+                    for f in sql_files:
+                        if f.suffix == '.sql':
+                            sql_violations.extend(constitution.scan_sql_file(str(f)))
+                        elif f.suffix in ('.yml', '.yaml'):
+                            sql_violations.extend(constitution.scan_yaml_file(str(f)))
+                    if sql_violations:
+                        print(f"      🚫 Sentinel: {len(sql_violations)} SQL constitution violation(s)")
+                        for v in sql_violations:
+                            print(f"         {v.file}:{v.line} [{v.rule}] — {v.message}")
+                        result_obj.result = 'FAIL'
+                        result_obj.should_halt_wave = True
+                        result_obj.error_message = (
+                            f'{len(sql_violations)} SQL constitution violation(s). '
+                            'Fix before wave checkpoint.'
+                        )
+                        return result_obj
+            except Exception as exc:
+                print(f"      ⚠️  SQL constitution scan error: {exc}")
+
+        # SQL-specific placeholder detection
+        sql_files_for_placeholder = [f for f in files if f.suffix == '.sql']
+        if sql_files_for_placeholder:
+            try:
+                from .placeholder_scanner import scan_sql_file as sql_placeholder_scan
+                for sql_f in sql_files_for_placeholder:
+                    sql_ph_violations = sql_placeholder_scan(str(sql_f))
+                    if sql_ph_violations:
+                        print(f"      🚫 Sentinel: {len(sql_ph_violations)} SQL placeholder(s) in {sql_f.name}")
+                        for v in sql_ph_violations:
+                            print(f"         {v.file_path}:{v.line_number} [{v.pattern_type}] — {v.matched_text}")
+                        result_obj.result = 'FAIL'
+                        result_obj.should_halt_wave = True
+                        result_obj.error_message = (
+                            f'SQL placeholder code detected. Remove stubs before checkpoint.'
+                        )
+                        return result_obj
+            except Exception as exc:
+                print(f"      ⚠️  SQL placeholder scan error: {exc}")
+
+        # ------------------------------------------------------------------
         # Phase 2 (US1): Test framework detection
         # ------------------------------------------------------------------
         test_cmd = detect_test_command(self._project_root)

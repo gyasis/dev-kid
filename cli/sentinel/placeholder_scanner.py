@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -52,6 +53,32 @@ ALWAYS_EXCLUDE: list[str] = [
 
 # Context lines to include above/below each match
 CONTEXT_RADIUS = 2
+
+# SQL-specific placeholder patterns
+SQL_PLACEHOLDER_PATTERNS: dict[str, re.Pattern] = {
+    "SELECT_ONE": re.compile(
+        r"^\s*SELECT\s+1\s*(?:AS\s+\w+\s*)?$",
+        re.MULTILINE | re.IGNORECASE,
+    ),
+    "TODO_COMMENT": re.compile(
+        r"--\s*(TODO|FIXME|STUB|PLACEHOLDER)\b",
+        re.IGNORECASE,
+    ),
+    "EMPTY_REF": re.compile(
+        r"ref\s*\(\s*['\"][\s]*['\"]\s*\)",
+        re.IGNORECASE,
+    ),
+}
+
+
+@dataclass
+class SQLPlaceholderViolation:
+    """A SQL-specific placeholder pattern violation."""
+
+    file_path: str
+    line_number: int
+    pattern_type: str
+    matched_text: str
 
 
 class PlaceholderScanner:
@@ -165,3 +192,39 @@ class PlaceholderScanner:
         extra_patterns = getattr(config, 'sentinel_placeholder_patterns', []) or []
         extra_excludes = getattr(config, 'sentinel_placeholder_exclude_paths', []) or []
         return cls(patterns=extra_patterns, exclude_paths=extra_excludes)
+
+
+def scan_sql_file(path: str) -> list[SQLPlaceholderViolation]:
+    """Scan a SQL file for SQL-specific placeholder patterns.
+
+    Unlike the general PlaceholderScanner, this function is SQL-aware
+    and handles SQL comment syntax (--) correctly.
+
+    Args:
+        path: Path to the .sql file to scan.
+
+    Returns:
+        List of SQLPlaceholderViolation objects (empty = clean).
+    """
+    file_path = Path(path)
+    if not file_path.exists():
+        return []
+
+    try:
+        content = file_path.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return []
+
+    violations: list[SQLPlaceholderViolation] = []
+
+    for pattern_name, pattern in SQL_PLACEHOLDER_PATTERNS.items():
+        for m in pattern.finditer(content):
+            line_number = content[:m.start()].count('\n') + 1
+            violations.append(SQLPlaceholderViolation(
+                file_path=path,
+                line_number=line_number,
+                pattern_type=pattern_name,
+                matched_text=m.group(0).strip(),
+            ))
+
+    return violations

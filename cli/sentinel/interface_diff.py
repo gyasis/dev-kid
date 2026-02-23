@@ -54,6 +54,8 @@ class InterfaceDiff:
         '.js': 'javascript',
         '.jsx': 'javascript',
         '.rs': 'rust',
+        '.sql': 'sql',
+        '.yml': 'yaml',
     }
 
     def compare(
@@ -93,6 +95,8 @@ class InterfaceDiff:
             return self._compare_ts_js(str(file_path), language, pre_content, post_content, empty_report)
         elif language == 'rust':
             return self._compare_rust(str(file_path), pre_content, post_content, empty_report)
+        elif language == 'sql':
+            return self._compare_sql(str(file_path), pre_content, post_content, empty_report)
 
         return empty_report
 
@@ -216,6 +220,39 @@ class InterfaceDiff:
             is_breaking=is_breaking,
             detection_method='regex',
         )
+
+    def _compare_sql(
+        self,
+        file_path: str,
+        pre: str,
+        post: str,
+        base: 'InterfaceChangeReport',
+    ) -> 'InterfaceChangeReport':
+        """SQL DDL schema diff via sql_schema_diff.DDLParser."""
+        from . import InterfaceChangeReport
+        try:
+            from .sql_schema_diff import DDLParser
+            parser = DDLParser()
+            pre_tables = parser.parse_ddl(pre) if pre else {}
+            post_tables = parser.parse_ddl(post) if post else {}
+
+            pre_syms = set(pre_tables.keys())
+            post_syms = set(post_tables.keys())
+            breaking = list(pre_syms - post_syms)     # removed tables
+            non_breaking = list(post_syms - pre_syms)  # added tables
+            is_breaking = bool(breaking)
+
+            return InterfaceChangeReport(
+                file_path=file_path,
+                language='sql',
+                breaking_changes=breaking,
+                non_breaking_changes=non_breaking,
+                modified_signatures=[],
+                is_breaking=is_breaking,
+                detection_method='ddl_parser',
+            )
+        except Exception:
+            return base
 
     # ------------------------------------------------------------------
     # Static helpers

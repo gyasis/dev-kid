@@ -524,6 +524,75 @@ class TaskOrchestrator:
 
         plan = self.generate_execution_plan(phase_id)
 
+        # dbt dependency ordering: if dbt_project.yml exists, override wave assignments
+        if Path("dbt_project.yml").exists():
+            try:
+                import sys as _sys
+                _sys.path.insert(0, str(Path(__file__).parent))
+                from dbt_graph import DBTGraph, DBTTopologicalSort, CycleDetector
+
+                graph = DBTGraph().load(".")
+                if graph.nodes:
+                    cycle = CycleDetector.detect_cycle(graph)
+                    if cycle:
+                        print(f"❌ Circular dbt dependency detected: {cycle}")
+                        print("   Halting orchestration. Fix the circular ref() before proceeding.")
+                        _sys.exit(1)
+
+                    # Map file_path → model_name for tasks in the plan
+                    file_to_model = graph.get_file_to_model_map()
+                    task_model_names: list[str] = []
+                    task_to_model: dict[str, str] = {}
+                    for wave in plan["execution_plan"]["waves"]:
+                        for task in wave["tasks"]:
+                            for fl in task.get("file_locks", []):
+                                model_name = file_to_model.get(fl)
+                                if model_name:
+                                    task_model_names.append(model_name)
+                                    task_to_model[task["task_id"]] = model_name
+
+                    if task_model_names:
+                        wave_overrides = DBTTopologicalSort.assign_waves(task_model_names, graph)
+
+                        # Rebuild waves based on dbt overrides
+                        all_tasks_by_id: dict[str, dict] = {}
+                        for wave in plan["execution_plan"]["waves"]:
+                            for task in wave["tasks"]:
+                                all_tasks_by_id[task["task_id"]] = task
+
+                        new_waves_by_num: dict[int, list] = {}
+                        for task_id, task in all_tasks_by_id.items():
+                            model = task_to_model.get(task_id)
+                            wave_num = wave_overrides.get(model, 1) if model else 1
+                            # Find original wave_num for non-dbt tasks and keep it
+                            if model is None:
+                                for orig_wave in plan["execution_plan"]["waves"]:
+                                    if any(t["task_id"] == task_id for t in orig_wave["tasks"]):
+                                        wave_num = orig_wave["wave_id"]
+                                        break
+                            new_waves_by_num.setdefault(wave_num, []).append(task)
+
+                        if new_waves_by_num:
+                            max_wave = max(new_waves_by_num.keys())
+                            new_waves = []
+                            for wid in range(1, max_wave + 1):
+                                tasks_in_wave = new_waves_by_num.get(wid, [])
+                                if tasks_in_wave:
+                                    strategy = "PARALLEL_SWARM" if len(tasks_in_wave) > 1 else "SEQUENTIAL_MERGE"
+                                    new_waves.append({
+                                        "wave_id": wid,
+                                        "strategy": strategy,
+                                        "rationale": f"dbt dependency-ordered wave {wid}",
+                                        "tasks": tasks_in_wave,
+                                        "checkpoint_after": {"enabled": True, "verify_tasks": True}
+                                    })
+                            plan["execution_plan"]["waves"] = new_waves
+                            print(f"   🌿 dbt dependency graph applied: {len(task_model_names)} model(s) reordered across {len(new_waves)} wave(s)")
+            except SystemExit:
+                raise
+            except Exception as _dbt_err:
+                print(f"   ⚠️  dbt wave ordering failed (non-fatal): {_dbt_err}")
+
         # Output to execution_plan.json (atomic write)
         output_file = Path("execution_plan.json")
         temp_file = output_file.with_suffix('.tmp')
