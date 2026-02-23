@@ -57,7 +57,9 @@ class TaskOrchestrator:
         current_task_lines = []
 
         for i, line in enumerate(lines):
-            if line.startswith('- [ ]') or line.startswith('- [x]'):
+            is_task_line = (line.startswith('- [ ]') or line.startswith('- [x]'))
+            is_sentinel_line = 'SENTINEL-' in line  # managed by injection, never re-parsed
+            if is_task_line and not is_sentinel_line:
                 # Process previous task if exists
                 if current_task_lines:
                     self._process_task(current_task_lines, task_id)
@@ -65,6 +67,12 @@ class TaskOrchestrator:
 
                 # Start new task
                 current_task_lines = [line]
+            elif is_task_line and is_sentinel_line:
+                # End any open task block without processing the sentinel line
+                if current_task_lines:
+                    self._process_task(current_task_lines, task_id)
+                    task_id += 1
+                    current_task_lines = []
             elif current_task_lines and line.strip().startswith('- **Constitution**:'):
                 # Add constitution line to current task
                 current_task_lines.append(line)
