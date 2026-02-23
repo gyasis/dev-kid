@@ -272,15 +272,34 @@ for wave in plan['execution_plan']['waves']:
 
 cmd_watchdog_start() {
     echo -e "${GREEN}🐕 Starting Task Watchdog (Rust)${NC}"
+
+    # Guard: check if a watchdog is already running for THIS project
+    local pid_file=".claude/watchdog.pid"
+    if [ -f "$pid_file" ]; then
+        local existing_pid
+        existing_pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+            echo "⚠️  Watchdog already running for this project (PID: $existing_pid)"
+            echo "   To restart: dev-kid watchdog-stop && dev-kid watchdog-start"
+            return 0
+        fi
+        # Stale PID file — clear it
+        rm -f "$pid_file"
+    fi
+
     echo "   Generic process monitor for AI coding tools"
     echo "   Monitoring tasks every 5 minutes..."
-    echo "   Press Ctrl+C to stop"
     echo ""
 
     # Run Rust watchdog in background
-    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    local watchdog_bin
+    watchdog_bin=$(find_watchdog_binary) || exit 1
     "$watchdog_bin" run &
-    WATCHDOG_PID=$!
+    local WATCHDOG_PID=$!
+
+    # Persist PID to project-local file so watchdog-stop only kills this project's daemon
+    mkdir -p .claude
+    echo "$WATCHDOG_PID" > "$pid_file"
 
     echo "✅ Watchdog started (PID: $WATCHDOG_PID)"
     echo "   Memory usage: <3MB | Startup: <5ms"
@@ -290,8 +309,21 @@ cmd_watchdog_start() {
 cmd_watchdog_stop() {
     echo -e "${GREEN}🛑 Stopping Task Watchdog${NC}"
 
-    # Kill Rust watchdog process
-    pkill -f "task-watchdog run" && echo "✅ Watchdog stopped" || echo "⚠️  No watchdog running"
+    # Kill only THIS project's watchdog via the persisted PID file
+    local pid_file=".claude/watchdog.pid"
+    if [ -f "$pid_file" ]; then
+        local pid
+        pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" && echo "✅ Watchdog stopped (PID: $pid)" || echo "⚠️  Failed to stop watchdog (PID: $pid)"
+        else
+            echo "⚠️  No watchdog running for this project (stale PID: $pid)"
+        fi
+        rm -f "$pid_file"
+    else
+        echo "⚠️  No watchdog running for this project (no PID file)"
+        echo "   Note: if started before this fix, run: pkill -f 'task-watchdog run'"
+    fi
 }
 
 cmd_watchdog_check() {
