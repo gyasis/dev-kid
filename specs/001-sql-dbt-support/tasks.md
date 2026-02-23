@@ -132,7 +132,7 @@
 
 **Purpose**: Integration validation and documentation.
 
-- [ ] T024 [P] Write `tests/integration/test_sql_dbt_e2e.py` — one end-to-end test using `tempfile.mkdtemp()` + `git init`: (1) creates `migrations/001_orders.sql` with CREATE TABLE, commits; (2) removes a column (breaking change); (3) creates 3 dbt models (stg, dim, fct with ref()); (4) writes `dbt_project.yml`; (5) runs `orchestrator.py` as subprocess, verifies `execution_plan.json` has stg/dim in wave 1, fct in wave 2; (6) runs schema diff check, verifies `has_breaking_changes=True`; (7) adds `NO_SELECT_STAR` to `.constitution.md`, stages a `SELECT *` model, verifies violation caught; (8) verifies total runtime < 10 seconds
+- [x] T024 [P] Write `tests/integration/test_sql_dbt_e2e.py` — one end-to-end test using `tempfile.mkdtemp()` + `git init`: (1) creates `migrations/001_orders.sql` with CREATE TABLE, commits; (2) removes a column (breaking change); (3) creates 3 dbt models (stg, dim, fct with ref()); (4) writes `dbt_project.yml`; (5) runs `orchestrator.py` as subprocess, verifies `execution_plan.json` has stg/dim in wave 1, fct in wave 2; (6) runs schema diff check, verifies `has_breaking_changes=True`; (7) adds `NO_SELECT_STAR` to `.constitution.md`, stages a `SELECT *` model, verifies violation caught; (8) verifies total runtime < 10 seconds
 
 - [x] T025 [P] Validate all 5 quickstart.md scenarios manually (scenarios 1–5): run each bash block from `specs/001-sql-dbt-support/quickstart.md`, record actual vs expected output, update quickstart.md with actual output if they differ, mark each scenario PASS/FAIL
 
