@@ -595,6 +595,8 @@ dev-kid checkpoint "Test"
 ## Active Technologies
 - Python 3.11 (existing dev-kid codebase), Node.js 20+ (micro-agent runtime) + micro-agent CLI (`@builder.io/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re` (001-integration-sentinel)
 - `.claude/sentinel/<TASK-ID>/` directory tree (flat files: manifest.json, diff.patch, summary.md); dev-kid.yml for config; execution_plan.json for plan injection (001-integration-sentinel)
+- Python 3.11 (same as dev-kid core) + `sqlglot` 28.x (SQL parsing/AST), `PyYAML` (dbt schema.yml parsing); both optional with graceful fallback (001-sql-dbt-support)
+- Files — `.claude/schema_snapshots/wave_{N}_pre.json`, `target/manifest.json` (read-only), `.sql`, `.yml` (001-sql-dbt-support)
 
 ## Recent Changes
 - 001-integration-sentinel: Added Python 3.11 (existing dev-kid codebase), Node.js 20+ (micro-agent runtime) + micro-agent CLI (`@builder.io/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re`

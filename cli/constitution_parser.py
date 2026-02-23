@@ -44,6 +44,15 @@ class Constitution:
         "Security Standards"
     ]
 
+    # SQL/dbt constitution rules that are recognised and opt-in
+    SQL_RULE_IDS: set[str] = {
+        "NO_SELECT_STAR",
+        "MODEL_DESCRIPTION_REQUIRED",
+        "INCREMENTAL_NEEDS_UNIQUE_KEY",
+        "NO_HARDCODED_CREDENTIALS",
+        "MIGRATION_NEEDS_ROLLBACK",
+    }
+
     def __init__(self, file_path: str = "memory-bank/shared/.constitution.md"):
         """
         Load constitution from memory-bank/shared/.constitution.md
@@ -218,15 +227,93 @@ class Constitution:
             if not Path(file_str).exists():
                 continue
 
-            # Skip non-Python files
-            if not file_str.endswith('.py'):
-                continue
-
-            # Validate this file
-            file_violations = self.validate_file(file_str)
-            violations.extend(file_violations)
+            # Dispatch by file type
+            if file_str.endswith('.py'):
+                violations.extend(self.validate_file(file_str))
+            elif file_str.endswith('.sql'):
+                violations.extend(self.scan_sql_file(file_str))
+            elif file_str.endswith('.yml') or file_str.endswith('.yaml'):
+                violations.extend(self.scan_yaml_file(file_str))
 
         return violations
+
+    def get_active_sql_rules(self) -> List[str]:
+        """Return the list of SQL rule IDs that are enabled in the constitution.
+
+        Looks for rule IDs listed under ## SQL Standards, ## Security Standards,
+        ## Migration Standards sections in the constitution file.
+
+        Returns:
+            List of active SQL rule ID strings.
+        """
+        active: List[str] = []
+        if not self.file_path.exists():
+            return active
+
+        content = self.file_path.read_text(encoding='utf-8')
+        for rule_id in self.SQL_RULE_IDS:
+            # Rule is active if it appears as a list item anywhere in the constitution
+            if re.search(rf'^\s*[-*]\s+{re.escape(rule_id)}\s*$', content, re.MULTILINE):
+                active.append(rule_id)
+        return active
+
+    def scan_sql_file(self, file_path: str) -> List['ConstitutionViolation']:
+        """Scan a .sql file for active SQL constitution rule violations.
+
+        Args:
+            file_path: Path to the .sql file.
+
+        Returns:
+            List of ConstitutionViolation objects.
+        """
+        active_rules = self.get_active_sql_rules()
+        if not active_rules:
+            return []
+
+        try:
+            from sentinel.sql_constitution import SQLConstitutionScanner
+            scanner = SQLConstitutionScanner()
+            sql_violations = scanner.scan_file(file_path, active_rules)
+            return [
+                ConstitutionViolation(
+                    file=v.file_path,
+                    line=v.line,
+                    rule=v.rule,
+                    message=v.message,
+                )
+                for v in sql_violations
+            ]
+        except Exception:
+            return []
+
+    def scan_yaml_file(self, file_path: str) -> List['ConstitutionViolation']:
+        """Scan a dbt .yml schema file for active SQL constitution rule violations.
+
+        Args:
+            file_path: Path to the .yml file.
+
+        Returns:
+            List of ConstitutionViolation objects.
+        """
+        active_rules = self.get_active_sql_rules()
+        if not active_rules:
+            return []
+
+        try:
+            from sentinel.sql_constitution import DBTSchemaYAMLScanner
+            scanner = DBTSchemaYAMLScanner()
+            yml_violations = scanner.scan_yaml(file_path, active_rules)
+            return [
+                ConstitutionViolation(
+                    file=v.file_path,
+                    line=v.line,
+                    rule=v.rule,
+                    message=v.message,
+                )
+                for v in yml_violations
+            ]
+        except Exception:
+            return []
 
     def validate_file(self, file_path: str) -> List[ConstitutionViolation]:
         """

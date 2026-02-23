@@ -171,6 +171,24 @@ class WaveExecutor:
         else:
             print("   ⚠️  Constitution not loaded, skipping validation")
 
+        # Step 3b: SQL schema diff (breaking change detection)
+        try:
+            from sentinel.sql_schema_diff import SchemaDiff
+            wave_sql_files = [
+                f for t in tasks
+                for f in (t.get('file_locks') or [])
+                if f and str(f).endswith('.sql')
+            ]
+            if wave_sql_files:
+                diff_report = SchemaDiff.compare_post_wave(wave_id, wave_sql_files)
+                if diff_report.has_breaking_changes:
+                    print(diff_report.format_blocking_message())
+                    sys.exit(1)
+                elif diff_report.changes:
+                    print(f"   ℹ️  {len(diff_report.changes)} non-breaking SQL schema change(s) — informational only")
+        except Exception as _e:
+            print(f"   ⚠️  SQL schema diff failed (non-fatal): {_e}")
+
         # Step 4: Git agent commits
         print("   Step 4: git-version-manager creates checkpoint...")
         self._git_checkpoint(wave_id)
@@ -292,6 +310,20 @@ class WaveExecutor:
         print(f"   Rationale: {wave['rationale']}")
         print(f"   Tasks: {len(tasks)}")
 
+        # SQL schema diff: capture pre-wave snapshot for any .sql files in this wave
+        sql_files = [
+            f for t in tasks
+            for f in (t.get('file_locks') or [])
+            if f and str(f).endswith('.sql')
+        ]
+        if sql_files:
+            try:
+                from sentinel.sql_schema_diff import SchemaSnapshot
+                SchemaSnapshot.capture_pre_wave(wave_id, sql_files)
+                print(f"   📸 Pre-wave schema snapshot captured for {len(sql_files)} SQL file(s)")
+            except Exception as _e:
+                print(f"   ⚠️  Schema snapshot failed (non-fatal): {_e}")
+
         if strategy == "PARALLEL_SWARM":
             # Execute tasks in parallel (simulated - in real system, spawn agents)
             print("   Strategy: Parallel execution")
@@ -317,6 +349,7 @@ class WaveExecutor:
         """Execute all waves with checkpoints"""
         print("🚀 Starting wave execution...")
         self.load_plan()
+        assert self.plan is not None  # load_plan() exits on failure
 
         waves = self.plan['execution_plan']['waves']
         phase_id = self.plan['execution_plan']['phase_id']
