@@ -149,23 +149,30 @@ cmd_orchestrate() {
 
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
 
-    # Auto-detect tasks.md if missing — check speckit locations
-    if [ ! -f "tasks.md" ] && [ ! -L "tasks.md" ]; then
-        BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-        FOUND=""
+    # Always prefer the speckit canonical tasks.md when one exists.
+    # This ensures [x] completion markers are read from the source of truth,
+    # not from a stale plain-file copy in the project root.
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    FOUND=""
 
-        # Check .specify/specs/{branch}/tasks.md (speckit standard)
-        if [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
-            FOUND=".specify/specs/$BRANCH/tasks.md"
-        fi
+    # 1. .specify/specs/{branch}/tasks.md  (speckit standard layout)
+    if [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+        FOUND=".specify/specs/$BRANCH/tasks.md"
+    fi
 
-        # Check specs/*/tasks.md (dev-kid speckit convention)
-        if [ -z "$FOUND" ]; then
-            FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | head -1)
-        fi
+    # 2. specs/*/tasks.md  (dev-kid speckit convention)
+    if [ -z "$FOUND" ]; then
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | head -1)
+    fi
 
-        if [ -n "$FOUND" ]; then
-            echo -e "   ${YELLOW}ℹ${NC}  tasks.md not found — symlinking from speckit: $FOUND"
+    if [ -n "$FOUND" ]; then
+        # Replace root tasks.md with a symlink if:
+        #   - it doesn't exist yet, OR
+        #   - it's a plain file (stale copy), OR
+        #   - it's a symlink pointing elsewhere
+        CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+        if [ ! -e "tasks.md" ] || [ ! -L "tasks.md" ] || [ "$CURRENT_LINK" != "$FOUND" ]; then
+            echo -e "   ${YELLOW}ℹ${NC}  Symlinking tasks.md → $FOUND (speckit canonical source)"
             ln -sf "$FOUND" tasks.md
         fi
     fi
