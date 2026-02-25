@@ -103,7 +103,7 @@ chmod +x .claude/hooks/*.sh
 rm -rf .claude/hooks/hooks/
 
 # Validate hooks deployed correctly
-for hook in pre-compact.sh task-completed.sh post-tool-use.sh user-prompt-submit.sh session-start.sh session-end.sh; do
+for hook in pre-compact.sh task-completed.sh post-tool-use.sh user-prompt-submit.sh session-start.sh session-end.sh pre-tool-use.sh stop.sh post-tool-use-failure.sh; do
     if [ ! -f ".claude/hooks/$hook" ]; then
         echo "⚠️  Warning: Hook not deployed: .claude/hooks/$hook"
     else
