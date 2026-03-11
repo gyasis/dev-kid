@@ -1,4 +1,7 @@
 # Security - NEVER track sensitive files
+rclone-*-remote.conf
+docs/rclone-*-remote.conf
+docs/rclone-*-agent-pack.zip
 .specstory/
 claude.md
 cursor.md
