@@ -7,16 +7,18 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
-import time
+
+from config_manager import ConfigManager
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
-from config_manager import ConfigManager
 
 # Sentinel runner (T009) — imported lazily to tolerate incomplete builds
 try:
     from sentinel.runner import SentinelRunner as _SentinelRunner
+
     _SENTINEL_AVAILABLE = True
 except ImportError:
     _SentinelRunner = None  # type: ignore[assignment,misc]
@@ -33,7 +35,12 @@ def _find_watchdog_binary() -> Optional[str]:
     dev_kid_root = script_dir.parent
     candidates = [
         dev_kid_root / "rust-watchdog" / "target" / "release" / "task-watchdog",  # dev
-        Path.home() / ".dev-kid" / "rust-watchdog" / "target" / "release" / "task-watchdog",  # installed
+        Path.home()
+        / ".dev-kid"
+        / "rust-watchdog"
+        / "target"
+        / "release"
+        / "task-watchdog",  # installed
     ]
     for p in candidates:
         if p.is_file() and os.access(p, os.X_OK):
@@ -43,6 +50,7 @@ def _find_watchdog_binary() -> Optional[str]:
     if result.returncode == 0:
         return result.stdout.strip()
     return None
+
 
 class WaveExecutor:
     """Executes waves with parallel task execution and checkpoints"""
@@ -57,21 +65,27 @@ class WaveExecutor:
         constitution_path = Path("memory-bank/shared/.constitution.md")
         if constitution_path.exists():
             try:
-                self.constitution: Optional[Constitution] = Constitution(str(constitution_path))
+                self.constitution: Optional[Constitution] = Constitution(
+                    str(constitution_path)
+                )
             except Exception as e:
                 print(f"⚠️  Warning: Failed to load constitution: {e}")
                 print(f"   Constitution validation will be skipped")
                 self.constitution = None
         else:
             self.constitution: Optional[Constitution] = None
-            print("⚠️  Warning: Constitution file not found at memory-bank/shared/.constitution.md")
+            print(
+                "⚠️  Warning: Constitution file not found at memory-bank/shared/.constitution.md"
+            )
 
         # Initialize context compactor for proactive pre-compaction
         self.compactor = ContextCompactor()
 
         # Load sentinel config
         try:
-            self.config = ConfigManager().load()
+            _mgr = ConfigManager()
+            _mgr.load()
+            self.config = _mgr.schema
         except Exception:
             self.config = None
 
@@ -83,12 +97,12 @@ class WaveExecutor:
             sys.exit(1)
 
         try:
-            self.plan = json.loads(self.plan_file.read_text(encoding='utf-8'))
+            self.plan = json.loads(self.plan_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
             print(f"❌ Error: Invalid JSON in {self.plan_file}")
             print(f"   {e}")
             # Backup corrupted file
-            backup_path = self.plan_file.with_suffix('.json.corrupted')
+            backup_path = self.plan_file.with_suffix(".json.corrupted")
             self.plan_file.rename(backup_path)
             print(f"   Corrupted file backed up to: {backup_path}")
             print(f"   Re-run orchestrator to generate new execution plan")
@@ -100,17 +114,17 @@ class WaveExecutor:
     def verify_wave_completion(self, wave_id: int, tasks: List[Dict]) -> bool:
         """Verify all tasks in wave are marked complete in tasks.md"""
         try:
-            content = self.tasks_file.read_text(encoding='utf-8')
+            content = self.tasks_file.read_text(encoding="utf-8")
         except Exception as e:
             print(f"❌ Error reading tasks.md: {e}")
             return False
 
         for task in tasks:
-            task_desc = task['instruction']
+            task_desc = task["instruction"]
             # Check if task line contains [x]
-            for line in content.split('\n'):
+            for line in content.split("\n"):
                 if task_desc in line:
-                    if '[x]' in line:
+                    if "[x]" in line:
                         print(f"   ✅ {task['task_id']}: Verified complete")
                     else:
                         print(f"   ❌ {task['task_id']}: NOT marked complete!")
@@ -128,7 +142,7 @@ class WaveExecutor:
 
         # Step 1: Memory bank keeper verifies tasks.md
         print("   Step 1: memory-bank-keeper validates tasks.md...")
-        tasks = self.plan['execution_plan']['waves'][wave_id - 1]['tasks']
+        tasks = self.plan["execution_plan"]["waves"][wave_id - 1]["tasks"]
         verified = self.verify_wave_completion(wave_id, tasks)
 
         if not verified:
@@ -147,12 +161,11 @@ class WaveExecutor:
         if self.constitution:
             # Get modified files from git diff
             result = subprocess.run(
-                ["git", "diff", "--name-only", "HEAD"],
-                capture_output=True, text=True
+                ["git", "diff", "--name-only", "HEAD"], capture_output=True, text=True
             )
 
             if result.returncode == 0 and result.stdout.strip():
-                modified_files = [f for f in result.stdout.strip().split('\n') if f]
+                modified_files = [f for f in result.stdout.strip().split("\n") if f]
 
                 # Validate against constitution
                 violations = self.constitution.validate_output(modified_files)
@@ -174,10 +187,12 @@ class WaveExecutor:
         # Step 3b: SQL schema diff (breaking change detection)
         try:
             from sentinel.sql_schema_diff import SchemaDiff
+
             wave_sql_files = [
-                f for t in tasks
-                for f in (t.get('file_locks') or [])
-                if f and str(f).endswith('.sql')
+                f
+                for t in tasks
+                for f in (t.get("file_locks") or [])
+                if f and str(f).endswith(".sql")
             ]
             if wave_sql_files:
                 diff_report = SchemaDiff.compare_post_wave(wave_id, wave_sql_files)
@@ -185,7 +200,9 @@ class WaveExecutor:
                     print(diff_report.format_blocking_message())
                     sys.exit(1)
                 elif diff_report.changes:
-                    print(f"   ℹ️  {len(diff_report.changes)} non-breaking SQL schema change(s) — informational only")
+                    print(
+                        f"   ℹ️  {len(diff_report.changes)} non-breaking SQL schema change(s) — informational only"
+                    )
         except Exception as _e:
             print(f"   ⚠️  SQL schema diff failed (non-fatal): {_e}")
 
@@ -215,26 +232,30 @@ class WaveExecutor:
     def _git_checkpoint(self, wave_id: int) -> None:
         """Create git checkpoint commit"""
         # Stage all changes
-        subprocess.run(['git', 'add', '.'], check=True)
+        subprocess.run(["git", "add", "."], check=True)
 
         # Commit
-        commit_msg = f"[CHECKPOINT] Wave {wave_id} Complete\n\nAll tasks verified and validated"
-        subprocess.run(['git', 'commit', '-m', commit_msg], check=False)  # Don't fail if nothing to commit
+        commit_msg = (
+            f"[CHECKPOINT] Wave {wave_id} Complete\n\nAll tasks verified and validated"
+        )
+        subprocess.run(
+            ["git", "commit", "-m", commit_msg], check=False
+        )  # Don't fail if nothing to commit
 
     def _mark_task_complete(self, task_id: str, instruction: str) -> None:
         """Mark a task [x] in tasks.md by finding its instruction line."""
         try:
-            content = self.tasks_file.read_text(encoding='utf-8')
-            lines = content.split('\n')
+            content = self.tasks_file.read_text(encoding="utf-8")
+            lines = content.split("\n")
             for i, line in enumerate(lines):
-                if instruction in line and '- [ ]' in line:
-                    lines[i] = line.replace('- [ ]', '- [x]', 1)
+                if instruction in line and "- [ ]" in line:
+                    lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
                 # Also match by task_id prefix
-                elif f'] {task_id} ' in line and '- [ ]' in line:
-                    lines[i] = line.replace('- [ ]', '- [x]', 1)
+                elif f"] {task_id} " in line and "- [ ]" in line:
+                    lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
-            self.tasks_file.write_text('\n'.join(lines), encoding='utf-8')
+            self.tasks_file.write_text("\n".join(lines), encoding="utf-8")
         except Exception as e:
             print(f"      ⚠️  Could not mark {task_id} complete in tasks.md: {e}")
 
@@ -271,14 +292,18 @@ class WaveExecutor:
                 print(f"      ❌ Sentinel HALT: {msg}")
                 raise WaveHaltError(msg)
             status_icon = "✅" if result.result == "PASS" else "⚠️"
-            print(f"      {status_icon} Sentinel {task_id}: {result.result} (tier {result.tier_used})")
+            print(
+                f"      {status_icon} Sentinel {task_id}: {result.result} (tier {result.tier_used})"
+            )
             self._mark_task_complete(task_id, command)
             return
 
         # Locate watchdog binary
         watchdog_bin = _find_watchdog_binary()
         if not watchdog_bin:
-            print(f"      ⚠️  task-watchdog not found — skipping registration for {task_id}")
+            print(
+                f"      ⚠️  task-watchdog not found — skipping registration for {task_id}"
+            )
             return
 
         # Build watchdog register command
@@ -293,18 +318,22 @@ class WaveExecutor:
         result = subprocess.run(cmd_parts, capture_output=True, text=True)
 
         if result.returncode != 0:
-            print(f"      ❌ Failed to register task {task_id}: {result.stderr.strip()}")
+            print(
+                f"      ❌ Failed to register task {task_id}: {result.stderr.strip()}"
+            )
         else:
             if constitution_rules:
-                print(f"      ✅ Task {task_id} registered with {len(constitution_rules)} constitution rule(s)")
+                print(
+                    f"      ✅ Task {task_id} registered with {len(constitution_rules)} constitution rule(s)"
+                )
             else:
                 print(f"      ✅ Task {task_id} registered (no constitution rules)")
 
     def execute_wave(self, wave: Dict) -> None:
         """Execute a single wave"""
-        wave_id = wave['wave_id']
-        strategy = wave['strategy']
-        tasks = wave['tasks']
+        wave_id = wave["wave_id"]
+        strategy = wave["strategy"]
+        tasks = wave["tasks"]
 
         print(f"\n🌊 Executing Wave {wave_id} ({strategy})...")
         print(f"   Rationale: {wave['rationale']}")
@@ -312,15 +341,19 @@ class WaveExecutor:
 
         # SQL schema diff: capture pre-wave snapshot for any .sql files in this wave
         sql_files = [
-            f for t in tasks
-            for f in (t.get('file_locks') or [])
-            if f and str(f).endswith('.sql')
+            f
+            for t in tasks
+            for f in (t.get("file_locks") or [])
+            if f and str(f).endswith(".sql")
         ]
         if sql_files:
             try:
                 from sentinel.sql_schema_diff import SchemaSnapshot
+
                 SchemaSnapshot.capture_pre_wave(wave_id, sql_files)
-                print(f"   📸 Pre-wave schema snapshot captured for {len(sql_files)} SQL file(s)")
+                print(
+                    f"   📸 Pre-wave schema snapshot captured for {len(sql_files)} SQL file(s)"
+                )
             except Exception as _e:
                 print(f"   ⚠️  Schema snapshot failed (non-fatal): {_e}")
 
@@ -328,7 +361,9 @@ class WaveExecutor:
             # Execute tasks in parallel (simulated - in real system, spawn agents)
             print("   Strategy: Parallel execution")
             for task in tasks:
-                print(f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}...")
+                print(
+                    f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}..."
+                )
                 # Register task with watchdog
                 self.execute_task(task)
                 # In real system: spawn agent with task
@@ -337,13 +372,25 @@ class WaveExecutor:
         else:  # SEQUENTIAL_MERGE
             print("   Strategy: Sequential execution")
             for task in tasks:
-                print(f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}...")
+                print(
+                    f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}..."
+                )
                 # Register task with watchdog
                 self.execute_task(task)
                 # In real system: execute task sequentially
 
         print(f"   ⏳ Wave {wave_id} in progress...")
-        print(f"   ℹ️  Agents must mark tasks complete in tasks.md before wave ends")
+        print(f"")
+        print(f"   ┌─────────────────────────────────────────────────────┐")
+        print(f"   │  AGENT REQUIREMENT — mark tasks complete in tasks.md │")
+        print(f"   │                                                       │")
+        for t in tasks:
+            print(
+                f"   │  [ ] → [x]  {t['task_id']}: {t['instruction'][:38]}{'...' if len(t['instruction']) > 38 else '':<{41 - min(len(t['instruction']),38)}}│"
+            )
+        print(f"   │                                                       │")
+        print(f"   │  Wave checkpoint will HALT if any remain [ ]          │")
+        print(f"   └─────────────────────────────────────────────────────┘")
 
     def execute(self) -> None:
         """Execute all waves with checkpoints"""
@@ -351,26 +398,28 @@ class WaveExecutor:
         self.load_plan()
         assert self.plan is not None  # load_plan() exits on failure
 
-        waves = self.plan['execution_plan']['waves']
-        phase_id = self.plan['execution_plan']['phase_id']
+        waves = self.plan["execution_plan"]["waves"]
+        phase_id = self.plan["execution_plan"]["phase_id"]
 
         print(f"📋 Phase: {phase_id}")
         print(f"🌊 Total waves: {len(waves)}")
 
         for wave in waves:
-            wave_id = wave['wave_id']
+            wave_id = wave["wave_id"]
 
             # Execute wave (WaveHaltError from sentinel aborts execution)
             try:
                 self.execute_wave(wave)
             except WaveHaltError as e:
                 print(f"\n🚫 WAVE HALT: Sentinel halted wave {wave_id}: {e}")
-                print("   Review sentinel manifests in .claude/sentinel/ and fix issues.")
+                print(
+                    "   Review sentinel manifests in .claude/sentinel/ and fix issues."
+                )
                 sys.exit(2)
 
             # Checkpoint after wave
-            if wave['checkpoint_after']['enabled']:
-                self.execute_checkpoint(wave_id, wave['checkpoint_after'])
+            if wave["checkpoint_after"]["enabled"]:
+                self.execute_checkpoint(wave_id, wave["checkpoint_after"])
             else:
                 print(f"   ⏭️  Skipping checkpoint (disabled)")
 
@@ -382,10 +431,12 @@ class WaveExecutor:
 
         print("\n✅ All waves complete!")
 
+
 def main():
     """Main entry point"""
     executor = WaveExecutor()
     executor.execute()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

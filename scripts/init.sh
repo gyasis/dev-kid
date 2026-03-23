@@ -59,37 +59,60 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     exit 1
 fi
 
-# Create Memory Bank templates
+# Create Memory Bank templates (guarded — never overwrite existing user data)
 echo "   Creating Memory Bank templates..."
 
+_copy_if_missing() {
+    local src="$1" dst="$2" label="$3"
+    if [ ! -f "$dst" ]; then
+        cp "$src" "$dst" || { echo "❌ Failed to copy $label"; exit 1; }
+        echo "   ✅ $label"
+    else
+        echo "   ⏭️  $label (exists — kept)"
+    fi
+}
+
 # Copy shared templates
-cp "$TEMPLATES/memory-bank/shared/projectbrief.md" memory-bank/shared/ || { echo "❌ Failed to copy projectbrief.md"; exit 1; }
-cp "$TEMPLATES/memory-bank/shared/systemPatterns.md" memory-bank/shared/ || { echo "❌ Failed to copy systemPatterns.md"; exit 1; }
-cp "$TEMPLATES/memory-bank/shared/techContext.md" memory-bank/shared/ || { echo "❌ Failed to copy techContext.md"; exit 1; }
-cp "$TEMPLATES/memory-bank/shared/productContext.md" memory-bank/shared/ || { echo "❌ Failed to copy productContext.md"; exit 1; }
+_copy_if_missing "$TEMPLATES/memory-bank/shared/projectbrief.md"  memory-bank/shared/projectbrief.md  "projectbrief.md"
+_copy_if_missing "$TEMPLATES/memory-bank/shared/systemPatterns.md" memory-bank/shared/systemPatterns.md "systemPatterns.md"
+_copy_if_missing "$TEMPLATES/memory-bank/shared/techContext.md"    memory-bank/shared/techContext.md    "techContext.md"
+_copy_if_missing "$TEMPLATES/memory-bank/shared/productContext.md" memory-bank/shared/productContext.md "productContext.md"
 
-# Copy private templates (USER placeholder gets replaced by actual username)
-cp "$TEMPLATES/memory-bank/private/USER/activeContext.md" "memory-bank/private/$USER/" || { echo "❌ Failed to copy activeContext.md"; exit 1; }
-cp "$TEMPLATES/memory-bank/private/USER/progress.md" "memory-bank/private/$USER/" || { echo "❌ Failed to copy progress.md"; exit 1; }
-cp "$TEMPLATES/memory-bank/private/USER/worklog.md" "memory-bank/private/$USER/" || { echo "❌ Failed to copy worklog.md"; exit 1; }
+# Copy private templates
+_copy_if_missing "$TEMPLATES/memory-bank/private/USER/activeContext.md" "memory-bank/private/$USER/activeContext.md" "activeContext.md"
+_copy_if_missing "$TEMPLATES/memory-bank/private/USER/progress.md"      "memory-bank/private/$USER/progress.md"      "progress.md"
+_copy_if_missing "$TEMPLATES/memory-bank/private/USER/worklog.md"       "memory-bank/private/$USER/worklog.md"        "worklog.md"
 
-# Create Context Protection files
+# Create Context Protection files (guarded — preserve user state)
 echo "   Creating Context Protection..."
 
-# Copy static templates
-cp "$TEMPLATES/.claude/active_stack.md" .claude/ || { echo "❌ Failed to copy active_stack.md"; exit 1; }
+_copy_if_missing "$TEMPLATES/.claude/active_stack.md" .claude/active_stack.md "active_stack.md"
 
-# Copy templates with variable substitution
-sed "s|{{INIT_DATE}}|$(date +%Y-%m-%d)|g" "$TEMPLATES/.claude/activity_stream.md" > .claude/activity_stream.md || { echo "❌ Failed to create activity_stream.md"; exit 1; }
+if [ ! -f ".claude/activity_stream.md" ]; then
+    sed "s|{{INIT_DATE}}|$(date +%Y-%m-%d)|g" "$TEMPLATES/.claude/activity_stream.md" > .claude/activity_stream.md || { echo "❌ Failed to create activity_stream.md"; exit 1; }
+    echo "   ✅ activity_stream.md"
+else
+    echo "   ⏭️  activity_stream.md (exists — kept)"
+fi
 
-sed -e "s|{{USER}}|$USER|g" \
-    -e "s|{{PROJECT_PATH}}|$(pwd)|g" \
-    -e "s|{{TIMESTAMP}}|$(date -Iseconds)|g" \
-    "$TEMPLATES/.claude/AGENT_STATE.json" > .claude/AGENT_STATE.json || { echo "❌ Failed to create AGENT_STATE.json"; exit 1; }
+if [ ! -f ".claude/AGENT_STATE.json" ]; then
+    sed -e "s|{{USER}}|$USER|g" \
+        -e "s|{{PROJECT_PATH}}|$(pwd)|g" \
+        -e "s|{{TIMESTAMP}}|$(date -Iseconds)|g" \
+        "$TEMPLATES/.claude/AGENT_STATE.json" > .claude/AGENT_STATE.json || { echo "❌ Failed to create AGENT_STATE.json"; exit 1; }
+    echo "   ✅ AGENT_STATE.json"
+else
+    echo "   ⏭️  AGENT_STATE.json (exists — kept)"
+fi
 
-sed "s|{{TIMESTAMP}}|$(date -Iseconds)|g" "$TEMPLATES/.claude/system_bus.json" > .claude/system_bus.json || { echo "❌ Failed to create system_bus.json"; exit 1; }
+if [ ! -f ".claude/system_bus.json" ]; then
+    sed "s|{{TIMESTAMP}}|$(date -Iseconds)|g" "$TEMPLATES/.claude/system_bus.json" > .claude/system_bus.json || { echo "❌ Failed to create system_bus.json"; exit 1; }
+    echo "   ✅ system_bus.json"
+else
+    echo "   ⏭️  system_bus.json (exists — kept)"
+fi
 
-# Copy task timers
+# task_timers.json — always reset (ephemeral watchdog state, safe to overwrite)
 cp "$TEMPLATES/.claude/task_timers.json" .claude/ || { echo "❌ Failed to copy task_timers.json"; exit 1; }
 
 # Copy hooks configuration and scripts
@@ -114,13 +137,69 @@ if [ ! -f ".claude/settings.json" ]; then
     echo "⚠️  Warning: .claude/settings.json not deployed"
 fi
 
-# Copy dev-kid.yml (sentinel + orchestration config) if not already present
+# Copy dev-kid.yml (sentinel + orchestration config) — first init only
 DEV_KID_ROOT="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 if [ ! -f "dev-kid.yml" ]; then
     if [ -f "$DEV_KID_ROOT/dev-kid.yml" ]; then
         cp "$DEV_KID_ROOT/dev-kid.yml" dev-kid.yml
-        echo "   ✅ Copied dev-kid.yml (sentinel config — edit to enable)"
+        echo "   ✅ Copied dev-kid.yml"
     fi
+
+    # Ask about sentinel setup (only on first init — dev-kid.yml didn't exist)
+    echo ""
+    read -p "🛡️  Enable Integration Sentinel (auto test-fix loop after each task)? (y/N): " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    sed -i 's/enabled: false/enabled: true/' dev-kid.yml
+    echo "   ✅ Sentinel enabled"
+    echo ""
+    read -p "   Ollama URL for Tier 1 (local model) [http://localhost:11434, Enter to skip Tier 1]: " OLLAMA_URL
+    if [ -n "$OLLAMA_URL" ]; then
+        sed -i "s|ollama_url:.*|ollama_url: $OLLAMA_URL|" dev-kid.yml
+        echo "   ✅ Ollama URL set to $OLLAMA_URL"
+    else
+        echo "   ℹ️  Skipping Tier 1 — sentinel will go straight to Tier 2 (Claude Sonnet)"
+    fi
+
+    # Provider health check
+    echo ""
+    echo "   Running provider health check..."
+    python3 - <<PYEOF
+import sys, os
+sys.path.insert(0, '$DEV_KID_ROOT/cli')
+try:
+    from sentinel.tier_runner import sentinel_health_check
+    class _Cfg:
+        sentinel_tier1_ollama_url = '${OLLAMA_URL:-http://localhost:11434}'
+    health = sentinel_health_check(_Cfg())
+    ok = True
+    if not health['micro_agent_installed']:
+        print("   ❌ micro-agent CLI not found")
+        print("      Install: npm install -g @builder.io/micro-agent")
+        ok = False
+    if health['tier1_available']:
+        print(f"   ✅ Tier 1 (Ollama): reachable at {health['tier1_url']}")
+    else:
+        print(f"   ⚠️  Tier 1 (Ollama): not reachable at {health['tier1_url']}")
+    if health['tier2_available']:
+        print("   ✅ Tier 2 (Claude): ANTHROPIC_API_KEY found")
+    else:
+        print("   ⚠️  Tier 2 (Claude): ANTHROPIC_API_KEY not set")
+    if not health['any_tier_available']:
+        print("")
+        print("   ⚠️  WARNING: No working providers detected.")
+        print("      Sentinel is enabled but will SKIP the test loop until a provider is reachable.")
+        print("      Fix one of the above, then re-run: dev-kid sentinel-status")
+    elif ok:
+        print("   ✅ Sentinel ready")
+except Exception as e:
+    print(f"   ⚠️  Health check failed: {e}")
+PYEOF
+    else
+        echo "   ℹ️  Sentinel disabled — edit dev-kid.yml to enable later"
+    fi
+else
+    echo "   ⏭️  dev-kid.yml (exists — kept, sentinel config unchanged)"
 fi
 
 # Initialize config.json

@@ -20,6 +20,55 @@ if TYPE_CHECKING:
     from . import SentinelConfig, TierResult
 
 
+def sentinel_health_check(config) -> dict:
+    """Check all sentinel providers and return health status.
+
+    Checks:
+      - micro-agent CLI is installed
+      - Tier 1: Ollama server is reachable
+      - Tier 2: ANTHROPIC_API_KEY is set
+
+    Args:
+        config: SentinelConfig (ConfigSchema) with sentinel_ attributes.
+
+    Returns:
+        Dict with keys: micro_agent_installed, tier1_available, tier1_url,
+        tier2_available, any_tier_available, warnings (list[str]).
+    """
+    from shutil import which
+
+    warnings: list = []
+
+    # Check micro-agent CLI
+    micro_agent_installed = which("micro-agent") is not None
+    if not micro_agent_installed:
+        warnings.append(
+            "micro-agent CLI not found — install with: npm install -g @builder.io/micro-agent"
+        )
+
+    # Check Tier 1 (Ollama)
+    ollama_url = getattr(config, "sentinel_tier1_ollama_url", "http://localhost:11434")
+    tier1_available = check_ollama_available(ollama_url)
+    if not tier1_available:
+        warnings.append(f"Tier 1: Ollama not reachable at {ollama_url}")
+
+    # Check Tier 2 (Anthropic API key)
+    tier2_available = bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+    if not tier2_available:
+        warnings.append("Tier 2: ANTHROPIC_API_KEY not set in environment")
+
+    any_tier_available = micro_agent_installed and (tier1_available or tier2_available)
+
+    return {
+        "micro_agent_installed": micro_agent_installed,
+        "tier1_available": tier1_available,
+        "tier1_url": ollama_url,
+        "tier2_available": tier2_available,
+        "any_tier_available": any_tier_available,
+        "warnings": warnings,
+    }
+
+
 def check_ollama_available(base_url: str) -> bool:
     """Check whether the Ollama server is reachable.
 
@@ -33,7 +82,7 @@ def check_ollama_available(base_url: str) -> bool:
     """
     try:
         result = subprocess.run(
-            ['curl', '-sf', f'{base_url}/api/tags'],
+            ["curl", "-sf", f"{base_url}/api/tags"],
             timeout=5,
             capture_output=True,
             text=True,
@@ -47,15 +96,15 @@ def check_ollama_available(base_url: str) -> bool:
 class TierRunner:
     """Runs the micro-agent in either Tier 1 (Ollama) or Tier 2 (cloud)."""
 
-    def __init__(self, config: 'SentinelConfig') -> None:
+    def __init__(self, config: "SentinelConfig") -> None:
         self._config = config
 
     def run_tier1(
         self,
         objective: str,
         test_cmd: str,
-        config: 'SentinelConfig',
-    ) -> 'TierResult':
+        config: "SentinelConfig",
+    ) -> "TierResult":
         """Run micro-agent Tier 1 (local Ollama).
 
         Skips if Ollama is not reachable — caller should escalate to Tier 2.
@@ -70,12 +119,16 @@ class TierRunner:
         """
         from . import TierResult
 
-        ollama_url = getattr(config, 'sentinel_tier1_ollama_url', 'http://192.168.0.159:11434')
-        model = getattr(config, 'sentinel_tier1_model', 'qwen3-coder:30b')
-        max_iter = getattr(config, 'sentinel_tier1_max_iterations', 5)
+        ollama_url = getattr(
+            config, "sentinel_tier1_ollama_url", "http://192.168.0.159:11434"
+        )
+        model = getattr(config, "sentinel_tier1_model", "qwen3-coder:30b")
+        max_iter = getattr(config, "sentinel_tier1_max_iterations", 5)
 
         if not check_ollama_available(ollama_url):
-            print(f"      ⚠️  Tier 1: Ollama not reachable at {ollama_url} — skipping to Tier 2")
+            print(
+                f"      ⚠️  Tier 1: Ollama not reachable at {ollama_url} — skipping to Tier 2"
+            )
             return TierResult(
                 attempted=True,
                 skipped=True,
@@ -84,19 +137,26 @@ class TierRunner:
                 final_status=None,
             )
 
-        env = {**os.environ, 'OLLAMA_BASE_URL': ollama_url}
+        env = {**os.environ, "OLLAMA_BASE_URL": ollama_url}
 
         cmd = [
-            'micro-agent',
-            '--objective', objective,
-            '--test', test_cmd,
-            '--max-iterations', str(max_iter),
-            '--simple', str(max_iter),
-            '--no-escalate',
-            '--artisan', f'ollama:{model}',
+            "micro-agent",
+            "--objective",
+            objective,
+            "--test",
+            test_cmd,
+            "--max-iterations",
+            str(max_iter),
+            "--simple",
+            str(max_iter),
+            "--no-escalate",
+            "--artisan",
+            f"ollama:{model}",
         ]
 
-        print(f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} iterations)...")
+        print(
+            f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} iterations)..."
+        )
         start = time.time()
         result = subprocess.run(
             cmd,
@@ -109,16 +169,16 @@ class TierRunner:
         elapsed = time.time() - start
 
         parsed = _parse_micro_agent_output(result.stdout)
-        final_status = 'PASS' if result.returncode == 0 else 'FAIL'
+        final_status = "PASS" if result.returncode == 0 else "FAIL"
 
         return TierResult(
             attempted=True,
             skipped=False,
             model=model,
             ollama_url=ollama_url,
-            iterations=parsed.get('iterations', 0),
-            cost_usd=parsed.get('cost_usd', 0.0),
-            duration_sec=parsed.get('duration_sec', elapsed),
+            iterations=parsed.get("iterations", 0),
+            cost_usd=parsed.get("cost_usd", 0.0),
+            duration_sec=parsed.get("duration_sec", elapsed),
             final_status=final_status,
             error_messages=[result.stderr.strip()] if result.stderr.strip() else [],
         )
@@ -127,8 +187,8 @@ class TierRunner:
         self,
         objective: str,
         test_cmd: str,
-        config: 'SentinelConfig',
-    ) -> 'TierResult':
+        config: "SentinelConfig",
+    ) -> "TierResult":
         """Run micro-agent Tier 2 (cloud Claude).
 
         Requires ANTHROPIC_API_KEY in the environment.
@@ -143,31 +203,39 @@ class TierRunner:
         """
         from . import TierResult
 
-        model = getattr(config, 'sentinel_tier2_model', 'claude-sonnet-4-20250514')
-        max_iter = getattr(config, 'sentinel_tier2_max_iterations', 10)
-        max_budget = getattr(config, 'sentinel_tier2_max_budget_usd', 2.0)
-        max_duration = getattr(config, 'sentinel_tier2_max_duration_min', 10)
+        model = getattr(config, "sentinel_tier2_model", "claude-sonnet-4-20250514")
+        max_iter = getattr(config, "sentinel_tier2_max_iterations", 10)
+        max_budget = getattr(config, "sentinel_tier2_max_budget_usd", 2.0)
+        max_duration = getattr(config, "sentinel_tier2_max_duration_min", 10)
 
-        if 'ANTHROPIC_API_KEY' not in os.environ:
+        if "ANTHROPIC_API_KEY" not in os.environ:
             return TierResult(
                 attempted=False,
                 skipped=True,
                 model=model,
-                error_messages=['ANTHROPIC_API_KEY not set — Tier 2 unavailable'],
-                final_status='FAIL',
+                error_messages=["ANTHROPIC_API_KEY not set — Tier 2 unavailable"],
+                final_status="FAIL",
             )
 
         cmd = [
-            'micro-agent',
-            '--objective', objective,
-            '--test', test_cmd,
-            '--max-iterations', str(max_iter),
-            '--artisan', model,
-            '--max-budget', str(max_budget),
-            '--max-duration', str(max_duration),
+            "micro-agent",
+            "--objective",
+            objective,
+            "--test",
+            test_cmd,
+            "--max-iterations",
+            str(max_iter),
+            "--artisan",
+            model,
+            "--max-budget",
+            str(max_budget),
+            "--max-duration",
+            str(max_duration),
         ]
 
-        print(f"      🌩️  Tier 2: micro-agent ({model}, max {max_iter} iterations, ${max_budget} budget)...")
+        print(
+            f"      🌩️  Tier 2: micro-agent ({model}, max {max_iter} iterations, ${max_budget} budget)..."
+        )
         start = time.time()
         result = subprocess.run(
             cmd,
@@ -179,16 +247,16 @@ class TierRunner:
         elapsed = time.time() - start
 
         parsed = _parse_micro_agent_output(result.stdout)
-        final_status = 'PASS' if result.returncode == 0 else 'FAIL'
+        final_status = "PASS" if result.returncode == 0 else "FAIL"
 
         return TierResult(
             attempted=True,
             skipped=False,
             model=model,
             ollama_url=None,
-            iterations=parsed.get('iterations', 0),
-            cost_usd=parsed.get('cost_usd', 0.0),
-            duration_sec=parsed.get('duration_sec', elapsed),
+            iterations=parsed.get("iterations", 0),
+            cost_usd=parsed.get("cost_usd", 0.0),
+            duration_sec=parsed.get("duration_sec", elapsed),
             final_status=final_status,
             error_messages=[result.stderr.strip()] if result.stderr.strip() else [],
         )
@@ -208,18 +276,18 @@ def _parse_micro_agent_output(stdout: str) -> dict:
     Returns:
         Dict with 'iterations', 'cost_usd', 'duration_sec' (zero-values if not found).
     """
-    result = {'iterations': 0, 'cost_usd': 0.0, 'duration_sec': 0.0}
+    result = {"iterations": 0, "cost_usd": 0.0, "duration_sec": 0.0}
 
-    iter_match = re.search(r'Iterations:\s*(\d+)', stdout, re.IGNORECASE)
+    iter_match = re.search(r"Iterations:\s*(\d+)", stdout, re.IGNORECASE)
     if iter_match:
-        result['iterations'] = int(iter_match.group(1))
+        result["iterations"] = int(iter_match.group(1))
 
-    cost_match = re.search(r'Cost:\s*\$?([\d.]+)', stdout, re.IGNORECASE)
+    cost_match = re.search(r"Cost:\s*\$?([\d.]+)", stdout, re.IGNORECASE)
     if cost_match:
-        result['cost_usd'] = float(cost_match.group(1))
+        result["cost_usd"] = float(cost_match.group(1))
 
-    dur_match = re.search(r'Duration:\s*([\d.]+)s', stdout, re.IGNORECASE)
+    dur_match = re.search(r"Duration:\s*([\d.]+)s", stdout, re.IGNORECASE)
     if dur_match:
-        result['duration_sec'] = float(dur_match.group(1))
+        result["duration_sec"] = float(dur_match.group(1))
 
     return result

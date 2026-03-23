@@ -107,6 +107,7 @@ CONSTITUTION & CONFIG:
 
 SENTINEL:
   sentinel-status          Show sentinel run history (task, tier, result, cost)
+  sentinel-health          Check provider connectivity (Ollama, API key, micro-agent CLI)
 
 SYSTEM:
   validate                 Validate system integrity
@@ -465,6 +466,67 @@ cmd_sentinel_status() {
     python3 "$DEV_KID_ROOT/cli/sentinel/status_reporter.py" --project-root "$project_root"
 }
 
+cmd_sentinel_health() {
+    local project_root="${PROJECT_ROOT:-$(pwd)}"
+    echo -e "${GREEN}🛡️  Sentinel Provider Health Check${NC}"
+    echo ""
+    python3 - <<PYEOF
+import sys, os
+sys.path.insert(0, '$DEV_KID_ROOT/cli')
+
+# Read current Ollama URL from dev-kid.yml if present
+ollama_url = 'http://localhost:11434'
+yml_path = os.path.join('$project_root', 'dev-kid.yml')
+sentinel_enabled = False
+try:
+    with open(yml_path) as f:
+        in_sentinel = False
+        for line in f:
+            s = line.strip()
+            if s.startswith('sentinel:'):
+                in_sentinel = True
+            elif in_sentinel:
+                if s.startswith('enabled:'):
+                    sentinel_enabled = s.split(':',1)[1].strip().lower() not in ('false','0','no','off')
+                elif s.startswith('ollama_url:'):
+                    ollama_url = s.split(':',1)[1].strip()
+                elif s and not s.startswith('#') and ':' in s and not line.startswith(' '):
+                    break
+except Exception:
+    pass
+
+print(f"  Sentinel enabled : {'yes' if sentinel_enabled else 'no  ← edit dev-kid.yml to change'}")
+print(f"  Ollama URL       : {ollama_url}")
+print()
+
+try:
+    from sentinel.tier_runner import sentinel_health_check
+    class _Cfg:
+        sentinel_tier1_ollama_url = ollama_url
+    health = sentinel_health_check(_Cfg())
+
+    ma = '✅' if health['micro_agent_installed'] else '❌'
+    t1 = '✅' if health['tier1_available'] else '❌'
+    t2 = '✅' if health['tier2_available'] else '❌'
+    print(f"  {ma} micro-agent CLI")
+    print(f"  {t1} Tier 1 — Ollama at {health['tier1_url']}")
+    print(f"  {t2} Tier 2 — ANTHROPIC_API_KEY")
+    print()
+    if not health['micro_agent_installed']:
+        print("  Fix: npm install -g @builder.io/micro-agent")
+    if not health['tier1_available']:
+        print(f"  Fix: start Ollama at {health['tier1_url']}  (or set a different URL in dev-kid.yml)")
+    if not health['tier2_available']:
+        print("  Fix: export ANTHROPIC_API_KEY=<your-key>")
+    if health['any_tier_available']:
+        print("  ✅ At least one tier ready — sentinel will run")
+    else:
+        print("  ⚠️  No providers available — sentinel will SKIP test loop until fixed")
+except Exception as e:
+    print(f"  ⚠️  Health check error: {e}")
+PYEOF
+}
+
 cmd_validate() {
     echo -e "${GREEN}🔧 Validating system integrity${NC}"
     "$DEV_KID_ROOT/skills/maintain_integrity.sh"
@@ -630,6 +692,7 @@ main() {
         constitution)       cmd_constitution "$@" ;;
         config)             cmd_config "$@" ;;
         sentinel-status)    cmd_sentinel_status "$@" ;;
+        sentinel-health)    cmd_sentinel_health "$@" ;;
         status)             cmd_status "$@" ;;
         validate)           cmd_validate "$@" ;;
         version)            echo "dev-kid v$VERSION" ;;
