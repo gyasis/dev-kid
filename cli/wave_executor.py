@@ -160,7 +160,7 @@ class WaveExecutor:
         sentinel_enabled = (
             _SENTINEL_AVAILABLE
             and self.config is not None
-            and getattr(getattr(self.config, "sentinel", None), "enabled", False)
+            and getattr(self.config, "sentinel_enabled", False)
         )
         if sentinel_enabled and _SentinelRunner is not None and self.config is not None:
             print(
@@ -243,7 +243,7 @@ class WaveExecutor:
 
         # Step 4: Git agent commits
         print("   Step 4: git-version-manager creates checkpoint...")
-        self._git_checkpoint(wave_id)
+        self._git_checkpoint(wave_id, wave_tasks=tasks)
 
         print(f"✅ Checkpoint {wave_id} complete\n")
 
@@ -251,8 +251,10 @@ class WaveExecutor:
         """Update progress.md with wave completion"""
         progress_file = Path("memory-bank/private") / Path.home().name / "progress.md"
 
+        progress_file.parent.mkdir(parents=True, exist_ok=True)
+
         if progress_file.exists():
-            content = progress_file.read_text()
+            content = progress_file.read_text(encoding="utf-8")
         else:
             content = "# Progress\n\n"
 
@@ -262,12 +264,45 @@ class WaveExecutor:
         for task in tasks:
             content += f"- ✅ {task['task_id']}: {task['instruction']}\n"
 
-        progress_file.write_text(content)
+        progress_file.write_text(content, encoding="utf-8")
 
-    def _git_checkpoint(self, wave_id: int) -> None:
-        """Create git checkpoint commit"""
-        # Stage all changes
-        subprocess.run(["git", "add", "."], check=True)
+    def _git_checkpoint(
+        self, wave_id: int, wave_tasks: Optional[List[Dict]] = None
+    ) -> None:
+        """Create git checkpoint commit, staging only wave file_locks + known safe paths."""
+        # Collect files touched by this wave to avoid staging secrets / unrelated work
+        files_to_stage: list[str] = ["tasks.md"]
+        if wave_tasks:
+            for t in wave_tasks:
+                for f in t.get("file_locks") or []:
+                    if (
+                        f
+                        and "/" in str(f)
+                        or str(f).endswith(
+                            (
+                                ".py",
+                                ".ts",
+                                ".js",
+                                ".rs",
+                                ".sql",
+                                ".md",
+                                ".json",
+                                ".yml",
+                                ".yaml",
+                                ".sh",
+                                ".toml",
+                                ".txt",
+                            )
+                        )
+                    ):
+                        files_to_stage.append(str(f))
+        # Always include memory-bank and .claude state dirs (safe, no secrets)
+        files_to_stage += ["memory-bank/", ".claude/activity_stream.md"]
+
+        for path in files_to_stage:
+            subprocess.run(
+                ["git", "add", "--", path], capture_output=True
+            )  # ignore missing
 
         # Commit
         commit_msg = (

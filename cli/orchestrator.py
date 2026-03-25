@@ -5,14 +5,16 @@ Task Orchestrator - Converts linear tasks into parallel wave execution
 
 import json
 import sys
-from pathlib import Path
-from typing import List, Dict, Set
-from dataclasses import dataclass, field
 from collections import defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Set
+
 
 @dataclass
 class Task:
     """Represents a single task"""
+
     id: str
     description: str
     agent_role: str = "Developer"
@@ -21,14 +23,17 @@ class Task:
     constitution_rules: List[str] = field(default_factory=list)
     completed: bool = False
 
+
 @dataclass
 class Wave:
     """Represents an execution wave"""
+
     wave_id: int
     strategy: str  # PARALLEL_SWARM or SEQUENTIAL_MERGE
     tasks: List[Dict]
     rationale: str
     checkpoint_enabled: bool = True
+
 
 class TaskOrchestrator:
     """Orchestrates task execution with waves and checkpoints"""
@@ -46,19 +51,21 @@ class TaskOrchestrator:
             sys.exit(1)
 
         try:
-            content = self.tasks_file.read_text(encoding='utf-8')
+            content = self.tasks_file.read_text(encoding="utf-8")
         except Exception as e:
             print(f"❌ Error reading {self.tasks_file}: {e}")
             sys.exit(1)
 
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         task_id = 1
         current_task_lines = []
 
         for i, line in enumerate(lines):
-            is_task_line = (line.startswith('- [ ]') or line.startswith('- [x]'))
-            is_sentinel_line = 'SENTINEL-' in line  # managed by injection, never re-parsed
+            is_task_line = line.startswith("- [ ]") or line.startswith("- [x]")
+            is_sentinel_line = (
+                "SENTINEL-" in line
+            )  # managed by injection, never re-parsed
             if is_task_line and not is_sentinel_line:
                 # Process previous task if exists
                 if current_task_lines:
@@ -73,7 +80,7 @@ class TaskOrchestrator:
                     self._process_task(current_task_lines, task_id)
                     task_id += 1
                     current_task_lines = []
-            elif current_task_lines and line.strip().startswith('- **Constitution**:'):
+            elif current_task_lines and line.strip().startswith("- **Constitution**:"):
                 # Add constitution line to current task
                 current_task_lines.append(line)
             elif not line.strip() and current_task_lines:
@@ -92,8 +99,8 @@ class TaskOrchestrator:
 
         # First line is the task description
         first_line = task_lines[0]
-        completed = '[x]' in first_line
-        description = first_line.split(']', 1)[1].strip()
+        completed = "[x]" in first_line
+        description = first_line.split("]", 1)[1].strip()
 
         # Extract file references from description
         file_locks = self._extract_file_references(description)
@@ -103,11 +110,13 @@ class TaskOrchestrator:
 
         # Extract constitution rules from subsequent lines
         constitution_rules = []
-        full_text = '\n'.join(task_lines)
-        constitution_match = re.search(r'- \*\*Constitution\*\*: (.+)', full_text, re.MULTILINE)
+        full_text = "\n".join(task_lines)
+        constitution_match = re.search(
+            r"- \*\*Constitution\*\*: (.+)", full_text, re.MULTILINE
+        )
         if constitution_match:
             rules_str = constitution_match.group(1)
-            constitution_rules = [r.strip() for r in rules_str.split(',')]
+            constitution_rules = [r.strip() for r in rules_str.split(",")]
 
         task = Task(
             id=f"T{task_id:03d}",
@@ -115,7 +124,7 @@ class TaskOrchestrator:
             file_locks=file_locks,
             dependencies=dependencies,
             constitution_rules=constitution_rules,
-            completed=completed
+            completed=completed,
         )
 
         self.tasks.append(task)
@@ -127,10 +136,11 @@ class TaskOrchestrator:
     def _extract_file_references(self, description: str) -> List[str]:
         """Extract file paths from task description"""
         import re
+
         # Match patterns like: file.py, path/to/file.ts, `src/component.tsx`
         patterns = [
-            r'`([^`]+\.[a-zA-Z]+)`',  # backtick-wrapped paths
-            r'\b([\w/.-]+\.[a-zA-Z]{2,4})\b'  # plain file paths
+            r"`([^`]+\.[a-zA-Z]+)`",  # backtick-wrapped paths
+            r"\b([\w/.-]+\.[a-zA-Z]{2,4})\b",  # plain file paths
         ]
 
         files = []
@@ -143,10 +153,11 @@ class TaskOrchestrator:
     def _extract_dependencies(self, description: str) -> List[str]:
         """Extract task dependencies from description"""
         import re
-        # Match "after T123" or "depends on T456"
-        pattern = r'\b(?:after|depends on)\s+T(\d{3})\b'
+
+        # Match "after T1" / "after T001" / "depends on T1234"
+        pattern = r"\b(?:after|depends on)\s+T(\d{1,4})\b"
         matches = re.findall(pattern, description, re.IGNORECASE)
-        return [f"T{m}" for m in matches]
+        return [f"T{m.zfill(3)}" for m in matches]
 
     def analyze_dependencies(self) -> Dict[str, Set[str]]:
         """Build dependency graph"""
@@ -163,8 +174,12 @@ class TaskOrchestrator:
                 for other_task_id in self.file_to_tasks[file]:
                     if other_task_id != task.id:
                         # Only depend on tasks that come before in original order
-                        other_idx = next(i for i, t in enumerate(self.tasks) if t.id == other_task_id)
-                        this_idx = next(i for i, t in enumerate(self.tasks) if t.id == task.id)
+                        other_idx = next(
+                            i for i, t in enumerate(self.tasks) if t.id == other_task_id
+                        )
+                        this_idx = next(
+                            i for i, t in enumerate(self.tasks) if t.id == task.id
+                        )
                         if other_idx < this_idx:
                             graph[task.id].add(other_task_id)
 
@@ -198,7 +213,9 @@ class TaskOrchestrator:
                     continue
 
                 # Check if all dependencies are assigned to previous waves
-                deps_satisfied = all(dep in assigned_tasks for dep in dependency_graph[task.id])
+                deps_satisfied = all(
+                    dep in assigned_tasks for dep in dependency_graph[task.id]
+                )
 
                 if not deps_satisfied:
                     continue
@@ -217,7 +234,9 @@ class TaskOrchestrator:
 
             if not wave_tasks:
                 # No tasks could be assigned - circular dependency or error
-                print("❌ Error: Circular dependency or unresolvable conflicts detected")
+                print(
+                    "❌ Error: Circular dependency or unresolvable conflicts detected"
+                )
                 sys.exit(1)
 
             # Determine strategy
@@ -227,17 +246,20 @@ class TaskOrchestrator:
             wave = Wave(
                 wave_id=wave_id,
                 strategy=strategy,
-                tasks=[{
-                    "task_id": t.id,
-                    "agent_role": "Developer",
-                    "instruction": t.description,
-                    "file_locks": t.file_locks,
-                    "constitution_rules": t.constitution_rules,
-                    "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
-                    "dependencies": list(dependency_graph[t.id])
-                } for t in wave_tasks],
+                tasks=[
+                    {
+                        "task_id": t.id,
+                        "agent_role": "Developer",
+                        "instruction": t.description,
+                        "file_locks": t.file_locks,
+                        "constitution_rules": t.constitution_rules,
+                        "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
+                        "dependencies": list(dependency_graph[t.id]),
+                    }
+                    for t in wave_tasks
+                ],
                 rationale=f"Wave {wave_id}: {len(wave_tasks)} independent task(s) with no file conflicts",
-                checkpoint_enabled=True
+                checkpoint_enabled=True,
             )
 
             self.waves.append(wave)
@@ -253,19 +275,24 @@ class TaskOrchestrator:
                 yml_path = Path("dev-kid.yml")
                 if not yml_path.exists():
                     return False
-                content = yml_path.read_text(encoding='utf-8')
+                content = yml_path.read_text(encoding="utf-8")
                 # Find 'enabled:' under 'sentinel:' block
                 in_sentinel = False
                 for line in content.splitlines():
                     stripped = line.strip()
-                    if stripped.startswith('sentinel:'):
+                    if stripped.startswith("sentinel:"):
                         in_sentinel = True
                         continue
                     if in_sentinel:
-                        if stripped.startswith('enabled:'):
-                            value = stripped.split(':', 1)[1].strip().lower()
-                            return value not in ('false', '0', 'no', 'off')
-                        elif stripped and not stripped.startswith('#') and ':' in stripped and not line.startswith(' '):
+                        if stripped.startswith("enabled:"):
+                            value = stripped.split(":", 1)[1].strip().lower()
+                            return value not in ("false", "0", "no", "off")
+                        elif (
+                            stripped
+                            and not stripped.startswith("#")
+                            and ":" in stripped
+                            and not line.startswith(" ")
+                        ):
                             # New top-level key — sentinel block ended
                             break
                 return False
@@ -276,40 +303,44 @@ class TaskOrchestrator:
             yml_path = Path("dev-kid.yml")
             if not yml_path.exists():
                 return False
-            data = yaml.safe_load(yml_path.read_text(encoding='utf-8'))
-            return bool(data.get('sentinel', {}).get('enabled', False))
+            data = yaml.safe_load(yml_path.read_text(encoding="utf-8"))
+            return bool(data.get("sentinel", {}).get("enabled", False))
         except Exception:
             return False
 
     def _load_sentinel_tier_info(self) -> tuple:
         """Return (tier1_model, tier1_url, tier2_model) from dev-kid.yml, with defaults."""
-        defaults = ('qwen3-coder:30b', 'http://192.168.0.159:11434', 'claude-sonnet-4-20250514')
+        defaults = (
+            "qwen3-coder:30b",
+            "http://192.168.0.159:11434",
+            "claude-sonnet-4-20250514",
+        )
         try:
             yml_path = Path("dev-kid.yml")
             if not yml_path.exists():
                 return defaults
-            content = yml_path.read_text(encoding='utf-8')
+            content = yml_path.read_text(encoding="utf-8")
             t1_model = t1_url = t2_model = None
             in_sentinel = in_tier1 = in_tier2 = False
             for line in content.splitlines():
                 stripped = line.strip()
-                if stripped.startswith('sentinel:'):
+                if stripped.startswith("sentinel:"):
                     in_sentinel = True
                     continue
                 if in_sentinel:
-                    if stripped.startswith('tier1:'):
+                    if stripped.startswith("tier1:"):
                         in_tier1, in_tier2 = True, False
-                    elif stripped.startswith('tier2:'):
+                    elif stripped.startswith("tier2:"):
                         in_tier1, in_tier2 = False, True
-                    elif stripped and not line.startswith(' ') and ':' in stripped:
+                    elif stripped and not line.startswith(" ") and ":" in stripped:
                         break  # left sentinel block
                     if in_tier1:
-                        if stripped.startswith('model:'):
-                            t1_model = stripped.split(':', 1)[1].strip()
-                        elif stripped.startswith('ollama_url:'):
-                            t1_url = stripped.split(':', 1)[1].strip()
-                    if in_tier2 and stripped.startswith('model:'):
-                        t2_model = stripped.split(':', 1)[1].strip()
+                        if stripped.startswith("model:"):
+                            t1_model = stripped.split(":", 1)[1].strip()
+                        elif stripped.startswith("ollama_url:"):
+                            t1_url = stripped.split(":", 1)[1].strip()
+                    if in_tier2 and stripped.startswith("model:"):
+                        t2_model = stripped.split(":", 1)[1].strip()
             return (
                 t1_model or defaults[0],
                 t1_url or defaults[1],
@@ -320,34 +351,34 @@ class TaskOrchestrator:
 
     def _load_sentinel_granularity(self) -> tuple:
         """Return (granularity, n) from dev-kid.yml. Defaults: ('per-task', 3)."""
-        granularity = 'per-task'
+        granularity = "per-task"
         n = 3
         try:
             yml_path = Path("dev-kid.yml")
             if not yml_path.exists():
                 return (granularity, n)
-            content = yml_path.read_text(encoding='utf-8')
+            content = yml_path.read_text(encoding="utf-8")
             in_sentinel = False
             for line in content.splitlines():
                 stripped = line.strip()
-                if stripped.startswith('sentinel:'):
+                if stripped.startswith("sentinel:"):
                     in_sentinel = True
                     continue
                 if in_sentinel:
-                    if stripped and not line.startswith(' ') and ':' in stripped:
+                    if stripped and not line.startswith(" ") and ":" in stripped:
                         break
-                    if stripped.startswith('injection_granularity:'):
-                        granularity = stripped.split(':', 1)[1].strip()
-                    elif stripped.startswith('injection_n:'):
+                    if stripped.startswith("injection_granularity:"):
+                        granularity = stripped.split(":", 1)[1].strip()
+                    elif stripped.startswith("injection_n:"):
                         try:
-                            n = int(stripped.split(':', 1)[1].strip())
+                            n = int(stripped.split(":", 1)[1].strip())
                         except ValueError:
                             pass
         except Exception:
             pass
         return (granularity, max(1, n))
 
-    def _inject_sentinel_tasks(self, waves: List['Wave'], tasks_file: Path) -> None:
+    def _inject_sentinel_tasks(self, waves: List["Wave"], tasks_file: Path) -> None:
         """Insert SENTINEL tasks according to injection_granularity in dev-kid.yml.
 
         Granularity modes:
@@ -369,11 +400,11 @@ class TaskOrchestrator:
             dev_tasks = list(wave.tasks)
             injected: List[Dict] = []
 
-            if granularity == 'per-wave':
+            if granularity == "per-wave":
                 # One sentinel at the end of the wave, covering all tasks
                 injected.extend(dev_tasks)
                 last_task = dev_tasks[-1]
-                covered = ', '.join(t['task_id'] for t in dev_tasks)
+                covered = ", ".join(t["task_id"] for t in dev_tasks)
                 sentinel_id = f"SENTINEL-W{wave.wave_id}"
                 sentinel_instruction = (
                     f"Sentinel validation for wave {wave.wave_id} "
@@ -388,23 +419,23 @@ class TaskOrchestrator:
                     "completion_handshake": (
                         f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
                     ),
-                    "dependencies": [t['task_id'] for t in dev_tasks],
-                    "parent_task_id": last_task['task_id'],
+                    "dependencies": [t["task_id"] for t in dev_tasks],
+                    "parent_task_id": last_task["task_id"],
                 }
                 injected.append(sentinel_task)
-                sentinel_lines_to_append.append(f"- [ ] {sentinel_id}: {sentinel_instruction}")
+                sentinel_lines_to_append.append(
+                    f"- [ ] {sentinel_id}: {sentinel_instruction}"
+                )
 
-            elif granularity == 'per-n':
+            elif granularity == "per-n":
                 # One sentinel every N developer tasks
                 for i, task in enumerate(dev_tasks):
                     injected.append(task)
                     if (i + 1) % n == 0 or i == len(dev_tasks) - 1:
-                        batch = dev_tasks[max(0, i + 1 - n):i + 1]
-                        covered = ', '.join(t['task_id'] for t in batch)
+                        batch = dev_tasks[max(0, i + 1 - n) : i + 1]
+                        covered = ", ".join(t["task_id"] for t in batch)
                         sentinel_id = f"SENTINEL-{task['task_id']}"
-                        sentinel_instruction = (
-                            f"Sentinel validation for {covered}: verify implementations pass tests"
-                        )
+                        sentinel_instruction = f"Sentinel validation for {covered}: verify implementations pass tests"
                         sentinel_task = {
                             "task_id": sentinel_id,
                             "agent_role": "Sentinel",
@@ -414,8 +445,8 @@ class TaskOrchestrator:
                             "completion_handshake": (
                                 f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
                             ),
-                            "dependencies": [t['task_id'] for t in batch],
-                            "parent_task_id": task['task_id'],
+                            "dependencies": [t["task_id"] for t in batch],
+                            "parent_task_id": task["task_id"],
                         }
                         injected.append(sentinel_task)
                         sentinel_lines_to_append.append(
@@ -427,9 +458,7 @@ class TaskOrchestrator:
                 for task in dev_tasks:
                     injected.append(task)
                     sentinel_id = f"SENTINEL-{task['task_id']}"
-                    sentinel_instruction = (
-                        f"Sentinel validation for {task['task_id']}: verify implementation passes tests"
-                    )
+                    sentinel_instruction = f"Sentinel validation for {task['task_id']}: verify implementation passes tests"
                     sentinel_task = {
                         "task_id": sentinel_id,
                         "agent_role": "Sentinel",
@@ -451,17 +480,16 @@ class TaskOrchestrator:
 
         # Atomic append to tasks.md
         if sentinel_lines_to_append and tasks_file.exists():
-            existing = tasks_file.read_text(encoding='utf-8')
+            existing = tasks_file.read_text(encoding="utf-8")
             # Only append lines not already present
             new_lines = [
-                line for line in sentinel_lines_to_append
-                if line not in existing
+                line for line in sentinel_lines_to_append if line not in existing
             ]
             if new_lines:
-                separator = '\n' if existing.endswith('\n') else '\n\n'
-                updated = existing + separator + '\n'.join(new_lines) + '\n'
-                temp = tasks_file.with_suffix('.tmp')
-                temp.write_text(updated, encoding='utf-8')
+                separator = "\n" if existing.endswith("\n") else "\n\n"
+                updated = existing + separator + "\n".join(new_lines) + "\n"
+                temp = tasks_file.with_suffix(".tmp")
+                temp.write_text(updated, encoding="utf-8")
                 temp.rename(tasks_file)
 
     def generate_execution_plan(self, phase_id: str = "default") -> Dict:
@@ -469,18 +497,21 @@ class TaskOrchestrator:
         return {
             "execution_plan": {
                 "phase_id": phase_id,
-                "waves": [{
-                    "wave_id": wave.wave_id,
-                    "strategy": wave.strategy,
-                    "rationale": wave.rationale,
-                    "tasks": wave.tasks,
-                    "checkpoint_after": {
-                        "enabled": wave.checkpoint_enabled,
-                        "verification_criteria": f"Verify all Wave {wave.wave_id} tasks are marked [x] in tasks.md",
-                        "git_agent": "git-version-manager",
-                        "memory_bank_agent": "memory-bank-keeper"
+                "waves": [
+                    {
+                        "wave_id": wave.wave_id,
+                        "strategy": wave.strategy,
+                        "rationale": wave.rationale,
+                        "tasks": wave.tasks,
+                        "checkpoint_after": {
+                            "enabled": wave.checkpoint_enabled,
+                            "verification_criteria": f"Verify all Wave {wave.wave_id} tasks are marked [x] in tasks.md",
+                            "git_agent": "git-version-manager",
+                            "memory_bank_agent": "memory-bank-keeper",
+                        },
                     }
-                } for wave in self.waves]
+                    for wave in self.waves
+                ],
             }
         }
 
@@ -489,6 +520,11 @@ class TaskOrchestrator:
         print("🔍 Parsing tasks...")
         self.parse_tasks()
         print(f"   Found {len(self.tasks)} tasks")
+
+        if not self.tasks:
+            print("❌ No tasks found in tasks.md — nothing to execute.")
+            print("   Add tasks in the format: - [ ] T001: Description")
+            sys.exit(1)
 
         print("📊 Analyzing dependencies...")
         dep_graph = self.analyze_dependencies()
@@ -504,18 +540,22 @@ class TaskOrchestrator:
             tier1_model, tier1_url, tier2_model = self._load_sentinel_tier_info()
             granularity, n = self._load_sentinel_granularity()
             granularity_label = {
-                'per-task': 'per-task  (SENTINEL after every task)',
-                'per-wave': 'per-wave  (one SENTINEL at end of each wave)',
-                'per-n':    f'per-{n}    (SENTINEL every {n} tasks)',
+                "per-task": "per-task  (SENTINEL after every task)",
+                "per-wave": "per-wave  (one SENTINEL at end of each wave)",
+                "per-n": f"per-{n}    (SENTINEL every {n} tasks)",
             }.get(granularity, granularity)
             print("🛡️  Integration Sentinel: ENABLED")
             print(f"   Tier 1 → micro-agent via Ollama  ({tier1_model} @ {tier1_url})")
-            print(f"   Tier 2 → micro-agent via cloud   ({tier2_model}, on Tier 1 exhaustion)")
+            print(
+                f"   Tier 2 → micro-agent via cloud   ({tier2_model}, on Tier 1 exhaustion)"
+            )
             print(f"   Granularity: {granularity_label}")
             self._inject_sentinel_tasks(self.waves, self.tasks_file)
             sentinel_count = sum(
-                1 for w in self.waves for t in w.tasks
-                if isinstance(t, dict) and t.get('agent_role') == 'Sentinel'
+                1
+                for w in self.waves
+                for t in w.tasks
+                if isinstance(t, dict) and t.get("agent_role") == "Sentinel"
             )
             print(f"   Injected {sentinel_count} SENTINEL tasks across waves")
         else:
@@ -529,8 +569,10 @@ class TaskOrchestrator:
             try:
                 import re as _re
                 import sys as _sys
+
                 _sys.path.insert(0, str(Path(__file__).parent))
-                from dbt_graph import DBTGraph, DBTTopologicalSort, CycleDetector
+                from dbt_graph import (CycleDetector, DBTGraph,
+                                       DBTTopologicalSort)
 
                 graph = DBTGraph().load(".")
                 print(f"   🌿 dbt project detected — applying DAG-aware wave ordering")
@@ -539,10 +581,14 @@ class TaskOrchestrator:
                     cycle = CycleDetector.detect_cycle(graph)
                     if cycle:
                         print(f"   ❌ Circular dependency detected: {cycle}")
-                        print("   Halting orchestration. Fix the circular ref() before proceeding.")
+                        print(
+                            "   Halting orchestration. Fix the circular ref() before proceeding."
+                        )
                         _sys.exit(1)
 
-                    def _find_dbt_model_name(task_dict: dict, _graph: DBTGraph, _file_to_model: dict) -> "str | None":
+                    def _find_dbt_model_name(
+                        task_dict: dict, _graph: DBTGraph, _file_to_model: dict
+                    ) -> "str | None":
                         """Find a dbt model name for a task by checking:
                         1. File locks ending in .sql — extract stem (filename without .sql)
                         2. Task instruction text — look for any word matching a known graph node
@@ -560,7 +606,7 @@ class TaskOrchestrator:
                                     return stem
                         # Check instruction text for known model names
                         instruction = task_dict.get("instruction", "")
-                        words = _re.findall(r'\b\w+\b', instruction.lower())
+                        words = _re.findall(r"\b\w+\b", instruction.lower())
                         for word in words:
                             if word in _graph.nodes:
                                 return word
@@ -572,7 +618,9 @@ class TaskOrchestrator:
                     task_to_model: dict[str, str] = {}
                     for wave in plan["execution_plan"]["waves"]:
                         for task in wave["tasks"]:
-                            model_name = _find_dbt_model_name(task, graph, file_to_model)
+                            model_name = _find_dbt_model_name(
+                                task, graph, file_to_model
+                            )
                             if model_name and task["task_id"] not in task_to_model:
                                 task_model_names.append(model_name)
                                 task_to_model[task["task_id"]] = model_name
@@ -580,13 +628,17 @@ class TaskOrchestrator:
                     print(f"   📊 {len(task_model_names)} dbt model task(s) identified")
 
                     if task_model_names:
-                        wave_overrides = DBTTopologicalSort.assign_waves(task_model_names, graph)
+                        wave_overrides = DBTTopologicalSort.assign_waves(
+                            task_model_names, graph
+                        )
 
                         # Snapshot original wave assignments for non-dbt tasks
                         task_id_to_orig_wave: dict[str, int] = {}
                         for orig_wave in plan["execution_plan"]["waves"]:
                             for task in orig_wave["tasks"]:
-                                task_id_to_orig_wave[task["task_id"]] = orig_wave["wave_id"]
+                                task_id_to_orig_wave[task["task_id"]] = orig_wave[
+                                    "wave_id"
+                                ]
 
                         # Collect all tasks by id for rebuild
                         all_tasks_by_id: dict[str, dict] = {}
@@ -628,20 +680,24 @@ class TaskOrchestrator:
                                     strategy = "SEQUENTIAL_MERGE"
                                 else:
                                     strategy = "PARALLEL_SWARM"
-                                new_waves.append({
-                                    "wave_id": wid,
-                                    "strategy": strategy,
-                                    "rationale": f"dbt dependency-ordered wave {wid}",
-                                    "tasks": tasks_in_wave,
-                                    "checkpoint_after": {
-                                        "enabled": True,
-                                        "verification_criteria": f"Verify all Wave {wid} tasks are marked [x] in tasks.md",
-                                        "git_agent": "git-version-manager",
-                                        "memory_bank_agent": "memory-bank-keeper"
+                                new_waves.append(
+                                    {
+                                        "wave_id": wid,
+                                        "strategy": strategy,
+                                        "rationale": f"dbt dependency-ordered wave {wid}",
+                                        "tasks": tasks_in_wave,
+                                        "checkpoint_after": {
+                                            "enabled": True,
+                                            "verification_criteria": f"Verify all Wave {wid} tasks are marked [x] in tasks.md",
+                                            "git_agent": "git-version-manager",
+                                            "memory_bank_agent": "memory-bank-keeper",
+                                        },
                                     }
-                                })
+                                )
                             plan["execution_plan"]["waves"] = new_waves
-                            print(f"   dbt DAG applied: {len(task_model_names)} model(s) reordered across {len(new_waves)} wave(s)")
+                            print(
+                                f"   dbt DAG applied: {len(task_model_names)} model(s) reordered across {len(new_waves)} wave(s)"
+                            )
             except SystemExit:
                 raise
             except Exception as _dbt_err:
@@ -649,9 +705,9 @@ class TaskOrchestrator:
 
         # Output to execution_plan.json (atomic write)
         output_file = Path("execution_plan.json")
-        temp_file = output_file.with_suffix('.tmp')
+        temp_file = output_file.with_suffix(".tmp")
         try:
-            temp_file.write_text(json.dumps(plan, indent=2), encoding='utf-8')
+            temp_file.write_text(json.dumps(plan, indent=2), encoding="utf-8")
             temp_file.rename(output_file)  # Atomic on POSIX
             print(f"✅ Execution plan written to: {output_file}")
         except Exception as e:
@@ -663,22 +719,30 @@ class TaskOrchestrator:
         # Print summary
         print("\n📋 Wave Summary:")
         for wave in self.waves:
-            print(f"   Wave {wave.wave_id} ({wave.strategy}): {len(wave.tasks)} task(s)")
+            print(
+                f"   Wave {wave.wave_id} ({wave.strategy}): {len(wave.tasks)} task(s)"
+            )
             for task in wave.tasks:
                 print(f"      - {task['task_id']}: {task['instruction'][:60]}...")
+
 
 def main():
     """Main entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Task Orchestrator - Wave-based parallel execution")
-    parser.add_argument('--tasks-file', default='tasks.md', help='Path to tasks.md file')
-    parser.add_argument('--phase-id', default='default', help='Phase identifier')
+    parser = argparse.ArgumentParser(
+        description="Task Orchestrator - Wave-based parallel execution"
+    )
+    parser.add_argument(
+        "--tasks-file", default="tasks.md", help="Path to tasks.md file"
+    )
+    parser.add_argument("--phase-id", default="default", help="Phase identifier")
 
     args = parser.parse_args()
 
     orchestrator = TaskOrchestrator(args.tasks_file)
     orchestrator.execute(args.phase_id)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
