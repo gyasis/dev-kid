@@ -110,6 +110,7 @@ cp "$PROJECT_ROOT/QUICKSTART.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/HOOKS_REFERENCE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/INTEGRATION_GUIDE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/CONTEXT_COMPACTION_STRATEGY.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/dev-kid.yml" "$INSTALL_DIR/"
 
 # Copy rust-watchdog binary (build if needed)
 WATCHDOG_SRC="$PROJECT_ROOT/rust-watchdog/target/release/task-watchdog"

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from config_manager import ConfigManager
+from config_manager import ConfigManager, ConfigSchema
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
 
@@ -81,13 +81,28 @@ class WaveExecutor:
         # Initialize context compactor for proactive pre-compaction
         self.compactor = ContextCompactor()
 
-        # Load sentinel config
-        try:
-            _mgr = ConfigManager()
-            _mgr.load()
-            self.config = _mgr.schema
-        except Exception:
-            self.config = None
+        # Load sentinel config — prefer dev-kid.yml (common case), fall back to
+        # .devkid/config.json (legacy ConfigManager path).
+        self.config = None
+        yml_path = Path("dev-kid.yml")
+        if yml_path.exists():
+            try:
+                import yaml as _yaml  # type: ignore[import]
+
+                _data = _yaml.safe_load(yml_path.read_text(encoding="utf-8")) or {}
+                self.config = ConfigSchema.from_dict(_data)
+            except ImportError:
+                # yaml not available — fall through to ConfigManager
+                pass
+            except Exception:
+                pass
+        if self.config is None:
+            try:
+                _mgr = ConfigManager()
+                _mgr.load()
+                self.config = _mgr.schema
+            except Exception:
+                self.config = None
 
     def load_plan(self) -> None:
         """Load execution plan from JSON"""

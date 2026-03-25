@@ -25,7 +25,7 @@ if echo "$TOOL_INPUT" | grep -qE "rm\s+-rf\s+/|rm\s+--force\s+-r\s+/"; then
     BLOCKED=1; REASON="Blocking rm -rf on root-level path"
 fi
 
-if echo "$TOOL_INPUT" | grep -qE "git\s+push\s+.*--force[^-]|git\s+push\s+.*-f\b"; then
+if echo "$TOOL_INPUT" | grep -qE "git\s+push\s+.*--force(\s|$)|git\s+push\s+.*-f\b"; then
     BLOCKED=1; REASON="Blocking force push (use --force-with-lease if required)"
 fi
 

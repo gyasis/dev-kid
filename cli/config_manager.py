@@ -12,9 +12,9 @@ Config.json contains:
 """
 
 import json
-from pathlib import Path
-from typing import Any, Dict, Optional, List
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -52,7 +52,7 @@ class ConfigSchema:
 
     # Sentinel: Tier 1 (local Ollama)
     sentinel_tier1_model: str = "qwen3-coder:30b"
-    sentinel_tier1_ollama_url: str = "http://192.168.0.159:11434"
+    sentinel_tier1_ollama_url: str = "http://localhost:11434"
     sentinel_tier1_max_iterations: int = 5
 
     # Sentinel: Tier 2 (cloud)
@@ -78,22 +78,22 @@ class ConfigSchema:
                 "task_watchdog_minutes": self.task_watchdog_minutes,
                 "wave_size": self.wave_size,
                 "max_parallel_tasks": self.max_parallel_tasks,
-                "checkpoint_auto_save": self.checkpoint_auto_save
+                "checkpoint_auto_save": self.checkpoint_auto_save,
             },
             "constitution": {
                 "path": self.constitution_path,
                 "enforce": self.constitution_enforce,
-                "strict_mode": self.constitution_strict_mode
+                "strict_mode": self.constitution_strict_mode,
             },
             "mcp_servers": self.mcp_servers,
             "cli": {
                 "verbose": self.verbose,
                 "auto_git_commit": self.auto_git_commit,
-                "git_commit_prefix": self.git_commit_prefix
+                "git_commit_prefix": self.git_commit_prefix,
             },
             "agents": {
                 "preferred_model": self.preferred_model,
-                "timeout_minutes": self.agent_timeout_minutes
+                "timeout_minutes": self.agent_timeout_minutes,
             },
             "sentinel": {
                 "enabled": self.sentinel_enabled,
@@ -118,12 +118,12 @@ class ConfigSchema:
                     "fail_on_detect": self.sentinel_placeholder_fail_on_detect,
                     "patterns": self.sentinel_placeholder_patterns,
                     "exclude_paths": self.sentinel_placeholder_exclude_paths,
-                }
-            }
+                },
+            },
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ConfigSchema':
+    def from_dict(cls, data: Dict[str, Any]) -> "ConfigSchema":
         """Create from dictionary loaded from JSON"""
         task_orch = data.get("task_orchestration", {})
         constitution = data.get("constitution", {})
@@ -142,7 +142,9 @@ class ConfigSchema:
             wave_size=task_orch.get("wave_size", 5),
             max_parallel_tasks=task_orch.get("max_parallel_tasks", 3),
             checkpoint_auto_save=task_orch.get("checkpoint_auto_save", True),
-            constitution_path=constitution.get("path", "memory-bank/shared/.constitution.md"),
+            constitution_path=constitution.get(
+                "path", "memory-bank/shared/.constitution.md"
+            ),
             constitution_enforce=constitution.get("enforce", True),
             constitution_strict_mode=constitution.get("strict_mode", False),
             mcp_servers=mcp,
@@ -154,7 +156,7 @@ class ConfigSchema:
             sentinel_enabled=sentinel.get("enabled", True),
             sentinel_mode=sentinel.get("mode", "auto"),
             sentinel_tier1_model=tier1.get("model", "qwen3-coder:30b"),
-            sentinel_tier1_ollama_url=tier1.get("ollama_url", "http://192.168.0.159:11434"),
+            sentinel_tier1_ollama_url=tier1.get("ollama_url", "http://localhost:11434"),
             sentinel_tier1_max_iterations=tier1.get("max_iterations", 5),
             sentinel_tier2_model=tier2.get("model", "claude-sonnet-4-20250514"),
             sentinel_tier2_max_iterations=tier2.get("max_iterations", 10),
@@ -162,7 +164,9 @@ class ConfigSchema:
             sentinel_tier2_max_duration_min=tier2.get("max_duration_min", 10),
             sentinel_radius_max_files=radius.get("max_files", 3),
             sentinel_radius_max_lines=radius.get("max_lines", 150),
-            sentinel_radius_allow_interface_changes=radius.get("allow_interface_changes", False),
+            sentinel_radius_allow_interface_changes=radius.get(
+                "allow_interface_changes", False
+            ),
             sentinel_placeholder_fail_on_detect=placeholder.get("fail_on_detect", True),
             sentinel_placeholder_patterns=placeholder.get("patterns", []),
             sentinel_placeholder_exclude_paths=placeholder.get("exclude_paths", []),
@@ -209,13 +213,15 @@ class ConfigManager:
         self.schema = default_schema
 
         # Write to file
-        with open(self.config_path, 'w') as f:
+        with open(self.config_path, "w") as f:
             json.dump(default_schema.to_dict(), f, indent=2)
 
         print(f"✅ Created config at {self.config_path}")
         print(f"   Task watchdog: {default_schema.task_watchdog_minutes} minutes")
         print(f"   Wave size: {default_schema.wave_size} tasks")
-        print(f"   Constitution enforcement: {'enabled' if default_schema.constitution_enforce else 'disabled'}")
+        print(
+            f"   Constitution enforcement: {'enabled' if default_schema.constitution_enforce else 'disabled'}"
+        )
 
         return True
 
@@ -231,7 +237,7 @@ class ConfigManager:
             return False
 
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 data = json.load(f)
 
             self.schema = ConfigSchema.from_dict(data)
@@ -255,7 +261,7 @@ class ConfigManager:
             return False
 
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(self.schema.to_dict(), f, indent=2)
 
             return True
@@ -279,7 +285,7 @@ class ConfigManager:
                 return default
 
         config_dict = self.schema.to_dict()
-        keys = key.split('.')
+        keys = key.split(".")
 
         value = config_dict
         for k in keys:
@@ -307,7 +313,7 @@ class ConfigManager:
                     return False
 
         # Parse key path
-        keys = key.split('.')
+        keys = key.split(".")
         if len(keys) < 2:
             print(f"❌ Invalid key path: {key}")
             print("   Use format: section.key (e.g., 'task_orchestration.wave_size')")
@@ -346,9 +352,9 @@ class ConfigManager:
             if not self.load():
                 return False
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("DEV-KID CONFIGURATION")
-        print("="*60)
+        print("=" * 60)
 
         config_dict = self.schema.to_dict()
 
@@ -362,8 +368,12 @@ class ConfigManager:
         print("\n📜 Constitution:")
         constitution = config_dict.get("constitution", {})
         print(f"   Path: {constitution.get('path', 'N/A')}")
-        print(f"   Enforcement: {'✅ enabled' if constitution.get('enforce', True) else '❌ disabled'}")
-        print(f"   Strict mode: {'✅ on' if constitution.get('strict_mode', False) else '⚪ off'}")
+        print(
+            f"   Enforcement: {'✅ enabled' if constitution.get('enforce', True) else '❌ disabled'}"
+        )
+        print(
+            f"   Strict mode: {'✅ on' if constitution.get('strict_mode', False) else '⚪ off'}"
+        )
 
         print("\n🔌 MCP Servers:")
         mcp = config_dict.get("mcp_servers", {})
@@ -384,9 +394,9 @@ class ConfigManager:
         print(f"   Preferred model: {agents.get('preferred_model', 'sonnet')}")
         print(f"   Timeout: {agents.get('timeout_minutes', 30)} minutes")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print(f"Config file: {self.config_path}")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
 
         return True
 
@@ -403,7 +413,10 @@ class ConfigManager:
         issues = []
 
         # Validate task orchestration settings
-        if self.schema.task_watchdog_minutes < 1 or self.schema.task_watchdog_minutes > 60:
+        if (
+            self.schema.task_watchdog_minutes < 1
+            or self.schema.task_watchdog_minutes > 60
+        ):
             issues.append("task_watchdog_minutes must be 1-60")
 
         if self.schema.wave_size < 1 or self.schema.wave_size > 20:
@@ -422,12 +435,17 @@ class ConfigManager:
         if self.schema.preferred_model not in valid_models:
             issues.append(f"preferred_model must be one of: {', '.join(valid_models)}")
 
-        if self.schema.agent_timeout_minutes < 5 or self.schema.agent_timeout_minutes > 120:
+        if (
+            self.schema.agent_timeout_minutes < 5
+            or self.schema.agent_timeout_minutes > 120
+        ):
             issues.append("agent_timeout_minutes must be 5-120")
 
         # Validate sentinel settings
         if self.schema.sentinel_mode not in ("auto", "human-gated"):
-            issues.append(f"sentinel.mode must be 'auto' or 'human-gated', got: {self.schema.sentinel_mode!r}")
+            issues.append(
+                f"sentinel.mode must be 'auto' or 'human-gated', got: {self.schema.sentinel_mode!r}"
+            )
 
         if self.schema.sentinel_tier1_max_iterations < 1:
             issues.append("sentinel.tier1.max_iterations must be >= 1")

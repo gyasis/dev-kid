@@ -145,6 +145,7 @@ class SentinelRunner:
                     f"{len(violations)} placeholder violation(s) found in production code. "
                     "Fix before wave checkpoint."
                 )
+                self._safe_write_manifest(result_obj, files)
                 return result_obj
         except Exception as exc:
             print(f"      ⚠️  Placeholder scan error: {exc}")
@@ -182,6 +183,7 @@ class SentinelRunner:
                             f"{len(sql_violations)} SQL constitution violation(s). "
                             "Fix before wave checkpoint."
                         )
+                        self._safe_write_manifest(result_obj, files)
                         return result_obj
             except Exception as exc:
                 print(f"      ⚠️  SQL constitution scan error: {exc}")
@@ -206,6 +208,7 @@ class SentinelRunner:
                         result_obj.result = "FAIL"
                         result_obj.should_halt_wave = True
                         result_obj.error_message = f"SQL placeholder code detected. Remove stubs before checkpoint."
+                        self._safe_write_manifest(result_obj, files)
                         return result_obj
             except Exception as exc:
                 print(f"      ⚠️  SQL placeholder scan error: {exc}")
@@ -218,6 +221,7 @@ class SentinelRunner:
             print(
                 f"      ℹ️  Sentinel: No test framework found — skipping micro-agent loop"
             )
+            self._safe_write_manifest(result_obj, files)
             return result_obj
 
         # ------------------------------------------------------------------
@@ -232,6 +236,7 @@ class SentinelRunner:
                 for w in health["warnings"]:
                     print(f"         ❌ {w}")
                 print(f"      ℹ️  Fix provider config then re-run — skipping test loop")
+                self._safe_write_manifest(result_obj, files)
                 return result_obj  # PASS/skip, not FAIL — config issue not code issue
             if health["warnings"]:
                 for w in health["warnings"]:
@@ -295,15 +300,22 @@ class SentinelRunner:
             print(f"      ⚠️  Cascade analysis error (non-fatal): {exc}")
 
         # ------------------------------------------------------------------
-        # Phase 5 (US3): Manifest writing (T023)
-        # Runs in try/finally so manifest is ALWAYS written (even on ERROR).
+        # Phase 5 (US3): Manifest writing — always written (spec requirement)
         # ------------------------------------------------------------------
+        self._safe_write_manifest(result_obj, files)
+
+        return result_obj
+
+    def _safe_write_manifest(
+        self,
+        result_obj: "SentinelResult",
+        files: list,
+    ) -> None:
+        """Write manifest, swallowing errors so they never abort the pipeline."""
         try:
             self._write_manifest(result_obj, files)
         except Exception as exc:
             print(f"      ⚠️  Manifest write error (non-fatal): {exc}")
-
-        return result_obj
 
     def _run_cascade_phase(
         self,
@@ -409,12 +421,11 @@ class SentinelRunner:
         mode = getattr(self._config, "sentinel_mode", "auto")
 
         if mode == "human-gated":
-            from ..wave_executor import WaveHaltError  # type: ignore[import]
-            from .cascade_analyzer import cascade_human_gated
+            from .cascade_analyzer import WaveHaltError as _CascadeHaltError
 
             try:
-                cascade_human_gated(affected_ids, result_obj.sentinel_id)
-            except WaveHaltError:
+                cascade.cascade_human_gated(affected_ids, result_obj.sentinel_id)
+            except _CascadeHaltError:
                 result_obj.should_halt_wave = True
                 result_obj.result = "FAIL"
                 return
@@ -502,14 +513,11 @@ class SentinelRunner:
             tier_used=getattr(result_obj, "tier_used", 1),
             tier1_result=tier1,
             tier2_result=tier2,
-            placeholder_violations=[
-                {
-                    "file": str(v.file_path),
-                    "line": v.line_number,
-                    "pattern": v.matched_pattern,
-                }
-                for v in (result_obj.placeholder_violations or [])
-            ],
+            # Pass PlaceholderViolation objects directly so ManifestWriter can
+            # access the full attribute set (file_path, line_number, matched_pattern,
+            # matched_text, context_lines). Pre-serialising to dicts caused
+            # AttributeError because ManifestWriter uses attribute access, not keys.
+            placeholder_violations=list(result_obj.placeholder_violations or []),
             files_changed=files_changed,
             interface_changes=interface_changes,
             fix_reason=getattr(result_obj, "error_message", "") or "",
@@ -519,5 +527,4 @@ class SentinelRunner:
             ),
         )
 
-        writer.write(data)
-        writer.write_diff_patch([fc["path"] for fc in files_changed])
+        writer.write(data)  # write() already calls write_diff_patch() internally
