@@ -188,18 +188,24 @@ class WaveExecutor:
         print("   Step 2: memory-bank-keeper updates progress.md...")
         self._update_progress(wave_id, tasks)
 
-        # Step 2b: Integration Sentinel — run test-fix loop on each completed task
+        # Step 2a: Sync full memory bank (all 6 tiers via dev-kid sync-memory)
+        print("   Step 2a: syncing full memory bank (all tiers)...")
+        self._sync_memory_bank(wave_id)
+
+        # Step 2b: Integration Sentinel — run test-fix loop on each completed task.
+        # Filter out Sentinel-role tasks (they already ran during execute_wave).
         sentinel_enabled = (
             _SENTINEL_AVAILABLE
             and self.config is not None
             and getattr(self.config, "sentinel_enabled", False)
         )
+        developer_tasks = [t for t in tasks if t.get("agent_role") != "Sentinel"]
         if sentinel_enabled and _SentinelRunner is not None and self.config is not None:
             print(
                 f"   Step 2b: integration-sentinel validates wave {wave_id} output..."
             )
             runner = _SentinelRunner(self.config, self.project_root)
-            for task in tasks:
+            for task in developer_tasks:
                 task_id = task["task_id"]
                 print(f"      🛡️  Sentinel → {task_id}")
                 try:
@@ -273,11 +279,29 @@ class WaveExecutor:
         except Exception as _e:
             print(f"   ⚠️  SQL schema diff failed (non-fatal): {_e}")
 
-        # Step 4: Git agent commits
-        print("   Step 4: git-version-manager creates checkpoint...")
-        self._git_checkpoint(wave_id, wave_tasks=tasks)
+        # Step 4: Git agent commits (only when checkpoint enabled)
+        if checkpoint.get("enabled", True):
+            print("   Step 4: git-version-manager creates checkpoint...")
+            self._git_checkpoint(wave_id, wave_tasks=tasks)
+        else:
+            print("   ⚠️  Step 4: git checkpoint disabled for this wave")
 
         print(f"✅ Checkpoint {wave_id} complete\n")
+
+    def _sync_memory_bank(self, wave_id: int) -> None:
+        """Invoke dev-kid sync-memory to refresh all 6 memory-bank tiers."""
+        result = subprocess.run(
+            ["dev-kid", "sync-memory"],
+            capture_output=True,
+            text=True,
+            cwd=str(self.project_root),
+        )
+        if result.returncode == 0:
+            print(f"   ✅ Memory bank synced (wave {wave_id})")
+        else:
+            # Non-fatal — progress.md was already written by _update_progress
+            stderr = result.stderr.strip() or result.stdout.strip()
+            print(f"   ⚠️  dev-kid sync-memory failed (non-fatal): {stderr}")
 
     def _update_progress(self, wave_id: int, tasks: List[Dict]) -> None:
         """Update progress.md with wave completion"""
@@ -307,9 +331,9 @@ class WaveExecutor:
         if wave_tasks:
             for t in wave_tasks:
                 for f in t.get("file_locks") or []:
-                    if (
-                        f
-                        and "/" in str(f)
+                    # Fix: parentheses required so `f` gates BOTH conditions
+                    if f and (
+                        "/" in str(f)
                         or str(f).endswith(
                             (
                                 ".py",
@@ -336,13 +360,27 @@ class WaveExecutor:
                 ["git", "add", "--", path], capture_output=True
             )  # ignore missing
 
-        # Commit
+        # Commit — capture output to detect "nothing to commit" vs real failures
         commit_msg = (
             f"[CHECKPOINT] Wave {wave_id} Complete\n\nAll tasks verified and validated"
         )
-        subprocess.run(
-            ["git", "commit", "-m", commit_msg], check=False
-        )  # Don't fail if nothing to commit
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", commit_msg],
+            capture_output=True,
+            text=True,
+        )
+        if commit_result.returncode == 0:
+            print(f"   ✅ Git checkpoint committed (wave {wave_id})")
+        else:
+            combined = (commit_result.stdout + commit_result.stderr).lower()
+            if "nothing to commit" in combined or "nothing added" in combined:
+                print(
+                    f"   ⚠️  Wave {wave_id}: nothing staged to commit (tasks may have no file changes)"
+                )
+            else:
+                print(
+                    f"   ❌ Git commit failed (wave {wave_id}): {commit_result.stderr.strip()}"
+                )
 
     def _mark_task_complete(self, task_id: str, instruction: str) -> None:
         """Mark a task [x] in tasks.md by finding its instruction line."""
@@ -532,11 +570,9 @@ class WaveExecutor:
                 )
                 sys.exit(2)
 
-            # Checkpoint after wave
-            if wave["checkpoint_after"]["enabled"]:
-                self.execute_checkpoint(wave_id, wave["checkpoint_after"])
-            else:
-                print(f"   ⏭️  Skipping checkpoint (disabled)")
+            # Checkpoint after wave — verification + memory sync always run;
+            # git commit is conditional on checkpoint_after.enabled
+            self.execute_checkpoint(wave_id, wave["checkpoint_after"])
 
             # Proactive pre-compact check (if 5+ personas active)
             # This prevents hitting token limit mid-wave by triggering compression

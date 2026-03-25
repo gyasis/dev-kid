@@ -24,12 +24,6 @@ parameters:
 
 **Purpose**: Execute parallelized wave execution plan with automatic checkpointing, constitution validation, and task monitoring.
 
-## Pre-Execution: Context Reset (MANDATORY)
-
-**Before doing ANYTHING else**, run `/clear` to reset the conversation context. This ensures wave execution starts with a clean slate, maximum context window, and no stale state from prior planning steps.
-
-> After `/clear` fires, Claude Code will re-read this skill from the invocation. Continue immediately to Activation Logic below — do NOT ask the user for confirmation.
-
 ## Activation Logic
 
 This skill activates when:
@@ -111,24 +105,22 @@ fi
 
 ## Wave Execution Flow
 
+**IMPORTANT**: `dev-kid execute` handles ALL of this automatically via `wave_executor.py`.
+Do NOT implement waves manually — always run `dev-kid execute` as the bash command above.
+
 ```
-Wave 1 (PARALLEL_SWARM)
+Wave 1 (PARALLEL_SWARM)                      ← wave_executor.py orchestrates this
   → Register tasks with watchdog
-  → Execute tasks in parallel
-  → Mark [x] in tasks.md as complete
-  → Checkpoint validation
+  → Display tasks for Claude to implement
+  → Claude marks [x] in tasks.md when done
+  ↓
+  [CHECKPOINT — automatic, enforced by wave_executor.py]
+  → Verify all tasks have [x] markers
+  → Sync full memory bank (all 6 tiers)
   → Constitution compliance check
   → Git commit
 
-Wave 2 (SEQUENTIAL_MERGE)
-  → Register tasks with watchdog
-  → Execute tasks sequentially
-  → Mark [x] in tasks.md as complete
-  → Checkpoint validation
-  → Constitution compliance check
-  → Git commit
-
-Wave 3...
+Wave 2... (same pattern, automatic)
 ```
 
 ## Constitution Enforcement
