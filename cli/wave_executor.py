@@ -126,6 +126,23 @@ class WaveExecutor:
             print(f"❌ Error reading {self.plan_file}: {e}")
             sys.exit(1)
 
+    def _wave_already_complete(self, tasks: List[Dict]) -> bool:
+        """Return True if every task in the wave is already marked [x] in tasks.md."""
+        try:
+            content = self.tasks_file.read_text(encoding="utf-8")
+        except Exception:
+            return False
+        for task in tasks:
+            task_desc = task["instruction"]
+            for line in content.split("\n"):
+                if task_desc in line:
+                    if "[x]" not in line:
+                        return False
+                    break
+            else:
+                return False  # task not found at all
+        return True
+
     def verify_wave_completion(self, wave_id: int, tasks: List[Dict]) -> bool:
         """Verify all tasks in wave are marked complete in tasks.md"""
         try:
@@ -485,8 +502,25 @@ class WaveExecutor:
         print(f"📋 Phase: {phase_id}")
         print(f"🌊 Total waves: {len(waves)}")
 
+        # Detect resume point: find first wave with incomplete tasks
+        resume_wave = 1
+        for wave in waves:
+            if self._wave_already_complete(wave["tasks"]):
+                resume_wave = wave["wave_id"] + 1
+            else:
+                break
+        if resume_wave > 1:
+            print(
+                f"♻️  Resuming from Wave {resume_wave} (Waves 1–{resume_wave - 1} already complete)"
+            )
+
         for wave in waves:
             wave_id = wave["wave_id"]
+
+            # Skip already-completed waves on resume
+            if wave_id < resume_wave:
+                print(f"   ⏩ Wave {wave_id}: already complete — skipping")
+                continue
 
             # Execute wave (WaveHaltError from sentinel aborts execution)
             try:
