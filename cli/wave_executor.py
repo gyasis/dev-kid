@@ -156,6 +156,41 @@ class WaveExecutor:
         print("   Step 2: memory-bank-keeper updates progress.md...")
         self._update_progress(wave_id, tasks)
 
+        # Step 2b: Integration Sentinel — run test-fix loop on each completed task
+        sentinel_enabled = (
+            _SENTINEL_AVAILABLE
+            and self.config is not None
+            and getattr(getattr(self.config, "sentinel", None), "enabled", False)
+        )
+        if sentinel_enabled and _SentinelRunner is not None and self.config is not None:
+            print(
+                f"   Step 2b: integration-sentinel validates wave {wave_id} output..."
+            )
+            runner = _SentinelRunner(self.config, self.project_root)
+            for task in tasks:
+                task_id = task["task_id"]
+                print(f"      🛡️  Sentinel → {task_id}")
+                try:
+                    result = runner.run(task)
+                except WaveHaltError:
+                    raise
+                except Exception as exc:
+                    print(f"      ⚠️  Sentinel {task_id} error (non-fatal): {exc}")
+                    continue
+                if result.should_halt_wave:
+                    msg = result.error_message or f"Sentinel {task_id} halted wave"
+                    print(f"      ❌ Sentinel HALT: {msg}")
+                    raise WaveHaltError(msg)
+                icon = "✅" if result.result == "PASS" else "⚠️"
+                print(
+                    f"      {icon} {task_id}: {result.result} (tier {result.tier_used})"
+                )
+            print("   ✅ Sentinel validation complete")
+        elif not _SENTINEL_AVAILABLE:
+            print("   ⚠️  Step 2b: sentinel module not available — skipping")
+        else:
+            print("   ℹ️  Step 2b: sentinel disabled in dev-kid.yml — skipping")
+
         # Step 3: Constitution validation
         print("   Step 3: constitution-validator checks output files...")
         if self.constitution:
@@ -358,16 +393,14 @@ class WaveExecutor:
                 print(f"   ⚠️  Schema snapshot failed (non-fatal): {_e}")
 
         if strategy == "PARALLEL_SWARM":
-            # Execute tasks in parallel (simulated - in real system, spawn agents)
+            # Register tasks with watchdog and display for Claude to implement.
+            # Sentinel validation fires at execute_checkpoint() after [x] markers confirmed.
             print("   Strategy: Parallel execution")
             for task in tasks:
                 print(
                     f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}..."
                 )
-                # Register task with watchdog
                 self.execute_task(task)
-                # In real system: spawn agent with task
-                # For now: just print
 
         else:  # SEQUENTIAL_MERGE
             print("   Strategy: Sequential execution")
@@ -375,9 +408,7 @@ class WaveExecutor:
                 print(
                     f"      🤖 Agent {task['agent_role']}: {task['task_id']} - {task['instruction'][:50]}..."
                 )
-                # Register task with watchdog
                 self.execute_task(task)
-                # In real system: execute task sequentially
 
         print(f"   ⏳ Wave {wave_id} in progress...")
         print(f"")

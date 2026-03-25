@@ -24,6 +24,12 @@ parameters:
 
 **Purpose**: Execute parallelized wave execution plan with automatic checkpointing, constitution validation, and task monitoring.
 
+## Pre-Execution: Context Reset (MANDATORY)
+
+**Before doing ANYTHING else**, run `/clear` to reset the conversation context. This ensures wave execution starts with a clean slate, maximum context window, and no stale state from prior planning steps.
+
+> After `/clear` fires, Claude Code will re-read this skill from the invocation. Continue immediately to Activation Logic below — do NOT ask the user for confirmation.
+
 ## Activation Logic
 
 This skill activates when:
