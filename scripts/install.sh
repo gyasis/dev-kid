@@ -66,12 +66,17 @@ if command -v micro-agent &> /dev/null; then
     echo -e "   ${GREEN}✓${NC} micro-agent - found"
 elif command -v npm &> /dev/null; then
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - not found, installing from fork..."
-    if npm install -g github:gyasis/micro-agent --quiet 2>/dev/null; then
+    # Remove stale symlink if exists (npm link leaves symlinks that block npm install -g)
+    MA_GLOBAL_PATH="$(npm root -g)/@builder.io/micro-agent"
+    if [ -L "$MA_GLOBAL_PATH" ]; then
+        rm -f "$MA_GLOBAL_PATH"
+    fi
+    if npm install -g github:gyasis/micro-agent --legacy-peer-deps --quiet 2>/dev/null; then
         echo -e "   ${GREEN}✓${NC} micro-agent - installed (gyasis/micro-agent)"
     else
         echo -e "   ${YELLOW}⚠${NC}  micro-agent install failed (non-fatal)"
         echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
-        echo "   Fix later: npm install -g github:gyasis/micro-agent"
+        echo "   Fix later: cd ~/dev/projects/micro-agent && npm link"
     fi
 else
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - skipped (npm not found)"
