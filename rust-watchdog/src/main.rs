@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
 use tokio::time::{sleep, Duration};
 use chrono::Local;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod types;
 mod process;

@@ -1,0 +1,12 @@
+{
+  "session_id": "",
+  "user_id": "{{USER}}",
+  "project_path": "{{PROJECT_PATH}}",
+  "status": "initialized",
+  "agents": {
+    "main": {"status": "idle"},
+    "memory-keeper": {"status": "idle"},
+    "git-manager": {"status": "idle"}
+  },
+  "initialized_at": "{{TIMESTAMP}}"
+}
