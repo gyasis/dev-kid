@@ -236,7 +236,7 @@ Core orchestrator. Invoked by `wave_executor.py` after each task `[x]` marker is
 ```python
 # Tier 1
 subprocess.run([
-    "npx", "@builder.io/micro-agent", "run",
+    "npx", "@gyasis/micro-agent", "run",
     "--provider", "ollama",
     "--model", config.tier1.model,
     "--ollama-host", config.tier1.host,
@@ -249,7 +249,7 @@ subprocess.run([
 
 # Tier 2 (escalation)
 subprocess.run([
-    "npx", "@builder.io/micro-agent", "run",
+    "npx", "@gyasis/micro-agent", "run",
     "--provider", "anthropic",
     "--model", config.tier2.model,
     "--max-iterations", str(config.tier2.max_iterations),

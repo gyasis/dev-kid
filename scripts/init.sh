@@ -175,7 +175,7 @@ try:
     ok = True
     if not health['micro_agent_installed']:
         print("   ❌ micro-agent CLI not found")
-        print("      Install: npm install -g @builder.io/micro-agent")
+        print("      Install: npm install -g @gyasis/micro-agent")
         ok = False
     if health['tier1_available']:
         print(f"   ✅ Tier 1 (Ollama): reachable at {health['tier1_url']}")

@@ -66,17 +66,20 @@ if command -v micro-agent &> /dev/null; then
     echo -e "   ${GREEN}✓${NC} micro-agent - found"
 elif command -v npm &> /dev/null; then
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - not found, installing from fork..."
-    # Remove stale symlink if exists (npm link leaves symlinks that block npm install -g)
-    MA_GLOBAL_PATH="$(npm root -g)/@builder.io/micro-agent"
-    if [ -L "$MA_GLOBAL_PATH" ]; then
-        rm -f "$MA_GLOBAL_PATH"
-    fi
-    if npm install -g github:gyasis/micro-agent --legacy-peer-deps --quiet 2>/dev/null; then
-        echo -e "   ${GREEN}✓${NC} micro-agent - installed (gyasis/micro-agent)"
+    # Prefer npm link from local clone (git URL install fails on native addons like better-sqlite3)
+    MA_LOCAL_DIR="${HOME}/dev/projects/micro-agent"
+    if [ -d "$MA_LOCAL_DIR/dist" ] && [ -f "$MA_LOCAL_DIR/package.json" ]; then
+        if (cd "$MA_LOCAL_DIR" && npm link --quiet 2>/dev/null); then
+            echo -e "   ${GREEN}✓${NC} micro-agent - linked from local fork ($MA_LOCAL_DIR)"
+        else
+            echo -e "   ${YELLOW}⚠${NC}  micro-agent npm link failed (non-fatal)"
+            echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
+            echo "   Fix later: cd $MA_LOCAL_DIR && npm install && npm link"
+        fi
     else
-        echo -e "   ${YELLOW}⚠${NC}  micro-agent install failed (non-fatal)"
-        echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
-        echo "   Fix later: cd ~/dev/projects/micro-agent && npm link"
+        echo -e "   ${YELLOW}⚠${NC}  micro-agent local fork not found at $MA_LOCAL_DIR"
+        echo "   Clone it: git clone https://github.com/gyasis/micro-agent.git $MA_LOCAL_DIR"
+        echo "   Then: cd $MA_LOCAL_DIR && npm install && npm link"
     fi
 else
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - skipped (npm not found)"

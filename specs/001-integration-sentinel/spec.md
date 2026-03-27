@@ -163,7 +163,7 @@ A developer can enable/disable sentinel, switch between auto and human-gated mod
 
 ## Assumptions
 
-- Micro-agent (`@builder.io/micro-agent`) is already installed and accessible via `npx` in the project environment
+- Micro-agent (`@gyasis/micro-agent`) is already installed and accessible via `npx` in the project environment
 - The Ollama server at `192.168.0.159:11434` with `qwen3-coder:30b` is available and reachable from the machine running dev-kid; if unreachable, Tier 2 activates immediately
 - Test frameworks are detectable from standard manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) in the task's working directory
 - Tasks in `execution_plan.json` have a `files` or `affects` field that maps tasks to their primary files; if absent, cross-wave boundary check is skipped gracefully
@@ -174,7 +174,7 @@ A developer can enable/disable sentinel, switch between auto and human-gated mod
 
 ## Dependencies
 
-- `@builder.io/micro-agent` — test loop engine (already in use in micro-agent project)
+- `@gyasis/micro-agent` — test loop engine (already in use in micro-agent project)
 - `qwen3-coder:30b` on Ollama @ `192.168.0.159:11434` — Tier 1 model (confirmed available)
 - `claude-sonnet-4-20250514` via Anthropic API — Tier 2 model
 - dev-kid's existing `orchestrator.py`, `wave_executor.py`, `config_manager.py`, and `UserPromptSubmit` hook

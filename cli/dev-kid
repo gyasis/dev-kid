@@ -513,7 +513,7 @@ try:
     print(f"  {t2} Tier 2 — ANTHROPIC_API_KEY")
     print()
     if not health['micro_agent_installed']:
-        print("  Fix: npm install -g @builder.io/micro-agent")
+        print("  Fix: npm install -g @gyasis/micro-agent")
     if not health['tier1_available']:
         print(f"  Fix: start Ollama at {health['tier1_url']}  (or set a different URL in dev-kid.yml)")
     if not health['tier2_available']:

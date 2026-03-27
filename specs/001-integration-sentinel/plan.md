@@ -10,7 +10,7 @@ Integration Sentinel adds a per-task micro-agent test-and-fix loop to dev-kid's 
 ## Technical Context
 
 **Language/Version**: Python 3.11 (existing dev-kid codebase), Node.js 20+ (micro-agent runtime)
-**Primary Dependencies**: micro-agent CLI (`@builder.io/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re`
+**Primary Dependencies**: micro-agent CLI (`@gyasis/micro-agent`), Ollama SDK (internal to micro-agent), Python `ast` stdlib, `subprocess`, `json`, `pathlib`, `re`
 **Storage**: `.claude/sentinel/<TASK-ID>/` directory tree (flat files: manifest.json, diff.patch, summary.md); dev-kid.yml for config; execution_plan.json for plan injection
 **Testing**: pytest (Python sentinel modules), integration tests against fixture execution plans
 **Target Platform**: Linux server (Ubuntu 22.04+), same environment as dev-kid

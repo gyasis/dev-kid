@@ -43,7 +43,7 @@ def sentinel_health_check(config) -> dict:
     micro_agent_installed = which("micro-agent") is not None
     if not micro_agent_installed:
         warnings.append(
-            "micro-agent CLI not found — install with: npm install -g @builder.io/micro-agent"
+            "micro-agent CLI not found — install with: npm install -g @gyasis/micro-agent"
         )
 
     # Check Tier 1 (Ollama)
