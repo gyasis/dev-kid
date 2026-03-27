@@ -65,18 +65,18 @@ fi
 if command -v micro-agent &> /dev/null; then
     echo -e "   ${GREEN}✓${NC} micro-agent - found"
 elif command -v npm &> /dev/null; then
-    echo -e "   ${YELLOW}⚠${NC}  micro-agent - not found, installing..."
-    if npm install -g @builder.io/micro-agent --quiet 2>/dev/null; then
-        echo -e "   ${GREEN}✓${NC} micro-agent - installed"
+    echo -e "   ${YELLOW}⚠${NC}  micro-agent - not found, installing from fork..."
+    if npm install -g github:gyasis/micro-agent --quiet 2>/dev/null; then
+        echo -e "   ${GREEN}✓${NC} micro-agent - installed (gyasis/micro-agent)"
     else
         echo -e "   ${YELLOW}⚠${NC}  micro-agent install failed (non-fatal)"
         echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
-        echo "   Fix later: npm install -g @builder.io/micro-agent"
+        echo "   Fix later: npm install -g github:gyasis/micro-agent"
     fi
 else
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - skipped (npm not found)"
     echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
-    echo "   Fix later: npm install -g @builder.io/micro-agent"
+    echo "   Fix later: npm install -g github:gyasis/micro-agent"
 fi
 
 # Exit if missing required dependencies
