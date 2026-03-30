@@ -256,35 +256,62 @@ class SentinelRunner:
                 "instruction", f"Verify task {task_id} output passes tests"
             )
 
-            # Tier 1
-            t1 = runner.run_tier1(objective, test_cmd, self._config)
-            result_obj.tier1_result = t1
+            tiers_file = getattr(self._config, "sentinel_tiers_file", "")
 
-            if t1.passed:
-                result_obj.result = "PASS"
-                result_obj.tier_used = 1
-                print(f"      ✅ Tier 1 passed in {t1.iterations} iteration(s)")
-            else:
-                # Tier 2 escalation
-                print(
-                    f"      ⚠️  Tier 1 {'skipped' if t1.skipped else 'exhausted'} — escalating to Tier 2"
+            if tiers_file:
+                # ── N-tier path: delegate to micro-agent --tier-config ──
+                tr = runner.run_tiered(
+                    objective, test_cmd, self._config, self._project_root
                 )
-                t2 = runner.run_tier2(objective, test_cmd, self._config)
-                result_obj.tier2_result = t2
+                result_obj.tier_results = [tr]
+                # Populate legacy fields for manifest backward compat
+                result_obj.tier1_result = tr
 
-                if t2.passed:
+                if tr.passed:
                     result_obj.result = "PASS"
-                    result_obj.tier_used = 2
-                    print(f"      ✅ Tier 2 passed in {t2.iterations} iteration(s)")
+                    result_obj.tier_name_used = tr.tier_name
+                    print(
+                        f"      ✅ Tiered run passed via {tr.tier_name} "
+                        f"in {tr.iterations} iteration(s) (${tr.cost_usd:.2f})"
+                    )
                 else:
                     result_obj.result = "FAIL"
                     result_obj.should_halt_wave = True
-                    result_obj.tier_used = 2
+                    result_obj.tier_name_used = tr.tier_name
                     result_obj.error_message = (
-                        f"Both tiers exhausted for {task_id}. "
+                        f"All tiers exhausted for {task_id}. "
                         "Manual intervention required."
                     )
-                    print(f"      ❌ Both tiers exhausted — wave will halt")
+                    print(f"      ❌ All tiers exhausted — wave will halt")
+            else:
+                # ── Legacy 2-tier path: Ollama → Claude ──
+                t1 = runner.run_tier1(objective, test_cmd, self._config)
+                result_obj.tier1_result = t1
+
+                if t1.passed:
+                    result_obj.result = "PASS"
+                    result_obj.tier_used = 1
+                    print(f"      ✅ Tier 1 passed in {t1.iterations} iteration(s)")
+                else:
+                    print(
+                        f"      ⚠️  Tier 1 {'skipped' if t1.skipped else 'exhausted'} — escalating to Tier 2"
+                    )
+                    t2 = runner.run_tier2(objective, test_cmd, self._config)
+                    result_obj.tier2_result = t2
+
+                    if t2.passed:
+                        result_obj.result = "PASS"
+                        result_obj.tier_used = 2
+                        print(f"      ✅ Tier 2 passed in {t2.iterations} iteration(s)")
+                    else:
+                        result_obj.result = "FAIL"
+                        result_obj.should_halt_wave = True
+                        result_obj.tier_used = 2
+                        result_obj.error_message = (
+                            f"Both tiers exhausted for {task_id}. "
+                            "Manual intervention required."
+                        )
+                        print(f"      ❌ Both tiers exhausted — wave will halt")
         except Exception as exc:
             result_obj.result = "ERROR"
             result_obj.should_halt_wave = True

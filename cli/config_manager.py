@@ -50,13 +50,13 @@ class ConfigSchema:
     # Sentinel: operation mode
     sentinel_mode: str = "auto"  # "auto" | "human-gated"
 
-    # Sentinel: Tier 1 (local Ollama)
-    sentinel_tier1_model: str = "qwen3-coder:30b"
+    # Sentinel: Legacy Tier 1 (local Ollama) — only used when tiers_file is empty
+    sentinel_tier1_model: str = ""  # Set in dev-kid.yml, e.g. "qwen3-coder:30b"
     sentinel_tier1_ollama_url: str = "http://localhost:11434"
     sentinel_tier1_max_iterations: int = 5
 
-    # Sentinel: Tier 2 (cloud)
-    sentinel_tier2_model: str = "claude-sonnet-4-20250514"
+    # Sentinel: Legacy Tier 2 (cloud) — only used when tiers_file is empty
+    sentinel_tier2_model: str = ""  # Set in dev-kid.yml, e.g. "claude-sonnet-4-20250514"
     sentinel_tier2_max_iterations: int = 10
     sentinel_tier2_max_budget_usd: float = 2.0
     sentinel_tier2_max_duration_min: int = 10
@@ -65,6 +65,12 @@ class ConfigSchema:
     sentinel_radius_max_files: int = 3
     sentinel_radius_max_lines: int = 150
     sentinel_radius_allow_interface_changes: bool = False
+
+    # Sentinel: N-tier escalation (overrides tier1/tier2 when set)
+    sentinel_tiers_file: str = ""  # Path to ralph-tiers.json; empty = use legacy tier1/tier2
+    sentinel_min_tier: str = ""    # Skip tiers before this name (e.g. "azure-heavy" for weekend)
+    sentinel_max_total_cost_usd: float = 5.0
+    sentinel_max_total_duration_min: int = 30
 
     # Sentinel: placeholder scanner
     sentinel_placeholder_fail_on_detect: bool = True
@@ -98,6 +104,10 @@ class ConfigSchema:
             "sentinel": {
                 "enabled": self.sentinel_enabled,
                 "mode": self.sentinel_mode,
+                "tiers_file": self.sentinel_tiers_file,
+                "min_tier": self.sentinel_min_tier,
+                "max_total_cost_usd": self.sentinel_max_total_cost_usd,
+                "max_total_duration_min": self.sentinel_max_total_duration_min,
                 "tier1": {
                     "model": self.sentinel_tier1_model,
                     "ollama_url": self.sentinel_tier1_ollama_url,
@@ -155,6 +165,10 @@ class ConfigSchema:
             agent_timeout_minutes=agents.get("timeout_minutes", 30),
             sentinel_enabled=sentinel.get("enabled", True),
             sentinel_mode=sentinel.get("mode", "auto"),
+            sentinel_tiers_file=sentinel.get("tiers_file", ""),
+            sentinel_min_tier=sentinel.get("min_tier", ""),
+            sentinel_max_total_cost_usd=sentinel.get("max_total_cost_usd", 5.0),
+            sentinel_max_total_duration_min=sentinel.get("max_total_duration_min", 30),
             sentinel_tier1_model=tier1.get("model", "qwen3-coder:30b"),
             sentinel_tier1_ollama_url=tier1.get("ollama_url", "http://localhost:11434"),
             sentinel_tier1_max_iterations=tier1.get("max_iterations", 5),

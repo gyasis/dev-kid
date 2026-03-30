@@ -20,6 +20,8 @@ class TierResult:
     """Result of running one tier of the micro-agent test loop."""
     attempted: bool = False
     skipped: bool = False
+    tier_name: str = ''               # e.g. "local-quick", "azure-heavy"
+    tier_index: int = -1              # 0-based index in the tiers list
     model: str | None = None
     ollama_url: str | None = None
     iterations: int = 0
@@ -50,6 +52,10 @@ class SentinelResult:
     should_halt_wave: bool = False
     error_message: str = ''
     tier_used: int = 0
+    tier_name_used: str = ''      # e.g. "azure-heavy"
+    # N-tier results list (used when tiers_file is configured)
+    tier_results: list[TierResult] = field(default_factory=list)
+    # Legacy fields — populated for backward compat with manifest writer
     tier1_result: TierResult = field(default_factory=TierResult)
     tier2_result: TierResult = field(default_factory=TierResult)
     placeholder_violations: list = field(default_factory=list)

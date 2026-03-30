@@ -9,6 +9,15 @@ sentinel:
   injection_granularity: per-task   # per-task | per-wave | per-n
   injection_n: 3                    # only used when injection_granularity: per-n
 
+  # N-tier escalation via micro-agent --tier-config
+  # When tiers_file is set, overrides legacy tier1/tier2 below.
+  # micro-agent handles the full escalation ladder internally.
+  tiers_file: ralph-tiers.json      # Path to tier config (relative to project root)
+  min_tier: ""                      # Skip tiers before this name (e.g. "azure-heavy" for weekend)
+  max_total_cost_usd: 5.0
+  max_total_duration_min: 30
+
+  # Legacy tier config (used when tiers_file is empty)
   tier1:
     model: qwen3-coder:30b
     ollama_url: http://localhost:11434

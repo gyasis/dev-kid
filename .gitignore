@@ -1,4 +1,7 @@
 # Security - NEVER track sensitive files
+.env
+.env.*
+!.env.example
 rclone-*-remote.conf
 docs/rclone-*-remote.conf
 docs/rclone-*-agent-pack.zip

@@ -1,0 +1,75 @@
+{
+  "tiers": [
+    {
+      "name": "local-quick",
+      "mode": "simple",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "ollama/qwen2.5-coder:latest"
+      }
+    },
+    {
+      "name": "local-heavy",
+      "mode": "simple",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "ollama/devstral:24b"
+      }
+    },
+    {
+      "name": "azure-budget",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "azure/codex-mini",
+        "librarian": "azure/gpt-4o-mini",
+        "critic": "azure/gpt-4.1-mini"
+      }
+    },
+    {
+      "name": "azure-mid",
+      "mode": "full",
+      "maxIterations": 8,
+      "models": {
+        "artisan": "azure/gpt-4.1-mini",
+        "librarian": "azure/gpt-5-mini",
+        "critic": "azure/o4-mini"
+      }
+    },
+    {
+      "name": "azure-reasoning",
+      "mode": "full",
+      "maxIterations": 8,
+      "models": {
+        "artisan": "azure/o4-mini",
+        "librarian": "azure/gpt-5-mini",
+        "critic": "azure/grok-4-fast-reasoning"
+      }
+    },
+    {
+      "name": "azure-heavy",
+      "mode": "full",
+      "maxIterations": 10,
+      "models": {
+        "artisan": "azure/gpt-5-codex",
+        "librarian": "azure/gpt-5-mini",
+        "critic": "azure/DeepSeek-R1-0528"
+      }
+    },
+    {
+      "name": "azure-max",
+      "mode": "full",
+      "maxIterations": 12,
+      "models": {
+        "artisan": "azure/gpt-5.2",
+        "librarian": "azure/gpt-5-chat",
+        "critic": "azure/Kimi-K2-Thinking"
+      }
+    }
+  ],
+  "global": {
+    "auditDbPath": ".micro-agent/audit.db",
+    "maxTotalCostUsd": 10.0,
+    "maxTotalDurationMinutes": 45
+  }
+}
