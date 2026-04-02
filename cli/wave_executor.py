@@ -567,27 +567,36 @@ class WaveExecutor:
                 print(f"   ⏩ Wave {wave_id}: already complete — skipping")
                 continue
 
-            # Execute wave (WaveHaltError from sentinel aborts execution)
-            try:
-                self.execute_wave(wave)
-            except WaveHaltError as e:
-                print(f"\n🚫 WAVE HALT: Sentinel halted wave {wave_id}: {e}")
-                print(
-                    "   Review sentinel manifests in .claude/sentinel/ and fix issues."
-                )
-                sys.exit(2)
+            # Check if this wave's tasks are already complete (from a previous run)
+            if self._wave_already_complete(wave["tasks"]):
+                # Wave is done but checkpoint may not have run — run it now
+                try:
+                    self.execute_checkpoint(wave_id, wave["checkpoint_after"])
+                except WaveHaltError as e:
+                    print(f"\n🚫 WAVE HALT: Sentinel halted wave {wave_id}: {e}")
+                    print(
+                        "   Review sentinel manifests in .claude/sentinel/ and fix issues."
+                    )
+                    sys.exit(2)
+                continue
 
-            # Checkpoint after wave — verification + memory sync always run;
-            # git commit is conditional on checkpoint_after.enabled
-            self.execute_checkpoint(wave_id, wave["checkpoint_after"])
+            # Wave is NOT complete — display tasks for Claude to implement
+            self.execute_wave(wave)
 
-            # Proactive pre-compact check (if 5+ personas active)
-            # This prevents hitting token limit mid-wave by triggering compression
-            # at safe wave boundaries where PreCompact hook can save state
-            print(f"\n🔍 Checking context health before next wave...")
-            self.compactor.check_and_trigger(wave_id)
+            # EXIT HERE — hand control back to Claude to do the work.
+            # Claude marks tasks [x] in tasks.md, then re-runs `dev-kid execute`
+            # which will resume from this wave's checkpoint.
+            print(f"\n⏸️  Wave {wave_id} dispatched — implement tasks above, mark [x] in tasks.md")
+            print(f"   Then re-run: dev-kid execute")
+            print(f"   (Checkpoint will validate and proceed to next wave)")
+            sys.exit(0)
 
+        # All waves complete — final status
         print("\n✅ All waves complete!")
+
+        # Proactive pre-compact check
+        print(f"\n🔍 Checking context health...")
+        self.compactor.check_and_trigger(len(waves))
 
 
 def main():
