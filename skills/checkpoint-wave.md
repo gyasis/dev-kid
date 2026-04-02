@@ -185,23 +185,41 @@ fi
    ├─ Verify all tasks marked [x] in tasks.md
    └─ HALT if incomplete
 
-2. Constitution Validation
+2. Integration Sentinel (if enabled in dev-kid.yml)
+   ├─ Placeholder scan (TODO/FIXME/stub in prod code)
+   ├─ Test loop via micro-agent (tiered escalation)
+   ├─ Interface diff (public API changes)
+   ├─ Change radius check (file/line budget)
+   └─ HALT if sentinel fails
+
+3. Constitution Validation
    ├─ Load memory-bank/shared/.constitution.md
    ├─ Scan modified files
-   ├─ Check rules:
-   │  ├─ Type hints required?
-   │  ├─ Docstrings required?
-   │  ├─ No hardcoded secrets?
-   │  ├─ Test coverage >80%?
-   │  └─ No forbidden patterns?
+   ├─ Check rules (type hints, docstrings, secrets, coverage, patterns)
    └─ HALT if violations
 
-3. Git Checkpoint
-   ├─ git add -A
-   ├─ git commit -m "Wave N complete - {branch}"
+4. Memory Sync (agent: memory-bank-keeper)
    ├─ Update progress.md
+   ├─ Sync all 6 memory bank tiers
    └─ Log to activity_stream.md
+
+5. Git Checkpoint (agent: git-version-manager)
+   ├─ Stage modified files
+   ├─ Create semantic commit: "Wave N complete - {branch}"
+   └─ Verify commit succeeded
 ```
+
+## Agent Delegation
+
+When this skill runs as a manual checkpoint (outside `dev-kid execute`), Claude
+should spawn these agents for steps 4 and 5:
+
+- **`memory-bank-keeper`** — spawn with: "Update memory bank for wave N completion.
+  Sync progress.md, update activeContext.md, append to activity_stream.md."
+- **`git-version-manager`** — spawn with: "Create checkpoint commit for wave N.
+  Stage changed files, create semantic commit message, verify success."
+
+When running through `dev-kid execute`, these steps are handled automatically.
 
 ## Example Usage
 
