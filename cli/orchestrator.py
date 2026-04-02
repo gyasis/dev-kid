@@ -38,11 +38,34 @@ class Wave:
 class TaskOrchestrator:
     """Orchestrates task execution with waves and checkpoints"""
 
-    def __init__(self, tasks_file: str = "tasks.md"):
+    # Maximum tasks per wave. Prevents 50+ task monster waves that overwhelm
+    # Claude Code sessions. Configurable via dev-kid.yml wave_size or
+    # ConfigSchema.wave_size. Default: 10.
+    DEFAULT_MAX_WAVE_SIZE = 10
+
+    def __init__(self, tasks_file: str = "tasks.md", max_wave_size: int = 0):
         self.tasks_file = Path(tasks_file)
         self.tasks: List[Task] = []
         self.waves: List[Wave] = []
         self.file_to_tasks: Dict[str, List[str]] = defaultdict(list)
+        self._max_wave_size = max_wave_size or self._load_wave_size()
+
+    def _load_wave_size(self) -> int:
+        """Load max wave size from dev-kid.yml or config. Falls back to DEFAULT_MAX_WAVE_SIZE."""
+        try:
+            yml_path = Path("dev-kid.yml")
+            if yml_path.exists():
+                content = yml_path.read_text(encoding="utf-8")
+                for line in content.splitlines():
+                    s = line.strip()
+                    if s.startswith("wave_size:"):
+                        val = s.split(":", 1)[1].split("#")[0].strip()
+                        parsed = int(val)
+                        if parsed >= 1:
+                            return parsed
+        except Exception:
+            pass
+        return self.DEFAULT_MAX_WAVE_SIZE
 
     def parse_tasks(self) -> None:
         """Parse tasks.md into Task objects"""
@@ -226,6 +249,11 @@ class TaskOrchestrator:
                 if file_conflict:
                     # Move to next wave
                     continue
+
+                # Wave size cap — stop adding to this wave once we hit the limit.
+                # Remaining eligible tasks will be picked up in the next wave.
+                if len(wave_tasks) >= self._max_wave_size:
+                    break
 
                 # This task can be added to current wave
                 wave_tasks.append(task)

@@ -161,9 +161,14 @@ cmd_orchestrate() {
         FOUND=".specify/specs/$BRANCH/tasks.md"
     fi
 
-    # 2. specs/*/tasks.md  (dev-kid speckit convention)
+    # 2. specs/{branch}/tasks.md  (speckit without .specify prefix)
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
+        FOUND="specs/$BRANCH/tasks.md"
+    fi
+
+    # 3. specs/*/tasks.md  (fallback — sorted for determinism)
     if [ -z "$FOUND" ]; then
-        FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | head -1)
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | sort | head -1)
     fi
 
     if [ -n "$FOUND" ]; then

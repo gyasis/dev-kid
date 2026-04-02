@@ -1,3 +1,7 @@
+# Maximum tasks per wave. Prevents 50+ task monster waves.
+# Set to 0 for unlimited (not recommended).
+wave_size: 10
+
 sentinel:
   enabled: true
   mode: auto
