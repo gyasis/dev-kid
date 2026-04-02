@@ -48,6 +48,11 @@ fi
 echo "🚀 Starting wave-based execution..."
 echo ""
 
+# Pre-flight: sentinel health check
+echo "🛡️  Pre-flight: checking sentinel providers..."
+dev-kid sentinel-health 2>/dev/null | grep -E "tiers ready|will run|will SKIP|MISSING|UNAVAIL" || true
+echo ""
+
 # Start watchdog
 echo "🐕 Starting task watchdog..."
 dev-kid watchdog-start
@@ -59,7 +64,7 @@ if [ -f "memory-bank/shared/.constitution.md" ]; then
     echo ""
 fi
 
-# Execute waves
+# Execute waves (auto-resumes from first incomplete wave)
 echo "🌊 Executing waves..."
 echo ""
 dev-kid execute
@@ -150,6 +155,22 @@ Monitors:
 - ⏱️ Task duration (7-minute guideline)
 - 🚨 Stalled tasks (>15 min no activity)
 - ✅ Completion detection (tasks.md [x] markers)
+
+## Wave Resume
+
+Execution automatically resumes from the first incomplete wave. If waves 1-3 are
+already complete (all tasks marked `[x]`), execution starts at wave 4. No need to
+manually skip completed waves.
+
+## Configuration (dev-kid.yml)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `wave_size` | 10 | Max tasks per wave (prevents monster waves) |
+| `sentinel.enabled` | true | Enable/disable sentinel validation |
+| `sentinel.test_command` | (auto-detect) | Override test command (e.g. `python -m pytest cli/`) |
+| `sentinel.tiers_file` | ralph-tiers.json | Path to tier escalation config |
+| `sentinel.min_tier` | (empty) | Skip tiers before this name (e.g. `azure-budget`) |
 
 ## Integration with Speckit
 

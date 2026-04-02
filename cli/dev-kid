@@ -73,8 +73,6 @@ CORE COMMANDS:
 
 ORCHESTRATION:
   waves                    Show current execution plan waves
-  wave-status [N]          Check status of wave N
-  next-wave                Execute next pending wave
 
 TASK WATCHDOG (Survives context compression):
   watchdog-start           Start background task monitoring (5-min checks)
@@ -85,8 +83,7 @@ TASK WATCHDOG (Survives context compression):
   task-complete ID         Complete a task and record time
 
 MEMORY:
-  memory-status            Show Memory Bank health
-  memory-diff              Show changes since last sync
+  sync-memory              Sync Memory Bank (all 6 tiers)
 
 GITHUB SYNC (Ralph-optimized crash recovery):
   gh-sync                  Sync tasks.md to GitHub issues

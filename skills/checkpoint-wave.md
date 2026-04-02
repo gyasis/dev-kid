@@ -139,7 +139,7 @@ if [ -f "memory-bank/shared/.constitution.md" ]; then
     else
         echo "   ❌ Constitution violations detected"
         echo ""
-        dev-kid constitution show-violations
+        dev-kid constitution validate
         echo ""
         echo "   Fix violations before checkpoint"
         exit 1
