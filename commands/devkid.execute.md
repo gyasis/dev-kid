@@ -9,12 +9,17 @@ Executes wave-based implementation plan with automatic checkpointing, constituti
 
 ## What This Does
 
-1. Starts task watchdog for monitoring
-2. Loads constitution rules
-3. Executes waves sequentially
-4. Validates completion at wave boundaries
-5. Enforces constitution compliance
-6. Creates git checkpoints between waves
+1. Runs sentinel health check (validates Ollama models, Azure keys, provider endpoints)
+2. Starts task watchdog for monitoring
+3. Loads constitution rules
+4. Executes waves sequentially (max 10 tasks per wave, configurable via dev-kid.yml wave_size)
+5. At each wave checkpoint:
+   a. Validates task completion ([x] markers in tasks.md)
+   b. Integration Sentinel validates output (placeholder scan, micro-agent test loop, interface diff)
+   c. Constitution compliance check
+   d. Memory sync via `memory-bank-keeper` agent
+   e. Git checkpoint via `git-version-manager` agent
+6. Reports PASS/FAIL/SKIP per task with tier info
 
 ## Usage
 
@@ -80,24 +85,47 @@ fi
 ## Wave Execution Flow
 
 ```
-Wave 1 (PARALLEL_SWARM)
+Wave 1 (PARALLEL_SWARM, max 10 tasks)
   → Register tasks with watchdog
   → Execute tasks in parallel
   → Mark [x] in tasks.md as complete
-  → Checkpoint validation
+  ↓
+  [CHECKPOINT — automatic via wave_executor.py]
+  → Verify all tasks have [x] markers
+  → Integration Sentinel per task:
+     • Placeholder scan (TODO/FIXME/stub detection)
+     • Test loop via micro-agent (tiered: Ollama → Azure)
+     • Interface diff (public API changes)
+     • Change radius check (file/line budget)
   → Constitution compliance check
-  → Git commit
+  → Memory sync (memory-bank-keeper)
+  → Git commit (git-version-manager)
 
-Wave 2 (SEQUENTIAL_MERGE)
-  → Register tasks with watchdog
-  → Execute tasks sequentially
-  → Mark [x] in tasks.md as complete
-  → Checkpoint validation
-  → Constitution compliance check
-  → Git commit
-
-Wave 3...
+Wave 2... (same pattern, automatic)
 ```
+
+## Agent Delegation at Checkpoints
+
+The execution_plan.json names specific Claude Code agents for checkpoint tasks:
+
+| Agent | Role | Spawned when |
+|-------|------|-------------|
+| `memory-bank-keeper` | Syncs progress.md, memory bank, activity stream | After wave validation passes |
+| `git-version-manager` | Creates semantic git checkpoint | After memory sync + constitution check |
+
+When using `dev-kid execute`, these are handled in-process.
+When working manually, Claude should spawn these agents at wave boundaries.
+
+## Sentinel Health Check
+
+Before execution, verify providers are ready:
+
+```bash
+dev-kid sentinel-health
+```
+
+Shows per-tier readiness (Ollama models, Azure endpoints, API keys).
+If any tier is unavailable, sentinel will SKIP (not false PASS) and report why.
 
 ## Constitution Enforcement
 

@@ -11,11 +11,12 @@ Validates wave task completion, enforces constitution rules, and creates semanti
 
 1. Detects current wave from execution plan
 2. Validates all wave tasks marked [x] in tasks.md
-3. Checks constitution compliance for modified files
-4. Blocks checkpoint if violations found
-5. Creates git commit with semantic message
-6. Updates progress.md in memory-bank
-7. Logs checkpoint to activity_stream.md
+3. Integration Sentinel validates output (placeholder scan, test loop, interface diff, change radius)
+4. Checks constitution compliance for modified files
+5. Blocks checkpoint if sentinel or constitution violations found
+6. Spawns `memory-bank-keeper` agent to sync progress.md and memory bank
+7. Spawns `git-version-manager` agent to create semantic git checkpoint
+8. Logs checkpoint to activity_stream.md
 
 ## Usage
 
@@ -172,22 +173,28 @@ fi
    ├─ Verify all tasks marked [x] in tasks.md
    └─ HALT if incomplete
 
-2. Constitution Validation
+2. Integration Sentinel (if enabled in dev-kid.yml)
+   ├─ Placeholder scan (TODO/FIXME/stub in prod code)
+   ├─ Test loop via micro-agent (tiered escalation)
+   ├─ Interface diff (public API changes)
+   ├─ Change radius check (file/line budget)
+   └─ HALT if sentinel fails, SKIP if no test command
+
+3. Constitution Validation
    ├─ Load memory-bank/shared/.constitution.md
    ├─ Scan modified files
-   ├─ Check rules:
-   │  ├─ Type hints required?
-   │  ├─ Docstrings required?
-   │  ├─ No hardcoded secrets?
-   │  ├─ Test coverage >80%?
-   │  └─ No forbidden patterns?
+   ├─ Check rules (type hints, docstrings, secrets, coverage, patterns)
    └─ HALT if violations
 
-3. Git Checkpoint
-   ├─ git add -A
-   ├─ git commit -m "Wave N complete - {branch}"
+4. Memory Sync (agent: memory-bank-keeper)
    ├─ Update progress.md
+   ├─ Sync all 6 memory bank tiers
    └─ Log to activity_stream.md
+
+5. Git Checkpoint (agent: git-version-manager)
+   ├─ Stage modified files
+   ├─ Create semantic commit: "Wave N complete - {branch}"
+   └─ Verify commit succeeded
 ```
 
 ## Integration with Speckit
