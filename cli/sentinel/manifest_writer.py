@@ -261,10 +261,16 @@ class ManifestWriter:
                 f"None — tests pass. "
                 f"Review the diff at `.claude/sentinel/{sid}/diff.patch` if needed."
             )
+        elif result == 'SKIP':
+            lines.append(
+                "Task was **skipped** — no test command found, task not yet testable, "
+                "or no providers available. No action required unless this is unexpected.\n"
+                f"Check `dev-kid sentinel-health` and `dev-kid.yml` sentinel config."
+            )
         else:
             lines.append(
                 "⚠ WAVE HALTED\n"
-                "This sentinel run exhausted both tiers without passing tests. "
+                "This sentinel run exhausted all tiers without passing tests. "
                 "Manual intervention required.\n"
                 f"Review the full change history in `.claude/sentinel/{sid}/`."
             )

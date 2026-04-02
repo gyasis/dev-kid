@@ -72,6 +72,9 @@ class ConfigSchema:
     sentinel_max_total_cost_usd: float = 5.0
     sentinel_max_total_duration_min: int = 30
 
+    # Sentinel: test command override (when auto-detect fails)
+    sentinel_test_command: str = ""  # e.g. "python -m pytest", "npm test", empty = auto-detect
+
     # Sentinel: placeholder scanner
     sentinel_placeholder_fail_on_detect: bool = True
     sentinel_placeholder_patterns: list = field(default_factory=list)
@@ -124,6 +127,7 @@ class ConfigSchema:
                     "max_lines": self.sentinel_radius_max_lines,
                     "allow_interface_changes": self.sentinel_radius_allow_interface_changes,
                 },
+                "test_command": self.sentinel_test_command,
                 "placeholder": {
                     "fail_on_detect": self.sentinel_placeholder_fail_on_detect,
                     "patterns": self.sentinel_placeholder_patterns,
@@ -181,6 +185,7 @@ class ConfigSchema:
             sentinel_radius_allow_interface_changes=radius.get(
                 "allow_interface_changes", False
             ),
+            sentinel_test_command=sentinel.get("test_command", ""),
             sentinel_placeholder_fail_on_detect=placeholder.get("fail_on_detect", True),
             sentinel_placeholder_patterns=placeholder.get("patterns", []),
             sentinel_placeholder_exclude_paths=placeholder.get("exclude_paths", []),

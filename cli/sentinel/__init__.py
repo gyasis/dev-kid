@@ -48,7 +48,7 @@ class SentinelResult:
     """Final result returned by SentinelRunner.run()."""
     task_id: str
     sentinel_id: str
-    result: str = 'PASS'          # "PASS" | "FAIL" | "ERROR"
+    result: str = 'PASS'          # "PASS" | "FAIL" | "ERROR" | "SKIP"
     should_halt_wave: bool = False
     error_message: str = ''
     tier_used: int = 0
@@ -138,7 +138,7 @@ class ManifestData:
     """Full data for writing a Change Manifest."""
     task_id: str
     sentinel_id: str
-    result: str                          # "PASS" | "FAIL" | "ERROR"
+    result: str                          # "PASS" | "FAIL" | "ERROR" | "SKIP"
     timestamp: str                       # ISO 8601
     tier_used: int
     tier1_result: TierResult = field(default_factory=TierResult)

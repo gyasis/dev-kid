@@ -242,22 +242,46 @@ class TaskOrchestrator:
             # Determine strategy
             strategy = "PARALLEL_SWARM" if len(wave_tasks) > 1 else "SEQUENTIAL_MERGE"
 
+            # Annotate each task with testability based on wave position
+            task_dicts = []
+            for t in wave_tasks:
+                deps = list(dependency_graph[t.id])
+                # A task is "isolated" if it has no dependencies and no
+                # downstream tasks in later waves depend on its file_locks.
+                # An isolated task can be tested immediately after completion.
+                # A "dependent" task has upstream deps — it can be tested but
+                # only after its deps are satisfied (which they are, since
+                # wave assignment guarantees this).
+                # "deferred" means testing should wait for downstream
+                # consumers — but we don't defer by default; Claude decides.
+                has_deps = len(deps) > 0
+                testability = {
+                    "isolated": not has_deps,
+                    "has_upstream_deps": has_deps,
+                    "upstream_dep_ids": deps,
+                    "wave_position": wave_id,
+                    "can_test_now": True,  # deps satisfied by wave ordering
+                    "test_hint": (
+                        "isolated-unit" if not has_deps
+                        else "integration-post-deps"
+                    ),
+                }
+                task_dicts.append({
+                    "task_id": t.id,
+                    "agent_role": "Developer",
+                    "instruction": t.description,
+                    "file_locks": t.file_locks,
+                    "constitution_rules": t.constitution_rules,
+                    "testability": testability,
+                    "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
+                    "dependencies": deps,
+                })
+
             # Create wave
             wave = Wave(
                 wave_id=wave_id,
                 strategy=strategy,
-                tasks=[
-                    {
-                        "task_id": t.id,
-                        "agent_role": "Developer",
-                        "instruction": t.description,
-                        "file_locks": t.file_locks,
-                        "constitution_rules": t.constitution_rules,
-                        "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
-                        "dependencies": list(dependency_graph[t.id]),
-                    }
-                    for t in wave_tasks
-                ],
+                tasks=task_dicts,
                 rationale=f"Wave {wave_id}: {len(wave_tasks)} independent task(s) with no file conflicts",
                 checkpoint_enabled=True,
             )

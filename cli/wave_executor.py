@@ -20,9 +20,11 @@ try:
     from sentinel.runner import SentinelRunner as _SentinelRunner
 
     _SENTINEL_AVAILABLE = True
-except ImportError:
+except Exception as _sentinel_import_err:
     _SentinelRunner = None  # type: ignore[assignment,misc]
     _SENTINEL_AVAILABLE = False
+    # Surface the actual error so "module not available" isn't a mystery
+    print(f"⚠️  Sentinel module not importable: {_sentinel_import_err}")
 
 
 class WaveHaltError(Exception):
@@ -84,6 +86,7 @@ class WaveExecutor:
         # Load sentinel config — prefer dev-kid.yml (common case), fall back to
         # .devkid/config.json (legacy ConfigManager path).
         self.config = None
+        self._config_load_error = None  # Track WHY config failed
         yml_path = Path("dev-kid.yml")
         if yml_path.exists():
             try:
@@ -92,16 +95,18 @@ class WaveExecutor:
                 _data = _yaml.safe_load(yml_path.read_text(encoding="utf-8")) or {}
                 self.config = ConfigSchema.from_dict(_data)
             except ImportError:
-                # yaml not available — fall through to ConfigManager
-                pass
-            except Exception:
-                pass
+                print("⚠️  PyYAML not installed — falling back to ConfigManager for sentinel config")
+            except Exception as exc:
+                self._config_load_error = f"Failed to parse dev-kid.yml: {exc}"
+                print(f"⚠️  {self._config_load_error}")
         if self.config is None:
             try:
                 _mgr = ConfigManager()
                 _mgr.load()
                 self.config = _mgr.schema
-            except Exception:
+            except Exception as exc:
+                self._config_load_error = self._config_load_error or f"ConfigManager failed: {exc}"
+                print(f"⚠️  Config not loaded: {self._config_load_error}")
                 self.config = None
 
     def load_plan(self) -> None:
@@ -219,15 +224,17 @@ class WaveExecutor:
                     msg = result.error_message or f"Sentinel {task_id} halted wave"
                     print(f"      ❌ Sentinel HALT: {msg}")
                     raise WaveHaltError(msg)
-                icon = "✅" if result.result == "PASS" else "⚠️"
-                print(
-                    f"      {icon} {task_id}: {result.result} (tier {result.tier_used})"
-                )
+                icons = {"PASS": "✅", "SKIP": "⏭️", "FAIL": "❌", "ERROR": "💥"}
+                icon = icons.get(result.result, "⚠️")
+                tier_info = result.tier_name_used or f"tier {result.tier_used}" if result.tier_used else "no-test"
+                print(f"      {icon} {task_id}: {result.result} ({tier_info})")
             print("   ✅ Sentinel validation complete")
         elif not _SENTINEL_AVAILABLE:
-            print("   ⚠️  Step 2b: sentinel module not available — skipping")
-        else:
-            print("   ℹ️  Step 2b: sentinel disabled in dev-kid.yml — skipping")
+            print("   ⚠️  Step 2b: sentinel module not importable — skipping (see error above)")
+        elif self.config is None:
+            print(f"   ⚠️  Step 2b: sentinel skipped — config not loaded ({self._config_load_error or 'unknown reason'})")
+        elif not getattr(self.config, "sentinel_enabled", False):
+            print("   ℹ️  Step 2b: sentinel explicitly disabled in dev-kid.yml (sentinel.enabled: false)")
 
         # Step 3: Constitution validation
         print("   Step 3: constitution-validator checks output files...")

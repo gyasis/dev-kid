@@ -14,6 +14,7 @@ the complete pipeline:
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,22 +22,27 @@ if TYPE_CHECKING:
     from . import SentinelConfig, SentinelResult
 
 
-def detect_test_command(working_dir: Path) -> str | None:
-    """Auto-detect the test command for the project at working_dir.
+def detect_test_command(working_dir: Path, config: object = None) -> str | None:
+    """Resolve the test command for a sentinel run.
 
-    Detection order:
-      1. pyproject.toml or setup.py  → "python -m pytest"
-      2. package.json with vitest    → "npx vitest run"
-      3. package.json with jest      → "npm test"
-      4. Cargo.toml                  → "cargo test"
-      5. None if no framework found
+    Resolution order:
+      1. Explicit override in dev-kid.yml (sentinel.test_command)
+      2. Auto-detect from project markers (pyproject.toml, package.json, etc.)
+      3. None if nothing found
 
     Args:
         working_dir: Project root directory to inspect.
+        config: Optional SentinelConfig with sentinel_test_command override.
 
     Returns:
         Shell command string or None.
     """
+    # 1. Config override
+    override = (getattr(config, "sentinel_test_command", "") or "").strip()
+    if override:
+        return override
+
+    # 2. Auto-detect
     wdir = Path(working_dir)
 
     # Python
@@ -148,7 +154,8 @@ class SentinelRunner:
                 self._safe_write_manifest(result_obj, files)
                 return result_obj
         except Exception as exc:
-            print(f"      ⚠️  Placeholder scan error: {exc}")
+            print(f"      ⚠️  Placeholder scan INCOMPLETE: {exc} — treating as unscanned, not clean")
+            result_obj.error_message = f"Placeholder scan incomplete: {exc}"
 
         # ------------------------------------------------------------------
         # Phase 1b: SQL/dbt constitution scan (.sql and .yml files)
@@ -186,7 +193,7 @@ class SentinelRunner:
                         self._safe_write_manifest(result_obj, files)
                         return result_obj
             except Exception as exc:
-                print(f"      ⚠️  SQL constitution scan error: {exc}")
+                print(f"      ⚠️  SQL constitution scan INCOMPLETE: {exc} — treating as unscanned, not clean")
 
         # SQL-specific placeholder detection
         sql_files_for_placeholder = [f for f in files if f.suffix == ".sql"]
@@ -214,15 +221,33 @@ class SentinelRunner:
                 print(f"      ⚠️  SQL placeholder scan error: {exc}")
 
         # ------------------------------------------------------------------
-        # Phase 2 (US1): Test framework detection
+        # Phase 2 (US1): Test command resolution (wave-aware)
         # ------------------------------------------------------------------
-        test_cmd = detect_test_command(self._project_root)
-        if not test_cmd:
+        # Check task-level testability annotation from orchestrator
+        testability = task.get("testability", {})
+        can_test = testability.get("can_test_now", True)
+        test_hint = testability.get("test_hint", "unknown")
+
+        if not can_test:
             print(
-                f"      ℹ️  Sentinel: No test framework found — skipping micro-agent loop"
+                f"      ℹ️  Sentinel SKIP: {task_id} not testable yet "
+                f"(hint: {test_hint}) — deferring to downstream wave"
             )
+            result_obj.result = "SKIP"
             self._safe_write_manifest(result_obj, files)
             return result_obj
+
+        test_cmd = detect_test_command(self._project_root, self._config)
+        if not test_cmd:
+            print(
+                f"      ℹ️  Sentinel SKIP: No test command found for {task_id} "
+                f"(auto-detect failed, no sentinel.test_command override in dev-kid.yml)"
+            )
+            result_obj.result = "SKIP"
+            self._safe_write_manifest(result_obj, files)
+            return result_obj
+
+        print(f"      ℹ️  Test command: {test_cmd} (hint: {test_hint})")
 
         # ------------------------------------------------------------------
         # Phase 2b: Provider health check — warn and skip if no tier usable
@@ -236,8 +261,9 @@ class SentinelRunner:
                 for w in health["warnings"]:
                     print(f"         ❌ {w}")
                 print(f"      ℹ️  Fix provider config then re-run — skipping test loop")
+                result_obj.result = "SKIP"
                 self._safe_write_manifest(result_obj, files)
-                return result_obj  # PASS/skip, not FAIL — config issue not code issue
+                return result_obj  # SKIP, not FAIL — config issue not code issue
             if health["warnings"]:
                 for w in health["warnings"]:
                     print(f"      ⚠️  {w}")
@@ -313,10 +339,18 @@ class SentinelRunner:
                         )
                         print(f"      ❌ Both tiers exhausted — wave will halt")
         except Exception as exc:
-            result_obj.result = "ERROR"
-            result_obj.should_halt_wave = True
-            result_obj.error_message = f"Sentinel pipeline error: {exc}"
-            print(f"      ❌ Sentinel error: {exc}")
+            # Distinguish expected test failures (should halt) from unexpected
+            # errors (import errors, I/O errors, etc.) which are non-fatal.
+            if isinstance(exc, subprocess.SubprocessError):
+                result_obj.result = "ERROR"
+                result_obj.should_halt_wave = True
+                result_obj.error_message = f"Sentinel test loop error: {exc}"
+                print(f"      ❌ Sentinel test error (halting wave): {exc}")
+            else:
+                result_obj.result = "ERROR"
+                result_obj.should_halt_wave = False  # Non-fatal — don't block wave for infra issues
+                result_obj.error_message = f"Sentinel infrastructure error (non-fatal): {exc}"
+                print(f"      ⚠️  Sentinel infra error (non-fatal, wave continues): {exc}")
 
         # ------------------------------------------------------------------
         # Phase 4 (US3/US4): Interface diff, change radius, cascade (T033)
@@ -363,6 +397,7 @@ class SentinelRunner:
         from .interface_diff import InterfaceDiff
 
         if not files:
+            print(f"      ℹ️  Cascade: no files to analyze — skipping")
             return
 
         # --- Interface diff for each modified file ---
@@ -392,7 +427,8 @@ class SentinelRunner:
                 pre_content = git_result.stdout if git_result.returncode == 0 else ""
                 report = differ.compare(f, pre_content, post_content)
                 interface_reports.append(report)
-            except Exception:
+            except Exception as exc:
+                print(f"      ⚠️  Interface diff skipped for {f.name}: {exc}")
                 continue
 
         # --- Change radius evaluation ---
@@ -428,6 +464,11 @@ class SentinelRunner:
         result_obj.interface_reports = interface_reports
 
         if not radius_report.budget_exceeded:
+            print(
+                f"      ✅ Change radius OK: {radius_report.files_changed_count} files, "
+                f"{radius_report.lines_changed_total} lines "
+                f"(budget: {radius_report.budget_files} files, {radius_report.budget_lines} lines)"
+            )
             return
 
         # --- Cascade analysis ---

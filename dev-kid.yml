@@ -29,6 +29,11 @@ sentinel:
     max_budget_usd: 2.0
     max_duration_min: 10
 
+  # Test command override — when auto-detect fails (no pyproject.toml etc.)
+  # Set this to your project's test command, or leave empty for auto-detect.
+  # Example: "python -m pytest cli/", "npm test", "cargo test"
+  test_command: ""
+
   change_radius:
     max_files: 3
     max_lines: 150

@@ -471,13 +471,15 @@ cmd_sentinel_health() {
     echo -e "${GREEN}🛡️  Sentinel Provider Health Check${NC}"
     echo ""
     python3 - <<PYEOF
-import sys, os
+import sys, os, json
 sys.path.insert(0, '$DEV_KID_ROOT/cli')
 
-# Read current Ollama URL from dev-kid.yml if present
+# Read config from dev-kid.yml
 ollama_url = 'http://localhost:11434'
-yml_path = os.path.join('$project_root', 'dev-kid.yml')
 sentinel_enabled = False
+tiers_file = ''
+min_tier = ''
+yml_path = os.path.join('$project_root', 'dev-kid.yml')
 try:
     with open(yml_path) as f:
         in_sentinel = False
@@ -490,6 +492,11 @@ try:
                     sentinel_enabled = s.split(':',1)[1].strip().lower() not in ('false','0','no','off')
                 elif s.startswith('ollama_url:'):
                     ollama_url = s.split(':',1)[1].strip()
+                elif s.startswith('tiers_file:'):
+                    tiers_file = s.split(':',1)[1].split('#')[0].strip()
+                elif s.startswith('min_tier:'):
+                    v = s.split(':',1)[1].split('#')[0].strip().strip('"').strip("'")
+                    min_tier = v
                 elif s and not s.startswith('#') and ':' in s and not line.startswith(' '):
                     break
 except Exception:
@@ -497,33 +504,64 @@ except Exception:
 
 print(f"  Sentinel enabled : {'yes' if sentinel_enabled else 'no  ← edit dev-kid.yml to change'}")
 print(f"  Ollama URL       : {ollama_url}")
+if tiers_file:
+    print(f"  Tiers file       : {tiers_file}")
+if min_tier:
+    print(f"  Min tier         : {min_tier}")
 print()
 
 try:
     from sentinel.tier_runner import sentinel_health_check
     class _Cfg:
         sentinel_tier1_ollama_url = ollama_url
+        sentinel_tiers_file = os.path.join('$project_root', tiers_file) if tiers_file else ''
+        sentinel_min_tier = min_tier
     health = sentinel_health_check(_Cfg())
 
+    # Core tools
     ma = '✅' if health['micro_agent_installed'] else '❌'
-    t1 = '✅' if health['tier1_available'] else '❌'
-    t2 = '✅' if health['tier2_available'] else '❌'
     print(f"  {ma} micro-agent CLI")
-    print(f"  {t1} Tier 1 — Ollama at {health['tier1_url']}")
-    print(f"  {t2} Tier 2 — ANTHROPIC_API_KEY")
     print()
-    if not health['micro_agent_installed']:
-        print("  Fix: npm install -g @gyasis/micro-agent")
-    if not health['tier1_available']:
-        print(f"  Fix: start Ollama at {health['tier1_url']}  (or set a different URL in dev-kid.yml)")
-    if not health['tier2_available']:
-        print("  Fix: export ANTHROPIC_API_KEY=<your-key>")
+
+    # Provider status
+    print("  Providers:")
+    providers = [
+        ('Ollama', health['tier1_available'], health['tier1_url']),
+        ('Azure OpenAI', health.get('azure_available', False), health.get('azure_endpoint', '') or 'AZURE_OPENAI_ENDPOINT'),
+        ('Anthropic', health['tier2_available'], 'ANTHROPIC_API_KEY'),
+        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY'),
+        ('OpenAI', health.get('openai_available', False), 'OPENAI_API_KEY'),
+    ]
+    for name, ok, detail in providers:
+        icon = '✅' if ok else '❌'
+        print(f"    {icon} {name:<15} {detail}")
+    print()
+
+    # Per-tier health (when tiers file is configured)
+    tier_health = health.get('tier_health', [])
+    if tier_health:
+        print("  Per-tier readiness:")
+        for th in tier_health:
+            icon = '✅' if th['status'] == 'ready' else '❌'
+            print(f"    {icon} {th['tier']}")
+            for issue in th.get('issues', []):
+                print(f"       └─ {issue}")
+        usable = health.get('usable_tier_count', 0)
+        total = health.get('tiers_file_tier_count', 0)
+        print(f"\n  {usable}/{total} tiers ready")
+    print()
+
     if health['any_tier_available']:
-        print("  ✅ At least one tier ready — sentinel will run")
+        print("  ✅ Sentinel will run — at least one tier is ready")
     else:
-        print("  ⚠️  No providers available — sentinel will SKIP test loop until fixed")
+        print("  ⚠️  Sentinel will SKIP — no usable tiers available")
+        if not health['micro_agent_installed']:
+            print("  Fix: npm install -g @gyasis/micro-agent")
+        for w in health.get('warnings', []):
+            print(f"  Fix: {w}")
 except Exception as e:
     print(f"  ⚠️  Health check error: {e}")
+    import traceback; traceback.print_exc()
 PYEOF
 }
 
