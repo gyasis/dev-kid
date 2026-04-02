@@ -138,6 +138,12 @@ cp "$PROJECT_ROOT/INTEGRATION_GUIDE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/CONTEXT_COMPACTION_STRATEGY.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/dev-kid.yml" "$INSTALL_DIR/"
 
+# Install machine-level ralph-tiers.json (model tier config)
+if [ -f "$PROJECT_ROOT/ralph-tiers.json" ]; then
+    cp "$PROJECT_ROOT/ralph-tiers.json" "$INSTALL_DIR/"
+    echo "   ✅ ralph-tiers.json installed (machine-level tier config)"
+fi
+
 # Copy rust-watchdog binary (build if needed)
 WATCHDOG_SRC="$PROJECT_ROOT/rust-watchdog/target/release/task-watchdog"
 WATCHDOG_DEST="$INSTALL_DIR/rust-watchdog/target/release"
