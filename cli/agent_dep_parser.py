@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -49,6 +50,10 @@ from typing import Dict, List, Optional
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_MODEL = "qwen3-coder:30b"
 DEFAULT_TIMEOUT_SEC = 180
+
+# Provider prefixes match ralph-tiers.json convention: "provider/model_name".
+# Bare model names (no "/") default to Ollama for backward compatibility.
+SUPPORTED_PROVIDERS = ("ollama", "openai", "google", "gemini", "anthropic")
 
 PROMPT_TEMPLATE = """You are a task-dependency extractor for a software project's tasks.md.
 
@@ -103,44 +108,175 @@ def _normalize_tid(tid: str) -> str:
     return f"T{m.group(1).zfill(3)}"
 
 
+def _http_post_json(
+    url: str, payload: dict, headers: dict, timeout: int
+) -> dict:
+    """Shared HTTP POST helper. Returns parsed JSON body or raises RuntimeError."""
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8")[:400]
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {exc.code} from {url}: {detail or exc.reason}")
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Cannot reach {url}: {exc}")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Non-JSON response from {url}: {exc}")
+
+
 def query_ollama(
     prompt: str,
     model: str = DEFAULT_MODEL,
     ollama_url: str = DEFAULT_OLLAMA_URL,
     timeout: int = DEFAULT_TIMEOUT_SEC,
 ) -> str:
-    """POST to Ollama /api/generate, return raw response text.
-
-    Raises RuntimeError on connection / HTTP errors.
-    """
-    payload = json.dumps(
+    """POST to Ollama /api/generate."""
+    data = _http_post_json(
+        f"{ollama_url.rstrip('/')}/api/generate",
         {
             "model": model,
             "prompt": prompt,
             "stream": False,
             "options": {"temperature": 0.1, "num_ctx": 16384},
-        }
-    ).encode("utf-8")
+        },
+        {"Content-Type": "application/json"},
+        timeout,
+    )
+    return data.get("response", "")
 
-    req = urllib.request.Request(
-        f"{ollama_url.rstrip('/')}/api/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
+
+def query_openai(
+    prompt: str,
+    model: str = "gpt-4o-mini",
+    timeout: int = DEFAULT_TIMEOUT_SEC,
+) -> str:
+    """POST to OpenAI /v1/chat/completions. Requires OPENAI_API_KEY env var."""
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY not set")
+    data = _http_post_json(
+        "https://api.openai.com/v1/chat/completions",
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        },
+        {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+        },
+        timeout,
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"Ollama unreachable at {ollama_url}: {exc}")
-    except Exception as exc:
-        raise RuntimeError(f"Ollama request failed: {exc}")
+        return data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError):
+        return ""
 
+
+def query_gemini(
+    prompt: str,
+    model: str = "gemini-2.5-flash",
+    timeout: int = DEFAULT_TIMEOUT_SEC,
+) -> str:
+    """POST to Gemini /v1beta/models/{model}:generateContent.
+
+    Requires GOOGLE_API_KEY or GEMINI_API_KEY env var.
+    """
+    key = (
+        os.environ.get("GOOGLE_API_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
+    )
+    if not key:
+        raise RuntimeError("GOOGLE_API_KEY / GEMINI_API_KEY not set")
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={key}"
+    )
+    data = _http_post_json(
+        url,
+        {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json",
+            },
+        },
+        {"Content-Type": "application/json"},
+        timeout,
+    )
     try:
-        data = json.loads(body)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Ollama returned non-JSON: {exc}")
+        return data["candidates"][0]["content"]["parts"][0]["text"] or ""
+    except (KeyError, IndexError, TypeError):
+        return ""
 
-    return data.get("response", "")
+
+def query_anthropic(
+    prompt: str,
+    model: str = "claude-haiku-4-5-20251001",
+    timeout: int = DEFAULT_TIMEOUT_SEC,
+) -> str:
+    """POST to Anthropic /v1/messages. Requires ANTHROPIC_API_KEY env var."""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    data = _http_post_json(
+        "https://api.anthropic.com/v1/messages",
+        {
+            "model": model,
+            "max_tokens": 4096,
+            "temperature": 0.1,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        {
+            "Content-Type": "application/json",
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+        },
+        timeout,
+    )
+    try:
+        return data["content"][0]["text"] or ""
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
+def query_model(
+    prompt: str,
+    model: str = DEFAULT_MODEL,
+    ollama_url: str = DEFAULT_OLLAMA_URL,
+    timeout: int = DEFAULT_TIMEOUT_SEC,
+) -> str:
+    """Dispatch to the right provider based on model prefix.
+
+    Recognised prefixes: ollama/, openai/, google/, gemini/, anthropic/.
+    Bare model names (no "/") default to Ollama for backwards compatibility.
+    """
+    if "/" in model:
+        provider, model_name = model.split("/", 1)
+        provider = provider.lower()
+    else:
+        provider, model_name = "ollama", model
+
+    if provider == "ollama":
+        return query_ollama(prompt, model_name, ollama_url, timeout)
+    if provider == "openai":
+        return query_openai(prompt, model_name, timeout)
+    if provider in ("google", "gemini"):
+        return query_gemini(prompt, model_name, timeout)
+    if provider == "anthropic":
+        return query_anthropic(prompt, model_name, timeout)
+    raise RuntimeError(
+        f"Unknown provider '{provider}' — supported: {', '.join(SUPPORTED_PROVIDERS)}"
+    )
 
 
 def parse_agent_output(response: str) -> Dict[str, List[str]]:
@@ -255,11 +391,13 @@ def extract_deps_via_agent(
         print(f"   ⚠️  Agent parser read error: {exc}")
         return {}
 
-    print(f"   🤖 Agent parser: calling {model} @ {ollama_url}")
+    provider_hint = model.split("/", 1)[0] if "/" in model else "ollama"
+    where = ollama_url if provider_hint == "ollama" else provider_hint
+    print(f"   🤖 Agent parser: calling {model} (@ {where})")
     prompt = PROMPT_TEMPLATE.format(tasks_content=content)
 
     try:
-        response = query_ollama(prompt, model=model, ollama_url=ollama_url, timeout=timeout)
+        response = query_model(prompt, model=model, ollama_url=ollama_url, timeout=timeout)
     except Exception as exc:
         print(f"   ⚠️  Agent parser LLM call failed: {exc}")
         print(f"   ℹ️  Orchestration continues with regex-only parser")
