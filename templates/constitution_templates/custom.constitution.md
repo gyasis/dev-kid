@@ -47,6 +47,14 @@ Delete this instructions block when complete.
 - [Define encryption requirements]
 - [Add more security standards...]
 
+## Task Orchestration Standards
+
+- Declare per-task dependencies in `tasks.md` as structured rows so `dev-kid orchestrate` can build correct wave ordering. See `.specify/templates/tasks-template.md` §"Task-Level Dependencies" for accepted forms.
+- Preferred forms: `TXXX requires TYYY[, TZZZ]` (forward) or `TXXX blocks TYYY[, TZZZ]` (reverse). Avoid vague prose like "T018 needs to happen after T005 eventually".
+- When a task defines a symbol (Protocol, class, function) that another task imports, either:
+  a) declare the dep explicitly: `T018 requires T005`, OR
+  b) use a definer verb + backticked identifier in the defining task: `T005 Define Protocol \`BasePromptBuilder\``. The symbol graph will infer the edge automatically.
+
 ## Additional Sections (Optional)
 
 Add any project-specific sections here:

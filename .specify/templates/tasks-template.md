@@ -184,6 +184,25 @@ Examples of foundational tasks (adjust based on your project):
 - Core implementation before integration
 - Story complete before moving to next priority
 
+### Task-Level Dependencies (parseable by dev-kid orchestrator)
+
+Write explicit per-task dependencies as structured rows so `dev-kid orchestrate` can build correct wave ordering. Accepted forms (pick any — all parse reliably):
+
+```
+- T018 requires T005                      # forward: T018 needs T005 first
+- T018 requires T005, T006                # multi-dep shorthand
+- T018 depends on T005
+- T005 blocks T018                        # reverse: T018 depends on T005
+- T005 before T018
+- T018 must complete before T020, T022    # narrative reverse — multiple targets
+- T033 must precede T035
+- T005 → T018                             # arrow form (forward)
+```
+
+**Avoid prose like:** *"T018 needs to happen at some point after T005"* — too vague to parse. Keep one fact per line.
+
+**Tip:** If a task's own bullet line contains `**(blocks T021)**` or similar, dev-kid reads it directly — no separate section needed for that edge.
+
 ### Parallel Opportunities
 
 - All Setup tasks marked [P] can run in parallel
