@@ -132,7 +132,7 @@ spawn these agents at checkpoint boundaries:
 
 | Agent | When to spawn | What it does |
 |-------|--------------|-------------|
-| `memory-bank-keeper` | After wave tasks complete | Updates progress.md, syncs memory bank, validates tasks.md |
+| `project-bank-keeper` | After wave tasks complete | Updates progress.md, syncs memory bank, validates tasks.md |
 | `git-version-manager` | After memory sync + constitution check | Creates semantic git checkpoint with wave metadata |
 
 **When using `dev-kid execute`**: These are handled automatically in-process.

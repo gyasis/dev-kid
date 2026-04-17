@@ -529,9 +529,8 @@ try:
     print("  Providers:")
     providers = [
         ('Ollama', health['tier1_available'], health['tier1_url']),
-        ('Azure OpenAI', health.get('azure_available', False), health.get('azure_endpoint', '') or 'AZURE_OPENAI_ENDPOINT'),
         ('Anthropic', health['tier2_available'], 'ANTHROPIC_API_KEY'),
-        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY'),
+        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
         ('OpenAI', health.get('openai_available', False), 'OPENAI_API_KEY'),
     ]
     for name, ok, detail in providers:

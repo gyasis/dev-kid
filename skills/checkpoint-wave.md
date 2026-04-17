@@ -198,7 +198,7 @@ fi
    ├─ Check rules (type hints, docstrings, secrets, coverage, patterns)
    └─ HALT if violations
 
-4. Memory Sync (agent: memory-bank-keeper)
+4. Memory Sync (agent: project-bank-keeper)
    ├─ Update progress.md
    ├─ Sync all 6 memory bank tiers
    └─ Log to activity_stream.md
@@ -214,7 +214,7 @@ fi
 When this skill runs as a manual checkpoint (outside `dev-kid execute`), Claude
 should spawn these agents for steps 4 and 5:
 
-- **`memory-bank-keeper`** — spawn with: "Update memory bank for wave N completion.
+- **`project-bank-keeper`** — spawn with: "Update memory bank for wave N completion.
   Sync progress.md, update activeContext.md, append to activity_stream.md."
 - **`git-version-manager`** — spawn with: "Create checkpoint commit for wave N.
   Stage changed files, create semantic commit message, verify success."

@@ -17,7 +17,7 @@ Executes wave-based implementation plan with automatic checkpointing, constituti
    a. Validates task completion ([x] markers in tasks.md)
    b. Integration Sentinel validates output (placeholder scan, micro-agent test loop, interface diff)
    c. Constitution compliance check
-   d. Memory sync via `memory-bank-keeper` agent
+   d. Memory sync via `project-bank-keeper` agent
    e. Git checkpoint via `git-version-manager` agent
 6. Reports PASS/FAIL/SKIP per task with tier info
 
@@ -103,7 +103,7 @@ Wave 1 (PARALLEL_SWARM, max 10 tasks)
      • Interface diff (public API changes)
      • Change radius check (file/line budget)
   → Constitution compliance check
-  → Memory sync (memory-bank-keeper)
+  → Memory sync (project-bank-keeper)
   → Git commit (git-version-manager)
 
 Wave 2... (same pattern, automatic)
@@ -115,7 +115,7 @@ The execution_plan.json names specific Claude Code agents for checkpoint tasks:
 
 | Agent | Role | Spawned when |
 |-------|------|-------------|
-| `memory-bank-keeper` | Syncs progress.md, memory bank, activity stream | After wave validation passes |
+| `project-bank-keeper` | Syncs progress.md, memory bank, activity stream | After wave validation passes |
 | `git-version-manager` | Creates semantic git checkpoint | After memory sync + constitution check |
 
 When using `dev-kid execute`, these are handled in-process.

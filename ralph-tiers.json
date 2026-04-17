@@ -1,75 +1,91 @@
 {
   "tiers": [
     {
-      "name": "local-quick",
-      "mode": "simple",
-      "maxIterations": 5,
-      "models": {
-        "artisan": "ollama/qwen2.5-coder:latest"
-      }
-    },
-    {
-      "name": "local-heavy",
-      "mode": "simple",
-      "maxIterations": 5,
-      "models": {
-        "artisan": "ollama/devstral:24b"
-      }
-    },
-    {
-      "name": "azure-budget",
+      "name": "all-local",
       "mode": "full",
       "maxIterations": 5,
       "models": {
-        "artisan": "azure/codex-mini",
-        "librarian": "azure/gpt-4o-mini",
-        "critic": "azure/gpt-4.1-mini"
+        "artisan": "ollama/qwen3-coder:30b",
+        "librarian": "ollama/gemma3:27b",
+        "critic": "ollama/deepseek-r1:32b"
       }
     },
     {
-      "name": "azure-mid",
+      "name": "local-plus-gemini-lib",
       "mode": "full",
-      "maxIterations": 8,
+      "maxIterations": 5,
       "models": {
-        "artisan": "azure/gpt-4.1-mini",
-        "librarian": "azure/gpt-5-mini",
-        "critic": "azure/o4-mini"
+        "artisan": "ollama/qwen3-coder:30b",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "ollama/deepseek-r1:32b"
       }
     },
     {
-      "name": "azure-reasoning",
+      "name": "openai-artisan-local-critic",
       "mode": "full",
-      "maxIterations": 8,
+      "maxIterations": 5,
       "models": {
-        "artisan": "azure/o4-mini",
-        "librarian": "azure/gpt-5-mini",
-        "critic": "azure/grok-4-fast-reasoning"
+        "artisan": "openai/gpt-4o-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "ollama/deepseek-r1:32b"
       }
     },
     {
-      "name": "azure-heavy",
+      "name": "mixed-budget",
       "mode": "full",
-      "maxIterations": 10,
+      "maxIterations": 5,
       "models": {
-        "artisan": "azure/gpt-5-codex",
-        "librarian": "azure/gpt-5-mini",
-        "critic": "azure/DeepSeek-R1-0528"
+        "artisan": "openai/gpt-4o-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "google/gemini-2.5-pro"
       }
     },
     {
-      "name": "azure-max",
+      "name": "mixed-mid",
       "mode": "full",
-      "maxIterations": 12,
+      "maxIterations": 6,
       "models": {
-        "artisan": "azure/gpt-5.2",
-        "librarian": "azure/gpt-5-chat",
-        "critic": "azure/Kimi-K2-Thinking"
+        "artisan": "openai/gpt-4.1-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "google/gemini-2.5-pro"
+      }
+    },
+    {
+      "name": "mixed-reasoning",
+      "mode": "full",
+      "maxIterations": 6,
+      "models": {
+        "artisan": "openai/o4-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "openai/o4-mini"
+      }
+    },
+    {
+      "name": "openai-heavy",
+      "mode": "full",
+      "maxIterations": 5,
+      "requires_marker": "allow-heavy",
+      "models": {
+        "artisan": "openai/gpt-5-codex",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "openai/o4-mini"
+      }
+    },
+    {
+      "name": "openai-max",
+      "mode": "full",
+      "maxIterations": 3,
+      "requires_marker": "allow-max",
+      "models": {
+        "artisan": "openai/gpt-5.2",
+        "librarian": "openai/gpt-5-chat",
+        "critic": "openai/o4-mini"
       }
     }
   ],
   "global": {
     "auditDbPath": ".micro-agent/audit.db",
-    "maxTotalCostUsd": 10.0,
-    "maxTotalDurationMinutes": 45
+    "maxTotalCostUsd": 5.0,
+    "maxTotalDurationMinutes": 30
   }
 }

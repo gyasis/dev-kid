@@ -178,7 +178,7 @@ class WaveExecutor:
         print(f"\n🔍 Checkpoint after Wave {wave_id}...")
 
         # Step 1: Memory bank keeper verifies tasks.md
-        print("   Step 1: memory-bank-keeper validates tasks.md...")
+        print("   Step 1: project-bank-keeper validates tasks.md...")
         tasks = self.plan["execution_plan"]["waves"][wave_id - 1]["tasks"]
         verified = self.verify_wave_completion(wave_id, tasks)
 
@@ -190,7 +190,7 @@ class WaveExecutor:
         print("   ✅ All tasks verified complete")
 
         # Step 2: Memory bank keeper updates progress.md
-        print("   Step 2: memory-bank-keeper updates progress.md...")
+        print("   Step 2: project-bank-keeper updates progress.md...")
         self._update_progress(wave_id, tasks)
 
         # Step 2a: Sync full memory bank (all 6 tiers via dev-kid sync-memory)

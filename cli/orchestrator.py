@@ -559,7 +559,7 @@ class TaskOrchestrator:
                             "enabled": wave.checkpoint_enabled,
                             "verification_criteria": f"Verify all Wave {wave.wave_id} tasks are marked [x] in tasks.md",
                             "git_agent": "git-version-manager",
-                            "memory_bank_agent": "memory-bank-keeper",
+                            "memory_bank_agent": "project-bank-keeper",
                         },
                     }
                     for wave in self.waves
@@ -742,7 +742,7 @@ class TaskOrchestrator:
                                             "enabled": True,
                                             "verification_criteria": f"Verify all Wave {wid} tasks are marked [x] in tasks.md",
                                             "git_agent": "git-version-manager",
-                                            "memory_bank_agent": "memory-bank-keeper",
+                                            "memory_bank_agent": "project-bank-keeper",
                                         },
                                     }
                                 )
