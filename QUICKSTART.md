@@ -293,7 +293,30 @@ dev-kid execute
 
 **Critical**: You MUST mark tasks `[x]` for verification to pass!
 
-### Step 9: Mark Tasks Complete as You Work
+### Step 9: Task Validation — Integration Sentinel
+
+After each task completes, the Integration Sentinel automatically:
+1. Scans for placeholder code (TODO/FIXME/stub) — blocks the checkpoint if found
+2. Runs your test suite via micro-agent (Tier 1: Ollama local → Tier 2: cloud on failure)
+3. Checks if changes exceed the radius budget (3 files / 150 lines / no interface breaks)
+4. Writes a manifest to `.claude/sentinel/<id>/` (manifest.json, diff.patch, summary.md)
+
+**Enable/disable** in `dev-kid.yml`:
+```yaml
+sentinel:
+  enabled: true          # false to disable
+  injection_granularity: per-task   # per-task | per-wave | per-n
+  injection_n: 3         # used with per-n
+```
+
+**Check sentinel status:**
+```bash
+dev-kid sentinel-status
+```
+
+**View last run summary:** injected automatically at the top of every Claude Code prompt.
+
+### Step 10: Mark Tasks Complete as You Work
 
 As you complete each task:
 
@@ -309,7 +332,7 @@ vim tasks.md
 
 **Wave executor checks for `[x]` before proceeding to next wave!**
 
-### Step 10: Create Manual Checkpoints (Optional)
+### Step 11: Create Manual Checkpoints (Optional)
 
 ```bash
 dev-kid checkpoint "Completed OAuth2 integration"
@@ -324,7 +347,7 @@ dev-kid checkpoint "Completed OAuth2 integration"
 
 **You DON'T manually edit Memory Bank files - they update automatically!**
 
-### Step 11: Check Status Anytime
+### Step 12: Check Status Anytime
 
 ```bash
 dev-kid status
@@ -347,7 +370,7 @@ dev-kid status
 ✅ Execution Plan: 2 waves
 ```
 
-### Step 12: End of Session
+### Step 13: End of Session
 
 ```bash
 # Finalize session (creates snapshot for recovery)
@@ -363,7 +386,7 @@ dev-kid watchdog-stop
 - Git commits created
 - Memory Bank synced
 
-### Step 13: Resume Next Session
+### Step 14: Resume Next Session
 
 ```bash
 dev-kid recall
@@ -556,6 +579,7 @@ dev-kid config set KEY VALUE    # Set config value
 ```bash
 dev-kid verify                  # Anti-hallucination check
 dev-kid validate                # System integrity check
+dev-kid sentinel-status         # Show last Integration Sentinel run
 ```
 
 ## Key Concepts

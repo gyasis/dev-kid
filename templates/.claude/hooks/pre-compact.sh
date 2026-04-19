@@ -1,52 +1,44 @@
 #!/usr/bin/env bash
 # PreCompact Hook - Emergency state backup before context compression
-# CRITICAL: This fires BEFORE Claude compresses the conversation context
+# Claude Code: exit 0 allows compression to proceed
 
-set -e
-
-# Read stdin (hook receives event data here)
-read -r EVENT_DATA
-
-# Log the event
-echo "🚨 PreCompact: Emergency state backup initiated" >> .claude/activity_stream.md
-echo "   Timestamp: $(date -Iseconds)" >> .claude/activity_stream.md
-
-# Emergency micro-checkpoint: Save AGENT_STATE
-if [ -f .claude/AGENT_STATE.json ]; then
-    cp .claude/AGENT_STATE.json ".claude/AGENT_STATE.backup.$(date +%Y%m%d_%H%M%S).json"
+# Master kill-switch
+if [ "${DEV_KID_HOOKS_ENABLED:-true}" = "false" ]; then
+    exit 0
 fi
 
-# Update system bus with compression event
+# Read stdin safely
+read -r EVENT_DATA || true
+
+# Backup AGENT_STATE
+if [ -f .claude/AGENT_STATE.json ]; then
+    cp .claude/AGENT_STATE.json ".claude/AGENT_STATE.backup.$(date +%Y%m%d_%H%M%S).json" 2>/dev/null || true
+fi
+
+# Log
+echo "$(date -Iseconds) PreCompact: backup created" >> .claude/activity_stream.md 2>/dev/null || true
+
+# Log to system bus
 if [ -f .claude/system_bus.json ]; then
-    python3 << 'PYTHON'
-import json
+    python3 -c "
+import json, sys
 from pathlib import Path
 from datetime import datetime
-
-bus_file = Path('.claude/system_bus.json')
-if bus_file.exists():
-    with open(bus_file) as f:
-        bus = json.load(f)
-
-    bus['events'].append({
-        'timestamp': datetime.now().isoformat(),
-        'agent': 'pre-compact-hook',
-        'event_type': 'context_compression_detected',
-        'backup_created': True
-    })
-
-    with open(bus_file, 'w') as f:
-        json.dump(bus, f, indent=2)
-PYTHON
+f = Path('.claude/system_bus.json')
+try:
+    bus = json.loads(f.read_text())
+    bus.setdefault('events', []).append({'timestamp': datetime.now().isoformat(), 'event_type': 'context_compression_detected'})
+    f.write_text(json.dumps(bus, indent=2))
+except Exception:
+    pass
+" 2>/dev/null || true
 fi
 
 # Auto-checkpoint if uncommitted changes exist
-if command -v dev-kid &> /dev/null; then
+if command -v dev-kid &>/dev/null; then
     if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-        dev-kid checkpoint "[PRE-COMPACT] Auto-save before context compression" 2>/dev/null || true
+        dev-kid checkpoint "[PRE-COMPACT] Auto-save" 2>/dev/null || true
     fi
 fi
 
-# Return success (allows compression to proceed)
-echo '{"status": "success", "message": "State backed up before compression"}'
 exit 0

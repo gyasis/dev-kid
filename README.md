@@ -1,4 +1,4 @@
-# Dev-Kid v2.0 🚀
+# Dev-Kid v2.1 🚀
 
 **Enhanced Planning System for Claude Code with Task Orchestration & Context Protection**
 
@@ -7,12 +7,55 @@ Dev-kid is a complete development workflow system that transforms how AI agents 
 ## 🚀 Quick Install
 
 ```bash
-git clone https://github.com/yourusername/dev-kid.git
+git clone https://github.com/gyasis/dev-kid.git
 cd dev-kid
 ./install
 ```
 
 That's it! No `.sh` extension, no complex setup. One command installs everything.
+
+## 🎯 Two Ways to Use Dev-Kid
+
+Dev-kid is dual-mode — works **standalone** as a CLI tool OR through **Claude Code** as a set of slash-command skills.
+
+### Standalone CLI
+
+```bash
+dev-kid init-check                  # Validate project setup (10 health checks)
+dev-kid orchestrate "My phase"      # Build wave execution plan from tasks.md
+dev-kid preflight                   # Verify sentinel providers are ready
+dev-kid execute                     # Run waves (preflight gate runs automatically)
+dev-kid execute --no-preflight      # Bypass preflight (advanced)
+dev-kid execute --yes               # Non-interactive (CI: refuses if any tier missing)
+```
+
+### Claude Code Slash Commands
+
+```bash
+/devkid.init-check     # Validate project setup
+/devkid.orchestrate    # Build wave plan
+/devkid.preflight      # Provider readiness check
+/devkid.execute        # Preflight + waves + sentinel
+```
+
+The slash commands invoke the CLI internally and add Claude-Code-specific UX (conversation context, output formatting). All safety gates and validation logic live in the CLI so standalone users get the same protection.
+
+## 🛡️ The Preflight Gate (built-in since v2.1)
+
+`dev-kid execute` runs a preflight gate by default before any wave executes:
+
+1. Auto-sources `.env` from project root if present (most commonly a symlink to `~/dev/.env`)
+2. Runs `dev-kid sentinel-health` to check Ollama / Anthropic / Google / OpenAI provider availability
+3. If providers missing → presents an interactive menu (source another env file, continue with reduced tiers, abort, or show full health output)
+4. If all providers ready → asks explicit `y/N` confirmation before invoking the wave executor
+
+**Bypass options** (advanced):
+- `--no-preflight` — skip the gate entirely
+- `--yes` / `-y` — skip the confirmation prompt only (CI use; refuses if tiers missing)
+
+This was added after a 2026-04-19 incident where a smoke test inadvertently kicked off a real wave execution because the preflight in older `devkid-preflight.sh` wrappers proceeded silently when all providers were ready. The y/N gate is now mandatory in interactive use.
+
+> **Integration Sentinel** is configured in `dev-kid.yml` with `sentinel.enabled: true/false`. Enable it to activate automatic micro-agent test validation after every task before wave checkpoints commit.
 
 ## Key Features
 
@@ -37,6 +80,15 @@ That's it! No `.sh` extension, no complex setup. One command installs everything
 - **Active Context**: Current focus and next actions
 - **Progress Tracking**: Task completion metrics
 - **Work Log**: Daily work entries
+
+### 🛡️ Integration Sentinel (Micro-Agent Test Loop)
+- **Automatic Validation**: After every task, a micro-agent runs your test suite before the wave checkpoint commits
+- **Tiered Model Strategy**: Tier 1 = local Ollama (free, fast, max 5 iterations) → Tier 2 = cloud model (on Tier 1 exhaustion)
+- **Placeholder Scanner**: Detects TODO/FIXME/stub patterns in production code — blocks checkpoint on violation
+- **Cascade Analysis**: If a task's changes exceed the change radius budget (>3 files, >150 lines, or interface breaks), pending tasks are annotated with cascade warnings
+- **Granularity Control**: Choose per-task, per-wave, or per-N injection in dev-kid.yml
+- **Always-Written Manifest**: Each sentinel run writes manifest.json + diff.patch + summary.md to .claude/sentinel/<id>/
+- **Context Injection**: Latest sentinel summary auto-injected into every Claude Code prompt via hook
 
 ### 🛡️ Context Protection
 - **Active Stack**: <500 token current focus

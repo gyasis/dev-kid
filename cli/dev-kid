@@ -61,8 +61,12 @@ Usage: dev-kid [COMMAND] [OPTIONS]
 
 CORE COMMANDS:
   init [PATH]              Initialize dev-kid in project (default: current dir)
+  init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
-  execute                  Execute waves from execution_plan.json
+  preflight                Run sentinel-health + .env source check (no execute)
+  execute [--no-preflight] [--yes]
+                           Execute waves from execution_plan.json
+                           (preflight gate runs first by default; --no-preflight bypass)
   sync-memory              Update Memory Bank with current state
   checkpoint [MESSAGE]     Create semantic git checkpoint
   micro-checkpoint [MSG]   Quick commit (Ralph smart zone optimization)
@@ -73,8 +77,6 @@ CORE COMMANDS:
 
 ORCHESTRATION:
   waves                    Show current execution plan waves
-  wave-status [N]          Check status of wave N
-  next-wave                Execute next pending wave
 
 TASK WATCHDOG (Survives context compression):
   watchdog-start           Start background task monitoring (5-min checks)
@@ -85,8 +87,7 @@ TASK WATCHDOG (Survives context compression):
   task-complete ID         Complete a task and record time
 
 MEMORY:
-  memory-status            Show Memory Bank health
-  memory-diff              Show changes since last sync
+  sync-memory              Sync Memory Bank (all 6 tiers)
 
 GITHUB SYNC (Ralph-optimized crash recovery):
   gh-sync                  Sync tasks.md to GitHub issues
@@ -104,6 +105,15 @@ CONSTITUTION & CONFIG:
   config get KEY           Get config value (e.g., task_orchestration.wave_size)
   config set KEY VALUE     Set config value
   config validate          Validate config file
+
+SENTINEL:
+  sentinel-run TASK_ID     Run sentinel on one task (no execution_plan.json needed)
+  sentinel-run --list      List task IDs in tasks.md (no run)
+  sentinel-run --all       Run sentinel on every task in tasks.md
+  sentinel-run --pending   Run sentinel on unchecked [ ] tasks only
+  sentinel-run --completed Run sentinel on checked [x] tasks only
+  sentinel-status          Show sentinel run history (task, tier, result, cost)
+  sentinel-health          Check provider connectivity (Ollama, API key, micro-agent CLI)
 
 SYSTEM:
   validate                 Validate system integrity
@@ -142,19 +152,97 @@ cmd_init() {
 }
 
 cmd_orchestrate() {
-    local phase_id="${1:-default}"
+    # Parse optional --agent-parse flag, phase id is the first non-flag arg
+    local agent_parse=""
+    local phase_id=""
+    for arg in "$@"; do
+        case "$arg" in
+            --agent-parse) agent_parse="--agent-parse" ;;
+            *) [ -z "$phase_id" ] && phase_id="$arg" ;;
+        esac
+    done
+    phase_id="${phase_id:-default}"
 
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
+    [ -n "$agent_parse" ] && echo -e "   ${YELLOW}ℹ${NC}  LLM-backed dep parser ENABLED"
 
-    # Run orchestrator
-    python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
+    # Always prefer the speckit canonical tasks.md when one exists.
+    # This ensures [x] completion markers are read from the source of truth,
+    # not from a stale plain-file copy in the project root.
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    FOUND=""
+
+    # 1. .specify/specs/{branch}/tasks.md  (speckit standard layout)
+    if [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+        FOUND=".specify/specs/$BRANCH/tasks.md"
+    fi
+
+    # 2. specs/{branch}/tasks.md  (speckit without .specify prefix)
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
+        FOUND="specs/$BRANCH/tasks.md"
+    fi
+
+    # 3. specs/*/tasks.md  (fallback — sorted for determinism)
+    if [ -z "$FOUND" ]; then
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | sort | head -1)
+    fi
+
+    if [ -n "$FOUND" ]; then
+        # Replace root tasks.md with a symlink if:
+        #   - it doesn't exist yet, OR
+        #   - it's a plain file (stale copy), OR
+        #   - it's a symlink pointing elsewhere
+        CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+        if [ ! -e "tasks.md" ] || [ ! -L "tasks.md" ] || [ "$CURRENT_LINK" != "$FOUND" ]; then
+            echo -e "   ${YELLOW}ℹ${NC}  Symlinking tasks.md → $FOUND (speckit canonical source)"
+            ln -sf "$FOUND" tasks.md
+        fi
+    fi
+
+    # Run orchestrator (with optional --agent-parse)
+    if [ -n "$agent_parse" ]; then
+        python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id" --agent-parse
+    else
+        python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
+    fi
 }
 
 cmd_execute() {
-    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+    # Parse --no-preflight / --yes flags before dispatch
+    local skip_preflight=false
+    local non_interactive=false
+    local remaining_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            --no-preflight)  skip_preflight=true ;;
+            --yes|-y)        non_interactive=true ;;
+            *)               remaining_args+=("$arg") ;;
+        esac
+    done
 
-    # Run wave executor
-    python3 "$DEV_KID_ROOT/cli/wave_executor.py"
+    # Default: preflight gate first (auto-source .env, sentinel-health,
+    # interactive y/N confirmation). Bypass with --no-preflight (advanced).
+    # Preflight calls back into `dev-kid execute --no-preflight` after user confirms.
+    if [[ "$skip_preflight" != "true" ]]; then
+        local preflight_args=("--execute" "execute" "--no-preflight")
+        [[ "$non_interactive" == "true" ]] && preflight_args=("--execute" "--yes" "execute" "--no-preflight")
+        bash "$DEV_KID_ROOT/cli/preflight.sh" "${preflight_args[@]}" "${remaining_args[@]}"
+        return $?
+    fi
+
+    # Past the gate — actually execute waves
+    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+    python3 "$DEV_KID_ROOT/cli/wave_executor.py" "${remaining_args[@]}"
+}
+
+cmd_preflight() {
+    # Standalone preflight check — no execute, just report provider readiness.
+    bash "$DEV_KID_ROOT/cli/preflight.sh" "$@"
+}
+
+cmd_init_check() {
+    # Validate project setup. Distinct from `init` (which scaffolds a fresh project).
+    python3 "$DEV_KID_ROOT/cli/init_check.py" "$@"
 }
 
 cmd_sync_memory() {
@@ -241,15 +329,34 @@ for wave in plan['execution_plan']['waves']:
 
 cmd_watchdog_start() {
     echo -e "${GREEN}🐕 Starting Task Watchdog (Rust)${NC}"
+
+    # Guard: check if a watchdog is already running for THIS project
+    local pid_file=".claude/watchdog.pid"
+    if [ -f "$pid_file" ]; then
+        local existing_pid
+        existing_pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+            echo "⚠️  Watchdog already running for this project (PID: $existing_pid)"
+            echo "   To restart: dev-kid watchdog-stop && dev-kid watchdog-start"
+            return 0
+        fi
+        # Stale PID file — clear it
+        rm -f "$pid_file"
+    fi
+
     echo "   Generic process monitor for AI coding tools"
     echo "   Monitoring tasks every 5 minutes..."
-    echo "   Press Ctrl+C to stop"
     echo ""
 
     # Run Rust watchdog in background
-    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    local watchdog_bin
+    watchdog_bin=$(find_watchdog_binary) || exit 1
     "$watchdog_bin" run &
-    WATCHDOG_PID=$!
+    local WATCHDOG_PID=$!
+
+    # Persist PID to project-local file so watchdog-stop only kills this project's daemon
+    mkdir -p .claude
+    echo "$WATCHDOG_PID" > "$pid_file"
 
     echo "✅ Watchdog started (PID: $WATCHDOG_PID)"
     echo "   Memory usage: <3MB | Startup: <5ms"
@@ -259,8 +366,21 @@ cmd_watchdog_start() {
 cmd_watchdog_stop() {
     echo -e "${GREEN}🛑 Stopping Task Watchdog${NC}"
 
-    # Kill Rust watchdog process
-    pkill -f "task-watchdog run" && echo "✅ Watchdog stopped" || echo "⚠️  No watchdog running"
+    # Kill only THIS project's watchdog via the persisted PID file
+    local pid_file=".claude/watchdog.pid"
+    if [ -f "$pid_file" ]; then
+        local pid
+        pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" && echo "✅ Watchdog stopped (PID: $pid)" || echo "⚠️  Failed to stop watchdog (PID: $pid)"
+        else
+            echo "⚠️  No watchdog running for this project (stale PID: $pid)"
+        fi
+        rm -f "$pid_file"
+    else
+        echo "⚠️  No watchdog running for this project (no PID file)"
+        echo "   Note: if started before this fix, run: pkill -f 'task-watchdog run'"
+    fi
 }
 
 cmd_watchdog_check() {
@@ -393,6 +513,123 @@ cmd_status() {
     fi
 
     echo ""
+}
+
+cmd_sentinel_status() {
+    local project_root="${PROJECT_ROOT:-$(pwd)}"
+    echo -e "${GREEN}🛡️  Sentinel Run History${NC}"
+    echo ""
+    python3 "$DEV_KID_ROOT/cli/sentinel/status_reporter.py" --project-root "$project_root"
+}
+
+cmd_sentinel_run() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}❌ Usage: dev-kid sentinel-run TASK_ID [--files ...] [--instruction \"...\"] [--tasks-file PATH]${NC}"
+        echo "         dev-kid sentinel-run --list      # show task IDs"
+        echo "         dev-kid sentinel-run --all       # run on every task"
+        echo "         dev-kid sentinel-run --pending   # run on [ ] tasks"
+        echo "         dev-kid sentinel-run --completed # run on [x] tasks"
+        exit 2
+    fi
+    python3 "$DEV_KID_ROOT/cli/sentinel_run.py" "$@"
+}
+
+cmd_sentinel_health() {
+    local project_root="${PROJECT_ROOT:-$(pwd)}"
+    echo -e "${GREEN}🛡️  Sentinel Provider Health Check${NC}"
+    echo ""
+    python3 - <<PYEOF
+import sys, os, json
+sys.path.insert(0, '$DEV_KID_ROOT/cli')
+
+# Read config from dev-kid.yml
+ollama_url = 'http://localhost:11434'
+sentinel_enabled = False
+tiers_file = ''
+min_tier = ''
+yml_path = os.path.join('$project_root', 'dev-kid.yml')
+try:
+    with open(yml_path) as f:
+        in_sentinel = False
+        for line in f:
+            s = line.strip()
+            if s.startswith('sentinel:'):
+                in_sentinel = True
+            elif in_sentinel:
+                if s.startswith('enabled:'):
+                    sentinel_enabled = s.split(':',1)[1].strip().lower() not in ('false','0','no','off')
+                elif s.startswith('ollama_url:'):
+                    ollama_url = s.split(':',1)[1].strip()
+                elif s.startswith('tiers_file:'):
+                    tiers_file = s.split(':',1)[1].split('#')[0].strip()
+                elif s.startswith('min_tier:'):
+                    v = s.split(':',1)[1].split('#')[0].strip().strip('"').strip("'")
+                    min_tier = v
+                elif s and not s.startswith('#') and ':' in s and not line.startswith(' '):
+                    break
+except Exception:
+    pass
+
+print(f"  Sentinel enabled : {'yes' if sentinel_enabled else 'no  ← edit dev-kid.yml to change'}")
+print(f"  Ollama URL       : {ollama_url}")
+if tiers_file:
+    print(f"  Tiers file       : {tiers_file}")
+if min_tier:
+    print(f"  Min tier         : {min_tier}")
+print()
+
+try:
+    from sentinel.tier_runner import sentinel_health_check
+    class _Cfg:
+        sentinel_tier1_ollama_url = ollama_url
+        sentinel_tiers_file = os.path.join('$project_root', tiers_file) if tiers_file else ''
+        sentinel_min_tier = min_tier
+    health = sentinel_health_check(_Cfg())
+
+    # Core tools
+    ma = '✅' if health['micro_agent_installed'] else '❌'
+    print(f"  {ma} micro-agent CLI")
+    print()
+
+    # Provider status
+    print("  Providers:")
+    providers = [
+        ('Ollama', health['tier1_available'], health['tier1_url']),
+        ('Anthropic', health['tier2_available'], 'ANTHROPIC_API_KEY'),
+        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
+        ('OpenAI', health.get('openai_available', False), 'OPENAI_API_KEY'),
+    ]
+    for name, ok, detail in providers:
+        icon = '✅' if ok else '❌'
+        print(f"    {icon} {name:<15} {detail}")
+    print()
+
+    # Per-tier health (when tiers file is configured)
+    tier_health = health.get('tier_health', [])
+    if tier_health:
+        print("  Per-tier readiness:")
+        for th in tier_health:
+            icon = '✅' if th['status'] == 'ready' else '❌'
+            print(f"    {icon} {th['tier']}")
+            for issue in th.get('issues', []):
+                print(f"       └─ {issue}")
+        usable = health.get('usable_tier_count', 0)
+        total = health.get('tiers_file_tier_count', 0)
+        print(f"\n  {usable}/{total} tiers ready")
+    print()
+
+    if health['any_tier_available']:
+        print("  ✅ Sentinel will run — at least one tier is ready")
+    else:
+        print("  ⚠️  Sentinel will SKIP — no usable tiers available")
+        if not health['micro_agent_installed']:
+            print("  Fix: npm install -g @gyasis/micro-agent")
+        for w in health.get('warnings', []):
+            print(f"  Fix: {w}")
+except Exception as e:
+    print(f"  ⚠️  Health check error: {e}")
+    import traceback; traceback.print_exc()
+PYEOF
 }
 
 cmd_validate() {
@@ -539,6 +776,8 @@ main() {
         init)               cmd_init "$@" ;;
         orchestrate)        cmd_orchestrate "$@" ;;
         execute)            cmd_execute "$@" ;;
+        preflight)          cmd_preflight "$@" ;;
+        init-check)         cmd_init_check "$@" ;;
         sync-memory)        cmd_sync_memory "$@" ;;
         checkpoint)         cmd_checkpoint "$@" ;;
         micro-checkpoint)   cmd_micro_checkpoint "$@" ;;
@@ -559,6 +798,9 @@ main() {
         gh-status)          cmd_gh_status "$@" ;;
         constitution)       cmd_constitution "$@" ;;
         config)             cmd_config "$@" ;;
+        sentinel-run)       cmd_sentinel_run "$@" ;;
+        sentinel-status)    cmd_sentinel_status "$@" ;;
+        sentinel-health)    cmd_sentinel_health "$@" ;;
         status)             cmd_status "$@" ;;
         validate)           cmd_validate "$@" ;;
         version)            echo "dev-kid v$VERSION" ;;

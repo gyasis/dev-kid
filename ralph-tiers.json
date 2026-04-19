@@ -1,0 +1,91 @@
+{
+  "tiers": [
+    {
+      "name": "all-local",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "ollama/qwen3-coder:30b",
+        "librarian": "ollama/gemma3:27b",
+        "critic": "ollama/deepseek-r1:32b"
+      }
+    },
+    {
+      "name": "local-plus-gemini-lib",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "ollama/qwen3-coder:30b",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "ollama/deepseek-r1:32b"
+      }
+    },
+    {
+      "name": "openai-artisan-local-critic",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "openai/gpt-4o-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "ollama/deepseek-r1:32b"
+      }
+    },
+    {
+      "name": "mixed-budget",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "openai/gpt-4o-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "google/gemini-2.5-pro"
+      }
+    },
+    {
+      "name": "mixed-mid",
+      "mode": "full",
+      "maxIterations": 6,
+      "models": {
+        "artisan": "openai/gpt-4.1-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "google/gemini-2.5-pro"
+      }
+    },
+    {
+      "name": "mixed-reasoning",
+      "mode": "full",
+      "maxIterations": 6,
+      "models": {
+        "artisan": "openai/o4-mini",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "openai/o4-mini"
+      }
+    },
+    {
+      "name": "openai-heavy",
+      "mode": "full",
+      "maxIterations": 5,
+      "requires_marker": "allow-heavy",
+      "models": {
+        "artisan": "openai/gpt-5-codex",
+        "librarian": "google/gemini-2.5-flash",
+        "critic": "openai/o4-mini"
+      }
+    },
+    {
+      "name": "openai-max",
+      "mode": "full",
+      "maxIterations": 3,
+      "requires_marker": "allow-max",
+      "models": {
+        "artisan": "openai/gpt-5.2",
+        "librarian": "openai/gpt-5-chat",
+        "critic": "openai/o4-mini"
+      }
+    }
+  ],
+  "global": {
+    "auditDbPath": ".micro-agent/audit.db",
+    "maxTotalCostUsd": 5.0,
+    "maxTotalDurationMinutes": 30
+  }
+}

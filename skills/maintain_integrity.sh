@@ -58,7 +58,7 @@ fi
 if [ $ERRORS -gt 0 ]; then
     echo ""
     echo "❌ Integrity check failed: $ERRORS error(s)"
-    echo "   Run 'dev-kit init' to repair"
+    echo "   Run 'dev-kid init' to repair"
     exit 1
 fi
 

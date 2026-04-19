@@ -105,25 +105,38 @@ fi
 
 ## Wave Execution Flow
 
+**IMPORTANT**: `dev-kid execute` handles ALL of this automatically via `wave_executor.py`.
+Do NOT implement waves manually — always run `dev-kid execute` as the bash command above.
+
 ```
-Wave 1 (PARALLEL_SWARM)
+Wave 1 (PARALLEL_SWARM)                      ← wave_executor.py orchestrates this
   → Register tasks with watchdog
-  → Execute tasks in parallel
-  → Mark [x] in tasks.md as complete
-  → Checkpoint validation
+  → Display tasks for Claude to implement
+  → Claude marks [x] in tasks.md when done
+  ↓
+  [CHECKPOINT — automatic, enforced by wave_executor.py]
+  → Verify all tasks have [x] markers
+  → Integration Sentinel validates (placeholder scan, test loop, interface diff)
+  → Sync full memory bank (all 6 tiers)
   → Constitution compliance check
   → Git commit
 
-Wave 2 (SEQUENTIAL_MERGE)
-  → Register tasks with watchdog
-  → Execute tasks sequentially
-  → Mark [x] in tasks.md as complete
-  → Checkpoint validation
-  → Constitution compliance check
-  → Git commit
-
-Wave 3...
+Wave 2... (same pattern, automatic)
 ```
+
+## Agent Delegation at Checkpoints
+
+The execution_plan.json names specific Claude Code agents for checkpoint tasks.
+When working OUTSIDE of `dev-kid execute` (e.g., manual wave work), Claude should
+spawn these agents at checkpoint boundaries:
+
+| Agent | When to spawn | What it does |
+|-------|--------------|-------------|
+| `project-bank-keeper` | After wave tasks complete | Updates progress.md, syncs memory bank, validates tasks.md |
+| `git-version-manager` | After memory sync + constitution check | Creates semantic git checkpoint with wave metadata |
+
+**When using `dev-kid execute`**: These are handled automatically in-process.
+**When working manually**: Spawn these agents using the Agent tool at wave boundaries.
 
 ## Constitution Enforcement
 

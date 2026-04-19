@@ -12,9 +12,9 @@ Config.json contains:
 """
 
 import json
-from pathlib import Path
-from typing import Any, Dict, Optional, List
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -44,6 +44,42 @@ class ConfigSchema:
     preferred_model: str = "sonnet"
     agent_timeout_minutes: int = 30
 
+    # Sentinel: master toggle
+    sentinel_enabled: bool = True
+
+    # Sentinel: operation mode
+    sentinel_mode: str = "auto"  # "auto" | "human-gated"
+
+    # Sentinel: Legacy Tier 1 (local Ollama) — only used when tiers_file is empty
+    sentinel_tier1_model: str = ""  # Set in dev-kid.yml, e.g. "qwen3-coder:30b"
+    sentinel_tier1_ollama_url: str = "http://localhost:11434"
+    sentinel_tier1_max_iterations: int = 5
+
+    # Sentinel: Legacy Tier 2 (cloud) — only used when tiers_file is empty
+    sentinel_tier2_model: str = ""  # Set in dev-kid.yml, e.g. "claude-sonnet-4-20250514"
+    sentinel_tier2_max_iterations: int = 10
+    sentinel_tier2_max_budget_usd: float = 2.0
+    sentinel_tier2_max_duration_min: int = 10
+
+    # Sentinel: change radius
+    sentinel_radius_max_files: int = 3
+    sentinel_radius_max_lines: int = 150
+    sentinel_radius_allow_interface_changes: bool = False
+
+    # Sentinel: N-tier escalation (overrides tier1/tier2 when set)
+    sentinel_tiers_file: str = ""  # Path to ralph-tiers.json; empty = use legacy tier1/tier2
+    sentinel_min_tier: str = ""    # Skip tiers before this name (e.g. "azure-heavy" for weekend)
+    sentinel_max_total_cost_usd: float = 5.0
+    sentinel_max_total_duration_min: int = 30
+
+    # Sentinel: test command override (when auto-detect fails)
+    sentinel_test_command: str = ""  # e.g. "python -m pytest", "npm test", empty = auto-detect
+
+    # Sentinel: placeholder scanner
+    sentinel_placeholder_fail_on_detect: bool = True
+    sentinel_placeholder_patterns: list = field(default_factory=list)
+    sentinel_placeholder_exclude_paths: list = field(default_factory=list)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return {
@@ -51,27 +87,57 @@ class ConfigSchema:
                 "task_watchdog_minutes": self.task_watchdog_minutes,
                 "wave_size": self.wave_size,
                 "max_parallel_tasks": self.max_parallel_tasks,
-                "checkpoint_auto_save": self.checkpoint_auto_save
+                "checkpoint_auto_save": self.checkpoint_auto_save,
             },
             "constitution": {
                 "path": self.constitution_path,
                 "enforce": self.constitution_enforce,
-                "strict_mode": self.constitution_strict_mode
+                "strict_mode": self.constitution_strict_mode,
             },
             "mcp_servers": self.mcp_servers,
             "cli": {
                 "verbose": self.verbose,
                 "auto_git_commit": self.auto_git_commit,
-                "git_commit_prefix": self.git_commit_prefix
+                "git_commit_prefix": self.git_commit_prefix,
             },
             "agents": {
                 "preferred_model": self.preferred_model,
-                "timeout_minutes": self.agent_timeout_minutes
-            }
+                "timeout_minutes": self.agent_timeout_minutes,
+            },
+            "sentinel": {
+                "enabled": self.sentinel_enabled,
+                "mode": self.sentinel_mode,
+                "tiers_file": self.sentinel_tiers_file,
+                "min_tier": self.sentinel_min_tier,
+                "max_total_cost_usd": self.sentinel_max_total_cost_usd,
+                "max_total_duration_min": self.sentinel_max_total_duration_min,
+                "tier1": {
+                    "model": self.sentinel_tier1_model,
+                    "ollama_url": self.sentinel_tier1_ollama_url,
+                    "max_iterations": self.sentinel_tier1_max_iterations,
+                },
+                "tier2": {
+                    "model": self.sentinel_tier2_model,
+                    "max_iterations": self.sentinel_tier2_max_iterations,
+                    "max_budget_usd": self.sentinel_tier2_max_budget_usd,
+                    "max_duration_min": self.sentinel_tier2_max_duration_min,
+                },
+                "change_radius": {
+                    "max_files": self.sentinel_radius_max_files,
+                    "max_lines": self.sentinel_radius_max_lines,
+                    "allow_interface_changes": self.sentinel_radius_allow_interface_changes,
+                },
+                "test_command": self.sentinel_test_command,
+                "placeholder": {
+                    "fail_on_detect": self.sentinel_placeholder_fail_on_detect,
+                    "patterns": self.sentinel_placeholder_patterns,
+                    "exclude_paths": self.sentinel_placeholder_exclude_paths,
+                },
+            },
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ConfigSchema':
+    def from_dict(cls, data: Dict[str, Any]) -> "ConfigSchema":
         """Create from dictionary loaded from JSON"""
         task_orch = data.get("task_orchestration", {})
         constitution = data.get("constitution", {})
@@ -79,12 +145,20 @@ class ConfigSchema:
         cli = data.get("cli", {})
         agents = data.get("agents", {})
 
+        sentinel = data.get("sentinel", {})
+        tier1 = sentinel.get("tier1", {})
+        tier2 = sentinel.get("tier2", {})
+        radius = sentinel.get("change_radius", {})
+        placeholder = sentinel.get("placeholder", {})
+
         return cls(
             task_watchdog_minutes=task_orch.get("task_watchdog_minutes", 7),
             wave_size=task_orch.get("wave_size", 5),
             max_parallel_tasks=task_orch.get("max_parallel_tasks", 3),
             checkpoint_auto_save=task_orch.get("checkpoint_auto_save", True),
-            constitution_path=constitution.get("path", "memory-bank/shared/.constitution.md"),
+            constitution_path=constitution.get(
+                "path", "memory-bank/shared/.constitution.md"
+            ),
             constitution_enforce=constitution.get("enforce", True),
             constitution_strict_mode=constitution.get("strict_mode", False),
             mcp_servers=mcp,
@@ -92,7 +166,29 @@ class ConfigSchema:
             auto_git_commit=cli.get("auto_git_commit", False),
             git_commit_prefix=cli.get("git_commit_prefix", "[dev-kid]"),
             preferred_model=agents.get("preferred_model", "sonnet"),
-            agent_timeout_minutes=agents.get("timeout_minutes", 30)
+            agent_timeout_minutes=agents.get("timeout_minutes", 30),
+            sentinel_enabled=sentinel.get("enabled", True),
+            sentinel_mode=sentinel.get("mode", "auto"),
+            sentinel_tiers_file=sentinel.get("tiers_file", ""),
+            sentinel_min_tier=sentinel.get("min_tier", ""),
+            sentinel_max_total_cost_usd=sentinel.get("max_total_cost_usd", 5.0),
+            sentinel_max_total_duration_min=sentinel.get("max_total_duration_min", 30),
+            sentinel_tier1_model=tier1.get("model", "qwen3-coder:30b"),
+            sentinel_tier1_ollama_url=tier1.get("ollama_url", "http://localhost:11434"),
+            sentinel_tier1_max_iterations=tier1.get("max_iterations", 5),
+            sentinel_tier2_model=tier2.get("model", "claude-sonnet-4-20250514"),
+            sentinel_tier2_max_iterations=tier2.get("max_iterations", 10),
+            sentinel_tier2_max_budget_usd=tier2.get("max_budget_usd", 2.0),
+            sentinel_tier2_max_duration_min=tier2.get("max_duration_min", 10),
+            sentinel_radius_max_files=radius.get("max_files", 3),
+            sentinel_radius_max_lines=radius.get("max_lines", 150),
+            sentinel_radius_allow_interface_changes=radius.get(
+                "allow_interface_changes", False
+            ),
+            sentinel_test_command=sentinel.get("test_command", ""),
+            sentinel_placeholder_fail_on_detect=placeholder.get("fail_on_detect", True),
+            sentinel_placeholder_patterns=placeholder.get("patterns", []),
+            sentinel_placeholder_exclude_paths=placeholder.get("exclude_paths", []),
         )
 
 
@@ -136,13 +232,15 @@ class ConfigManager:
         self.schema = default_schema
 
         # Write to file
-        with open(self.config_path, 'w') as f:
+        with open(self.config_path, "w") as f:
             json.dump(default_schema.to_dict(), f, indent=2)
 
         print(f"✅ Created config at {self.config_path}")
         print(f"   Task watchdog: {default_schema.task_watchdog_minutes} minutes")
         print(f"   Wave size: {default_schema.wave_size} tasks")
-        print(f"   Constitution enforcement: {'enabled' if default_schema.constitution_enforce else 'disabled'}")
+        print(
+            f"   Constitution enforcement: {'enabled' if default_schema.constitution_enforce else 'disabled'}"
+        )
 
         return True
 
@@ -158,7 +256,7 @@ class ConfigManager:
             return False
 
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 data = json.load(f)
 
             self.schema = ConfigSchema.from_dict(data)
@@ -182,7 +280,7 @@ class ConfigManager:
             return False
 
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(self.schema.to_dict(), f, indent=2)
 
             return True
@@ -206,7 +304,7 @@ class ConfigManager:
                 return default
 
         config_dict = self.schema.to_dict()
-        keys = key.split('.')
+        keys = key.split(".")
 
         value = config_dict
         for k in keys:
@@ -234,7 +332,7 @@ class ConfigManager:
                     return False
 
         # Parse key path
-        keys = key.split('.')
+        keys = key.split(".")
         if len(keys) < 2:
             print(f"❌ Invalid key path: {key}")
             print("   Use format: section.key (e.g., 'task_orchestration.wave_size')")
@@ -273,9 +371,9 @@ class ConfigManager:
             if not self.load():
                 return False
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("DEV-KID CONFIGURATION")
-        print("="*60)
+        print("=" * 60)
 
         config_dict = self.schema.to_dict()
 
@@ -289,8 +387,12 @@ class ConfigManager:
         print("\n📜 Constitution:")
         constitution = config_dict.get("constitution", {})
         print(f"   Path: {constitution.get('path', 'N/A')}")
-        print(f"   Enforcement: {'✅ enabled' if constitution.get('enforce', True) else '❌ disabled'}")
-        print(f"   Strict mode: {'✅ on' if constitution.get('strict_mode', False) else '⚪ off'}")
+        print(
+            f"   Enforcement: {'✅ enabled' if constitution.get('enforce', True) else '❌ disabled'}"
+        )
+        print(
+            f"   Strict mode: {'✅ on' if constitution.get('strict_mode', False) else '⚪ off'}"
+        )
 
         print("\n🔌 MCP Servers:")
         mcp = config_dict.get("mcp_servers", {})
@@ -311,9 +413,9 @@ class ConfigManager:
         print(f"   Preferred model: {agents.get('preferred_model', 'sonnet')}")
         print(f"   Timeout: {agents.get('timeout_minutes', 30)} minutes")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print(f"Config file: {self.config_path}")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
 
         return True
 
@@ -330,7 +432,10 @@ class ConfigManager:
         issues = []
 
         # Validate task orchestration settings
-        if self.schema.task_watchdog_minutes < 1 or self.schema.task_watchdog_minutes > 60:
+        if (
+            self.schema.task_watchdog_minutes < 1
+            or self.schema.task_watchdog_minutes > 60
+        ):
             issues.append("task_watchdog_minutes must be 1-60")
 
         if self.schema.wave_size < 1 or self.schema.wave_size > 20:
@@ -349,8 +454,29 @@ class ConfigManager:
         if self.schema.preferred_model not in valid_models:
             issues.append(f"preferred_model must be one of: {', '.join(valid_models)}")
 
-        if self.schema.agent_timeout_minutes < 5 or self.schema.agent_timeout_minutes > 120:
+        if (
+            self.schema.agent_timeout_minutes < 5
+            or self.schema.agent_timeout_minutes > 120
+        ):
             issues.append("agent_timeout_minutes must be 5-120")
+
+        # Validate sentinel settings
+        if self.schema.sentinel_mode not in ("auto", "human-gated"):
+            issues.append(
+                f"sentinel.mode must be 'auto' or 'human-gated', got: {self.schema.sentinel_mode!r}"
+            )
+
+        if self.schema.sentinel_tier1_max_iterations < 1:
+            issues.append("sentinel.tier1.max_iterations must be >= 1")
+
+        if self.schema.sentinel_tier2_max_budget_usd <= 0:
+            issues.append("sentinel.tier2.max_budget_usd must be > 0")
+
+        if self.schema.sentinel_radius_max_files < 1:
+            issues.append("sentinel.change_radius.max_files must be >= 1")
+
+        if self.schema.sentinel_radius_max_lines < 1:
+            issues.append("sentinel.change_radius.max_lines must be >= 1")
 
         is_valid = len(issues) == 0
 

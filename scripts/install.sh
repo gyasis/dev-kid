@@ -61,6 +61,32 @@ if ! command -v grep &> /dev/null; then
     echo -e "   ${YELLOW}⚠${NC}  grep - not found (recommended)"
 fi
 
+# Check micro-agent (optional — sentinel degrades gracefully without it)
+if command -v micro-agent &> /dev/null; then
+    echo -e "   ${GREEN}✓${NC} micro-agent - found"
+elif command -v npm &> /dev/null; then
+    echo -e "   ${YELLOW}⚠${NC}  micro-agent - not found, installing from fork..."
+    # Prefer npm link from local clone (git URL install fails on native addons like better-sqlite3)
+    MA_LOCAL_DIR="${HOME}/dev/projects/micro-agent"
+    if [ -d "$MA_LOCAL_DIR/dist" ] && [ -f "$MA_LOCAL_DIR/package.json" ]; then
+        if (cd "$MA_LOCAL_DIR" && npm link --quiet 2>/dev/null); then
+            echo -e "   ${GREEN}✓${NC} micro-agent - linked from local fork ($MA_LOCAL_DIR)"
+        else
+            echo -e "   ${YELLOW}⚠${NC}  micro-agent npm link failed (non-fatal)"
+            echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
+            echo "   Fix later: cd $MA_LOCAL_DIR && npm install && npm link"
+        fi
+    else
+        echo -e "   ${YELLOW}⚠${NC}  micro-agent local fork not found at $MA_LOCAL_DIR"
+        echo "   Clone it: git clone https://github.com/gyasis/micro-agent.git $MA_LOCAL_DIR"
+        echo "   Then: cd $MA_LOCAL_DIR && npm install && npm link"
+    fi
+else
+    echo -e "   ${YELLOW}⚠${NC}  micro-agent - skipped (npm not found)"
+    echo "   Sentinel Tier 1/2 test loops will be skipped until installed."
+    echo "   Fix later: npm install -g github:gyasis/micro-agent"
+fi
+
 # Exit if missing required dependencies
 if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
     echo ""
@@ -110,6 +136,13 @@ cp "$PROJECT_ROOT/QUICKSTART.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/HOOKS_REFERENCE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/INTEGRATION_GUIDE.md" "$INSTALL_DIR/"
 cp "$PROJECT_ROOT/CONTEXT_COMPACTION_STRATEGY.md" "$INSTALL_DIR/"
+cp "$PROJECT_ROOT/dev-kid.yml" "$INSTALL_DIR/"
+
+# Install machine-level ralph-tiers.json (model tier config)
+if [ -f "$PROJECT_ROOT/ralph-tiers.json" ]; then
+    cp "$PROJECT_ROOT/ralph-tiers.json" "$INSTALL_DIR/"
+    echo "   ✅ ralph-tiers.json installed (machine-level tier config)"
+fi
 
 # Copy rust-watchdog binary (build if needed)
 WATCHDOG_SRC="$PROJECT_ROOT/rust-watchdog/target/release/task-watchdog"
@@ -142,6 +175,29 @@ fi
 chmod +x "$INSTALL_DIR/cli/dev-kid"
 chmod +x "$INSTALL_DIR/cli"/*.py
 chmod +x "$INSTALL_DIR/skills"/*.sh
+
+# Make hook templates executable
+if [ -d "$INSTALL_DIR/templates/.claude/hooks" ]; then
+    chmod +x "$INSTALL_DIR/templates/.claude/hooks"/*.sh 2>/dev/null || true
+    echo "✅ Hook templates made executable"
+fi
+
+# Deploy hooks globally to ~/.claude/hooks/ so any project can reference them
+GLOBAL_CLAUDE="$HOME/.claude"
+mkdir -p "$GLOBAL_CLAUDE/hooks"
+if [ -d "$INSTALL_DIR/templates/.claude/hooks" ]; then
+    cp "$INSTALL_DIR/templates/.claude/hooks"/*.sh "$GLOBAL_CLAUDE/hooks/"
+    chmod +x "$GLOBAL_CLAUDE/hooks"/*.sh 2>/dev/null || true
+    echo "✅ Hooks deployed globally to $GLOBAL_CLAUDE/hooks/"
+fi
+
+# Deploy settings.json globally if not already present
+if [ ! -f "$GLOBAL_CLAUDE/settings.json" ] && [ -f "$INSTALL_DIR/templates/.claude/settings.json" ]; then
+    cp "$INSTALL_DIR/templates/.claude/settings.json" "$GLOBAL_CLAUDE/settings.json"
+    echo "✅ settings.json deployed to $GLOBAL_CLAUDE/settings.json"
+elif [ -f "$INSTALL_DIR/templates/.claude/settings.json" ]; then
+    echo "ℹ️  $GLOBAL_CLAUDE/settings.json already exists — not overwriting"
+fi
 
 # Create symlink in PATH
 echo "   Creating symlink..."

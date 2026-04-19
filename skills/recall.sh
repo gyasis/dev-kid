@@ -15,7 +15,7 @@ if [ ! -f "$LATEST_SNAPSHOT" ]; then
     echo "   Suggested next steps:"
     echo "   1. Update memory-bank/shared/projectbrief.md"
     echo "   2. Create tasks.md with initial tasks"
-    echo "   3. Run 'dev-kit orchestrate' to plan execution"
+    echo "   3. Run 'dev-kid orchestrate' to plan execution"
     exit 0
 fi
 
@@ -54,6 +54,6 @@ fi
 echo "✅ Session context restored"
 echo ""
 echo "Ready to continue? Run:"
-echo "  dev-kit orchestrate    # Plan remaining tasks"
-echo "  dev-kit execute         # Execute waves"
-echo "  dev-kit sync-memory    # Update Memory Bank"
+echo "  dev-kid orchestrate    # Plan remaining tasks"
+echo "  dev-kid execute         # Execute waves"
+echo "  dev-kid sync-memory    # Update Memory Bank"

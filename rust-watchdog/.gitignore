@@ -1,0 +1,32 @@
+# SECURITY CRITICAL - Never track sensitive files
+.specstory/
+claude.md
+cursor.md
+.claude/
+.cursor/
+
+# Root markdown files (except README.md)
+/*.md
+!README.md
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
