@@ -398,8 +398,12 @@ class WaveExecutor:
                 if instruction in line and "- [ ]" in line:
                     lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
-                # Also match by task_id prefix
-                elif f"] {task_id} " in line and "- [ ]" in line:
+                # Also match by task_id prefix — accepts both space-prefixed
+                # (`- [ ] T001 desc`) and colon-prefixed (`- [ ] T001: desc`)
+                # task formats. Without this fallback supporting both, the
+                # mark-complete step silently no-ops when execution_plan's
+                # `instruction` field drifts from the literal tasks.md line.
+                elif (f"] {task_id} " in line or f"] {task_id}:" in line) and "- [ ]" in line:
                     lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
             self.tasks_file.write_text("\n".join(lines), encoding="utf-8")

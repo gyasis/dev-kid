@@ -75,8 +75,14 @@ def find_task_in_tasks_md(
     except Exception:
         return None, []
 
+    # Permissive pattern: colon after task ID is optional. Accepts both
+    # speckit-canonical form (`- [ ] T001 description`) and the legacy
+    # colon-prefixed form (`- [ ] T001: description`). Aligns with
+    # orchestrator.py:102's permissive `line.startswith("- [ ]")` check
+    # and resolves the inconsistency that made standalone sentinel-run
+    # silently return "no tasks found" on speckit output.
     pattern = re.compile(
-        rf"^\s*-\s*\[[x ]\]\s+{re.escape(task_id)}\s*:\s*(.+)$",
+        rf"^\s*-\s*\[[x ]\]\s+{re.escape(task_id)}\b\s*:?\s*(.+)$",
         re.IGNORECASE,
     )
     for line in content.split("\n"):
@@ -102,8 +108,10 @@ def list_tasks_in_md(
     except Exception:
         return []
 
+    # Permissive pattern: matches both speckit-canonical and colon-prefixed
+    # forms. See find_task_in_tasks_md above for rationale.
     pattern = re.compile(
-        r"^\s*-\s*\[([x ])\]\s+(T\d{1,4})\s*:\s*(.+)$",
+        r"^\s*-\s*\[([x ])\]\s+(T\d{1,4})\b\s*:?\s*(.+)$",
         re.IGNORECASE,
     )
     out: List[Tuple[str, bool, str, List[str]]] = []
