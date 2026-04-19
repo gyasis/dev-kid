@@ -1,4 +1,4 @@
-# Dev-Kid v2.1 🚀
+# Dev-Kid v2.2 🚀
 
 **Enhanced Planning System for Claude Code with Task Orchestration & Context Protection**
 
@@ -56,6 +56,63 @@ The slash commands invoke the CLI internally and add Claude-Code-specific UX (co
 This was added after a 2026-04-19 incident where a smoke test inadvertently kicked off a real wave execution because the preflight in older `devkid-preflight.sh` wrappers proceeded silently when all providers were ready. The y/N gate is now mandatory in interactive use.
 
 > **Integration Sentinel** is configured in `dev-kid.yml` with `sentinel.enabled: true/false`. Enable it to activate automatic micro-agent test validation after every task before wave checkpoints commit.
+
+## 💰 Cumulative Budget Tracker (v2.2)
+
+Without a global cap, a 65-task wave plan with `max_total_cost_usd: $5.00` per sentinel can theoretically burn $325. The `BudgetTracker` enforces a **GLOBAL cap across the entire `dev-kid execute` invocation** (default $25.00 USD).
+
+Per-project state persists in `.claude/sentinel/.budget-state.json` so a resumed run picks up cumulative spend instead of resetting. Trackers are **keyed on absolute project root** so switching projects in the same Claude Code session produces a fresh tracker per project — no cross-project pollution.
+
+```bash
+dev-kid budget-status                  # Show cumulative spend for this project
+dev-kid execute --fresh-budget         # Reset cumulative spend before running
+```
+
+Tunable via env vars:
+- `DEVKID_SENTINEL_BUDGET_USD` — global cap (default `25.0`)
+- `DEVKID_SENTINEL_WARN_PCT` — warn-at percentage (default `0.80` = 80% spent)
+- `DEVKID_SENTINEL_HANDOFF_THRESHOLD` — per-task spend that triggers handoff escalation (default `1.0`)
+
+When cumulative spend reaches the cap, `dev-kid execute` halts cleanly with a clear message. To raise the cap and resume:
+
+```bash
+export DEVKID_SENTINEL_BUDGET_USD=50.0
+dev-kid execute
+```
+
+## 🤝 Claude Code Handoff Tier (v2.2)
+
+Instead of escalating sentinel to expensive per-token API tiers (OpenAI/Anthropic direct API), users with a Claude Code subscription can route failing tasks to the active Claude Code session. The session does the work for free (flat-fee subscription absorbs it) and dev-kid resumes after the operator marks the task complete.
+
+**How it works**:
+1. `ralph-tiers.json` includes a `claude-code-handoff` tier with `"type": "handoff"` and `"requires_marker": "allow-handoff"` (opt-in)
+2. To enable: `touch .claude/sentinel/allow-handoff` in your project
+3. When sentinel reaches this tier (after cheaper tiers fail), it writes `.claude/sentinel/SENTINEL-<T###>/handoff/request.json` and pauses
+4. The handoff-notifier hook surfaces pending requests as a `<system-reminder>` block in Claude Code's context
+5. Claude Code (this session) reads the request, applies the fix, runs `dev-kid handoff-complete <T###>` to signal completion
+6. dev-kid wave executor unpauses and continues
+
+**CLI commands**:
+```bash
+dev-kid handoff-status                                    # List pending handoffs
+dev-kid handoff-complete T015 --notes "fixed the auth refresh"  # Mark complete
+dev-kid handoff-complete T015 --failed --notes "can't fix"     # Mark failed (escalates)
+```
+
+**Slash commands** (Claude Code):
+- `/devkid.handoff-status` — list pending
+- `/devkid.handoff-process` — process all pending in this session
+- `/devkid.budget-status` — show cumulative spend
+
+**Auto-notification**: the `templates/.claude/hooks/handoff-notifier.sh` hook fires on `UserPromptSubmit`, `SessionStart`, and `PostToolUse`, so Claude Code sees pending handoffs proactively (no manual polling).
+
+## 🌐 Free Tier Additions (v2.2)
+
+`ralph-tiers.json` now includes two free-tier entries between `local-plus-gemini-lib` and the paid tiers:
+- `groq-fast-free` — Llama-3.3-70B + Llama-3.1-8B via Groq (free tier with rate limits, super fast)
+- `cerebras-fast-free` — Llama-3.3-70B + Llama-3.1-8B via Cerebras (free tier, very fast inference)
+
+Set `GROQ_API_KEY` and/or `CEREBRAS_API_KEY` to activate. Tier validation in `cli/sentinel/tier_runner.py` skips tiers cleanly if the key is missing instead of crashing inside micro-agent.
 
 ## Key Features
 

@@ -151,6 +151,33 @@ def test_sweep_stale_handoffs_archives_old_requests():
     assert "T052" not in swept_ids  # has complete, leave alone
 
 
+def test_sweep_handles_attic_name_collision():
+    """If two stale handoffs share int(mtime) AND task_id (e.g. CI re-run hitting
+    the same second), sweep_stale_handoffs must NOT silently lose either via
+    rename collision in .attic/."""
+    import os
+    proj = _tmp_project()
+    # First stale handoff
+    write_handoff_request("T060", proj, "first attempt", "x", [], [], 0, 25, "x")
+    request_a = proj / ".claude" / "sentinel" / "SENTINEL-T060" / "handoff" / "request.json"
+    fixed_time = time.time() - (48 * 3600)
+    os.utime(request_a, (fixed_time, fixed_time))
+    swept_a = sweep_stale_handoffs(proj, older_than_hours=24)
+    assert any(s["task_id"] == "T060" for s in swept_a)
+
+    # Now create ANOTHER stale handoff with same task_id and same mtime
+    write_handoff_request("T060", proj, "second attempt (after first was archived)", "x", [], [], 0, 25, "x")
+    request_b = proj / ".claude" / "sentinel" / "SENTINEL-T060" / "handoff" / "request.json"
+    os.utime(request_b, (fixed_time, fixed_time))  # same int(mtime) as first
+    swept_b = sweep_stale_handoffs(proj, older_than_hours=24)
+    assert any(s["task_id"] == "T060" for s in swept_b), "second sweep must not silently fail on attic collision"
+
+    # Both must be archived under .attic/ with unique names
+    attic = proj / ".claude" / "sentinel" / ".attic"
+    archived_dirs = list(attic.iterdir())
+    assert len(archived_dirs) == 2, f"expected 2 archived dirs, found {len(archived_dirs)}"
+
+
 def test_request_is_self_describing_for_claude():
     """The request payload should contain enough info for Claude Code to act on it
     without consulting external state."""

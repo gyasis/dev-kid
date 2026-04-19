@@ -154,12 +154,14 @@ def sweep_stale_handoffs(
 
     Returns list of {task_id, original_path, archived_path} for any swept dirs.
     """
+    import uuid as _uuid
     sentinel_root = project_root / ".claude" / "sentinel"
     if not sentinel_root.exists():
         return []
     attic = sentinel_root / ".attic"
     cutoff = time.time() - (older_than_hours * 3600)
     swept: list[Dict[str, str]] = []
+    attic_created = False
     for sentinel_dir in sentinel_root.iterdir():
         if not sentinel_dir.is_dir() or not sentinel_dir.name.startswith("SENTINEL-"):
             continue
@@ -177,9 +179,15 @@ def sweep_stale_handoffs(
             continue
         if mtime >= cutoff:
             continue  # still fresh
-        # Move to attic with timestamp prefix
-        attic.mkdir(parents=True, exist_ok=True)
-        archive_name = f"{int(mtime)}-{sentinel_dir.name}"
+        # Lazy attic creation (avoid wasted syscalls when nothing to sweep)
+        if not attic_created:
+            attic.mkdir(parents=True, exist_ok=True)
+            attic_created = True
+        # Use uuid suffix to defeat collision when two stale handoffs share the
+        # same int(mtime) and the same task_id (e.g. CI re-runs hitting the
+        # same second). Without this, rename() would silently replace or raise
+        # on the existing target, both swallowed by the bare except below.
+        archive_name = f"{int(mtime)}-{sentinel_dir.name}-{_uuid.uuid4().hex[:6]}"
         archived = attic / archive_name
         try:
             handoff_dir.rename(archived)
