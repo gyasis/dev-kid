@@ -15,7 +15,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -717,12 +719,30 @@ class TierRunner:
                 tier, ollama_url, project_root
             )
 
-            cmd = [
+            base_cmd = [
                 "micro-agent",
                 "--prompt", objective,
                 "--test", test_cmd,
                 "--max-runs", str(max_iter),
             ]
+
+            # micro-agent v0.1.5 unconditionally enters interactiveMode() which calls
+            # @clack/prompts → uv_tty_init. When dev-kid is invoked from a non-TTY
+            # context (Claude Code slash command, CI runner, captured subprocess),
+            # uv_tty_init returns EINVAL and micro-agent crashes immediately with
+            # 0 iterations. Wrap with `script -qfc` to provide a pseudo-TTY so
+            # micro-agent's interactive prompts succeed.
+            # See: https://github.com/BuilderIO/micro-agent/issues — TTY init failure
+            #
+            # Detection: if stdin is not a TTY, we're being called from a slash
+            # command or pipeline. Use the wrapper. If stdin IS a TTY (operator
+            # ran `dev-kid execute` directly in a terminal), pass-through native.
+            import shlex
+            if sys.stdin.isatty() or shutil.which("script") is None:
+                cmd = base_cmd
+            else:
+                cmd_str = " ".join(shlex.quote(c) for c in base_cmd)
+                cmd = ["script", "-qfc", cmd_str, "/dev/null"]
 
             print(f"      🔧 [{tier_idx + 1}/{len(tiers)}] {tier_name} ({artisan_model}, max {max_iter} runs)...")
             tier_start = time.time()
