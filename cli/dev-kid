@@ -64,9 +64,14 @@ CORE COMMANDS:
   init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
   preflight                Run sentinel-health + .env source check (no execute)
-  execute [--no-preflight] [--yes]
+  execute [--no-preflight] [--yes] [--fresh-budget]
                            Execute waves from execution_plan.json
                            (preflight gate runs first by default; --no-preflight bypass)
+                           (--fresh-budget resets cumulative sentinel spend to $0)
+  budget-status            Show cumulative sentinel spend for this project
+  handoff-status           List pending Claude Code handoff requests
+  handoff-complete <T###> [--failed] [--notes "msg"]
+                           Mark a Claude Code handoff request complete
   sync-memory              Update Memory Bank with current state
   checkpoint [MESSAGE]     Create semantic git checkpoint
   micro-checkpoint [MSG]   Quick commit (Ralph smart zone optimization)
@@ -208,17 +213,27 @@ cmd_orchestrate() {
 }
 
 cmd_execute() {
-    # Parse --no-preflight / --yes flags before dispatch
+    # Parse --no-preflight / --yes / --fresh-budget flags before dispatch
     local skip_preflight=false
     local non_interactive=false
+    local fresh_budget=false
     local remaining_args=()
     for arg in "$@"; do
         case "$arg" in
             --no-preflight)  skip_preflight=true ;;
             --yes|-y)        non_interactive=true ;;
+            --fresh-budget)  fresh_budget=true ;;
             *)               remaining_args+=("$arg") ;;
         esac
     done
+
+    # --fresh-budget: reset cumulative spend BEFORE the run begins
+    if [[ "$fresh_budget" == "true" ]]; then
+        if [ -f .claude/sentinel/.budget-state.json ]; then
+            rm .claude/sentinel/.budget-state.json
+            echo -e "${YELLOW}🔄 --fresh-budget: cumulative spend reset to \$0.00${NC}"
+        fi
+    fi
 
     # Default: preflight gate first (auto-source .env, sentinel-health,
     # interactive y/N confirmation). Bypass with --no-preflight (advanced).
@@ -265,6 +280,8 @@ else:
 
 cmd_handoff_complete() {
     # Mark a handoff complete: dev-kid handoff-complete <task_id> [--failed] [--notes msg]
+    # Args passed via env vars (NOT string interpolation) to defeat shell injection
+    # via crafted --notes payloads (e.g. --notes "'; os.system('rm -rf .'); '").
     local task_id=""
     local succeeded="True"
     local notes=""
@@ -279,16 +296,17 @@ cmd_handoff_complete() {
         echo "Usage: dev-kid handoff-complete <task_id> [--failed] [--notes \"message\"]" >&2
         exit 2
     fi
+    DK_TASK_ID="$task_id" DK_SUCCEEDED="$succeeded" DK_NOTES="$notes" \
     python3 -c "
-import sys
-sys.path.insert(0, '$DEV_KID_ROOT/cli')
+import os, sys
+sys.path.insert(0, os.path.join(os.environ['DEV_KID_ROOT'], 'cli'))
 from pathlib import Path
 from sentinel.handoff import write_handoff_complete
 p = write_handoff_complete(
-    task_id='$task_id',
+    task_id=os.environ['DK_TASK_ID'],
     project_root=Path.cwd(),
-    succeeded=$succeeded,
-    notes='$notes',
+    succeeded=(os.environ['DK_SUCCEEDED'] == 'True'),
+    notes=os.environ.get('DK_NOTES', ''),
 )
 print(f'Wrote handoff complete: {p}')
 "
@@ -652,11 +670,14 @@ try:
 
     # Provider status
     print("  Providers:")
+    import os as _os
     providers = [
         ('Ollama', health['tier1_available'], health['tier1_url']),
-        ('Anthropic', health['tier2_available'], 'ANTHROPIC_API_KEY'),
-        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
-        ('OpenAI', health.get('openai_available', False), 'OPENAI_API_KEY'),
+        ('Anthropic', health['tier2_available'] or bool(_os.environ.get('ANTHROPIC_API_KEY')), 'ANTHROPIC_API_KEY'),
+        ('Google', health.get('google_available', False) or bool(_os.environ.get('GOOGLE_API_KEY') or _os.environ.get('GEMINI_API_KEY')), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
+        ('OpenAI', health.get('openai_available', False) or bool(_os.environ.get('OPENAI_API_KEY')), 'OPENAI_API_KEY'),
+        ('Groq', bool(_os.environ.get('GROQ_API_KEY')), 'GROQ_API_KEY'),
+        ('Cerebras', bool(_os.environ.get('CEREBRAS_API_KEY')), 'CEREBRAS_API_KEY'),
     ]
     for name, ok, detail in providers:
         icon = '✅' if ok else '❌'

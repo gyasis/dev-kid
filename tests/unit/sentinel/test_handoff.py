@@ -15,6 +15,7 @@ from sentinel.handoff import (
     is_handoff_pending,
     list_pending_handoffs,
     wait_for_handoff_complete,
+    sweep_stale_handoffs,
 )
 
 
@@ -107,6 +108,47 @@ def test_wait_for_handoff_complete_returns_payload_when_ready():
     assert result is not None
     assert result["succeeded"] is True
     assert result["notes"] == "done"
+
+
+def test_write_request_clears_stale_complete():
+    """Writing a fresh request must remove any pre-existing complete.json so the
+    next handoff doesn't auto-pass on stale operator response."""
+    proj = _tmp_project()
+    # Simulate prior aborted handoff: complete exists from previous attempt
+    write_handoff_complete("T040", proj, succeeded=True, notes="stale prior response")
+    assert read_handoff_complete("T040", proj) is not None
+    # Now write a NEW request — stale complete must be cleared
+    write_handoff_request("T040", proj, "new task", "x", [], [], 0, 25, "x")
+    assert read_handoff_complete("T040", proj) is None
+    assert is_handoff_pending("T040", proj)
+
+
+def test_sweep_stale_handoffs_archives_old_requests():
+    """sweep_stale_handoffs moves request.json older than N hours into .attic/
+    if no complete.json was written."""
+    import os
+    proj = _tmp_project()
+    # Create a stale handoff (24h+ old)
+    write_handoff_request("T050", proj, "stale", "x", [], [], 0, 25, "x")
+    request_path = proj / ".claude" / "sentinel" / "SENTINEL-T050" / "handoff" / "request.json"
+    old_time = time.time() - (48 * 3600)  # 48 hours ago
+    os.utime(request_path, (old_time, old_time))
+
+    # Create a fresh handoff (recent)
+    write_handoff_request("T051", proj, "fresh", "x", [], [], 0, 25, "x")
+
+    # Create a stale-but-completed handoff (should NOT be archived)
+    write_handoff_request("T052", proj, "stale-but-done", "x", [], [], 0, 25, "x")
+    write_handoff_complete("T052", proj, succeeded=True)
+    request_path_52 = proj / ".claude" / "sentinel" / "SENTINEL-T052" / "handoff" / "request.json"
+    os.utime(request_path_52, (old_time, old_time))
+
+    swept = sweep_stale_handoffs(proj, older_than_hours=24)
+
+    swept_ids = [s["task_id"] for s in swept]
+    assert "T050" in swept_ids  # archived: stale + no complete
+    assert "T051" not in swept_ids  # not stale
+    assert "T052" not in swept_ids  # has complete, leave alone
 
 
 def test_request_is_self_describing_for_claude():

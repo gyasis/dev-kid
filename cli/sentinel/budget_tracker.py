@@ -87,7 +87,13 @@ class BudgetTracker:
                 "warned": self._warned,
                 "updated_at": time.time(),
             }
-            self.state_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            # Atomic write via temp-file + rename so a torn-write from a concurrent
+            # `dev-kid execute` cannot leave the state file half-written (which
+            # _load() would silently treat as corrupt and reset to $0, defeating
+            # the global cap).
+            tmp = self.state_file.with_suffix(self.state_file.suffix + ".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            os.replace(str(tmp), str(self.state_file))
         except Exception:
             # Persistence failure is non-fatal for the run itself
             pass
@@ -172,26 +178,46 @@ class BudgetTracker:
         )
 
 
-_singleton: Optional[BudgetTracker] = None
+# Cache keyed by absolute project root so a Claude Code session that switches
+# between projects gets a FRESH tracker per project — prevents cross-project
+# budget pollution where project B inherits project A's spend.
+_project_trackers: dict[str, BudgetTracker] = {}
+
+
+def _resolve_project_root() -> Path:
+    """Walk up from CWD looking for a .claude/, .git/, or dev-kid.yml marker.
+    Falls back to CWD if no marker found.
+    """
+    cwd = Path.cwd().resolve()
+    for parent in [cwd] + list(cwd.parents):
+        for marker in (".claude", ".git", "dev-kid.yml"):
+            if (parent / marker).exists():
+                return parent
+    return cwd
 
 
 def get_tracker(
     budget_usd: Optional[float] = None,
     warn_pct: Optional[float] = None,
     handoff_per_task_usd: Optional[float] = None,
+    project_root: Optional[Path] = None,
 ) -> BudgetTracker:
-    """Return the process-level singleton tracker.
+    """Return the per-project tracker for the current project root.
 
-    First call initializes from env vars or defaults:
+    Cross-project safety: keyed on absolute project root path, so switching
+    projects in the same Claude Code session produces a FRESH tracker per
+    project. Re-reads env vars on each new project init.
+
+    First call per-project initializes from env vars or defaults:
       DEVKID_SENTINEL_BUDGET_USD          (default 25.0)
       DEVKID_SENTINEL_WARN_PCT            (default 0.80)
       DEVKID_SENTINEL_HANDOFF_THRESHOLD   (default 1.0 per task)
 
-    Explicit args override env vars. Subsequent calls return the same instance
-    regardless of args (use reset_tracker() for tests).
+    Explicit args override env vars on first call only for that project root.
     """
-    global _singleton
-    if _singleton is None:
+    root = (project_root or _resolve_project_root()).resolve()
+    key = str(root)
+    if key not in _project_trackers:
         b = budget_usd if budget_usd is not None else float(
             os.environ.get("DEVKID_SENTINEL_BUDGET_USD", _DEFAULT_BUDGET_USD)
         )
@@ -201,11 +227,22 @@ def get_tracker(
         h = handoff_per_task_usd if handoff_per_task_usd is not None else float(
             os.environ.get("DEVKID_SENTINEL_HANDOFF_THRESHOLD", _DEFAULT_HANDOFF_THRESHOLD_USD)
         )
-        _singleton = BudgetTracker(budget_usd=b, warn_pct=w, handoff_per_task_usd=h)
-    return _singleton
+        # Resolve state file under THIS project's root, not CWD
+        state_file = root / ".claude" / "sentinel" / ".budget-state.json"
+        _project_trackers[key] = BudgetTracker(
+            budget_usd=b, warn_pct=w, handoff_per_task_usd=h,
+            state_file=state_file,
+        )
+    return _project_trackers[key]
 
 
-def reset_tracker() -> None:
-    """Test helper: drop the singleton so the next get_tracker() rebuilds fresh."""
-    global _singleton
-    _singleton = None
+def reset_tracker(project_root: Optional[Path] = None) -> None:
+    """Drop the cached tracker for one project (or all). Used by --fresh-budget
+    flag and by test fixtures.
+    """
+    global _project_trackers
+    if project_root is None:
+        _project_trackers = {}
+    else:
+        key = str(project_root.resolve())
+        _project_trackers.pop(key, None)

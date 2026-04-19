@@ -104,12 +104,28 @@ def test_reset_clears_state_and_file():
     assert not state.exists()
 
 
-def test_get_tracker_singleton():
+def test_get_tracker_singleton_per_project():
+    """Singleton is keyed on project_root — same project returns same instance."""
     reset_tracker()
-    t1 = get_tracker(budget_usd=20.0)
-    t2 = get_tracker(budget_usd=999.0)  # ignored — singleton already initialized
+    proj = Path(tempfile.mkdtemp(prefix="devkid-tracker-test-"))
+    t1 = get_tracker(budget_usd=20.0, project_root=proj)
+    t2 = get_tracker(budget_usd=999.0, project_root=proj)  # ignored — already cached
     assert t1 is t2
     assert t1.budget_usd == 20.0
+    reset_tracker()
+
+
+def test_get_tracker_isolates_projects():
+    """Different project roots get separate trackers — no cross-project pollution."""
+    reset_tracker()
+    proj_a = Path(tempfile.mkdtemp(prefix="devkid-proj-a-"))
+    proj_b = Path(tempfile.mkdtemp(prefix="devkid-proj-b-"))
+    t_a = get_tracker(budget_usd=10.0, project_root=proj_a)
+    t_b = get_tracker(budget_usd=20.0, project_root=proj_b)
+    assert t_a is not t_b
+    t_a.record(5.0, 0, "T001")
+    assert t_a.cumulative_cost == 5.0
+    assert t_b.cumulative_cost == 0.0  # project B unaffected
     reset_tracker()
 
 

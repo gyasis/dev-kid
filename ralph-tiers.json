@@ -46,6 +46,7 @@
       "mode": "full",
       "maxIterations": 1,
       "handoff_timeout_sec": 1800,
+      "requires_marker": "allow-handoff",
       "models": {
         "artisan": "claude-code-session",
         "librarian": "claude-code-session",

@@ -47,6 +47,15 @@ def write_handoff_request(
     """
     d = _handoff_dir(task_id, project_root)
     d.mkdir(parents=True, exist_ok=True)
+    # Cleanup: stale complete.json from a prior aborted handoff would otherwise
+    # be auto-applied to this fresh request — wave executor would silently mark
+    # the task PASS with stale operator response. Always remove it first.
+    stale_complete = d / "complete.json"
+    if stale_complete.exists():
+        try:
+            stale_complete.unlink()
+        except Exception:
+            pass
     payload = {
         "task_id": task_id,
         "task_description": task_description,
@@ -132,6 +141,56 @@ def list_pending_handoffs(project_root: Path) -> list[Dict[str, Any]]:
             except Exception:
                 pending.append({"task_id": task_id, "error": "request.json unreadable"})
     return pending
+
+
+def sweep_stale_handoffs(
+    project_root: Path,
+    older_than_hours: int = 24,
+) -> list[Dict[str, str]]:
+    """Move handoff dirs whose request.json is older than N hours into .attic/.
+
+    Called by `dev-kid execute` startup so a crashed-mid-handoff invocation
+    doesn't leave permanent stale state that confuses later runs.
+
+    Returns list of {task_id, original_path, archived_path} for any swept dirs.
+    """
+    sentinel_root = project_root / ".claude" / "sentinel"
+    if not sentinel_root.exists():
+        return []
+    attic = sentinel_root / ".attic"
+    cutoff = time.time() - (older_than_hours * 3600)
+    swept: list[Dict[str, str]] = []
+    for sentinel_dir in sentinel_root.iterdir():
+        if not sentinel_dir.is_dir() or not sentinel_dir.name.startswith("SENTINEL-"):
+            continue
+        handoff_dir = sentinel_dir / "handoff"
+        request_path = handoff_dir / "request.json"
+        complete_path = handoff_dir / "complete.json"
+        if not request_path.exists():
+            continue
+        # Stale if request older than cutoff AND no complete written
+        if complete_path.exists():
+            continue  # operator handled it; leave alone
+        try:
+            mtime = request_path.stat().st_mtime
+        except Exception:
+            continue
+        if mtime >= cutoff:
+            continue  # still fresh
+        # Move to attic with timestamp prefix
+        attic.mkdir(parents=True, exist_ok=True)
+        archive_name = f"{int(mtime)}-{sentinel_dir.name}"
+        archived = attic / archive_name
+        try:
+            handoff_dir.rename(archived)
+            swept.append({
+                "task_id": sentinel_dir.name.replace("SENTINEL-", "", 1),
+                "original_path": str(handoff_dir),
+                "archived_path": str(archived),
+            })
+        except Exception:
+            pass
+    return swept
 
 
 def wait_for_handoff_complete(

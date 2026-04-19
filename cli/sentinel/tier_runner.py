@@ -559,12 +559,29 @@ class TierRunner:
             # and instead write a handoff-request file for the operator (Claude Code)
             # to handle, then poll for the complete marker.
             if tier_type == "handoff":
-                task_id = (objective.split()[0] if objective else "UNKNOWN")
-                # Heuristic: extract task ID from objective if it starts with T###
+                # Robust task ID extraction:
+                #   1. Prefer T### at start of objective (canonical speckit form)
+                #   2. Fallback to T### anywhere in objective
+                #   3. Last resort: hash the objective (avoids collisions like
+                #      every "Fix the auth bug" task landing in SENTINEL-Fix/)
+                import hashlib as _hashlib
                 import re as _re
-                m = _re.match(r"^(T\d{1,4})\b", objective.strip())
+                task_id = None
+                m = _re.match(r"^(T\d{1,4})\b", (objective or "").strip())
                 if m:
                     task_id = m.group(1)
+                else:
+                    m2 = _re.search(r"\b(T\d{1,4})\b", objective or "")
+                    if m2:
+                        task_id = m2.group(1)
+                if not task_id:
+                    # Hash-based ID — deterministic per objective, no collision
+                    digest = _hashlib.sha1((objective or "EMPTY").encode("utf-8")).hexdigest()[:8]
+                    task_id = f"OBJ-{digest}"
+                    print(
+                        f"      ⚠️  No T### task ID in objective — using hash-derived id "
+                        f"{task_id} (avoids collision with other handoffs)"
+                    )
                 print(
                     f"      🤝 [{tier_idx + 1}/{len(tiers)}] {tier_name} (Claude Code handoff) — "
                     f"writing request for task {task_id}"
@@ -646,10 +663,16 @@ class TierRunner:
             roles_needing_ollama = [r for r, m in models.items() if m and m.startswith("ollama/")]
             roles_needing_google = [r for r, m in models.items() if m and m.startswith("google/")]
             roles_needing_openai = [r for r, m in models.items() if m and m.startswith("openai/")]
+            roles_needing_groq = [r for r, m in models.items() if m and m.startswith("groq/")]
+            roles_needing_cerebras = [r for r, m in models.items() if m and m.startswith("cerebras/")]
+            roles_needing_anthropic = [r for r, m in models.items() if m and m.startswith("anthropic/")]
             has_google_key = bool(
                 os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
             )
             has_openai_key = bool(os.environ.get("OPENAI_API_KEY"))
+            has_groq_key = bool(os.environ.get("GROQ_API_KEY"))
+            has_cerebras_key = bool(os.environ.get("CEREBRAS_API_KEY"))
+            has_anthropic_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
 
             skip_reason = None
             if roles_needing_ollama:
@@ -668,6 +691,21 @@ class TierRunner:
                 skip_reason = (
                     f"OPENAI_API_KEY not set "
                     f"(needed for: {', '.join(roles_needing_openai)})"
+                )
+            if not skip_reason and roles_needing_groq and not has_groq_key:
+                skip_reason = (
+                    f"GROQ_API_KEY not set "
+                    f"(needed for: {', '.join(roles_needing_groq)})"
+                )
+            if not skip_reason and roles_needing_cerebras and not has_cerebras_key:
+                skip_reason = (
+                    f"CEREBRAS_API_KEY not set "
+                    f"(needed for: {', '.join(roles_needing_cerebras)})"
+                )
+            if not skip_reason and roles_needing_anthropic and not has_anthropic_key:
+                skip_reason = (
+                    f"ANTHROPIC_API_KEY not set "
+                    f"(needed for: {', '.join(roles_needing_anthropic)})"
                 )
             if skip_reason:
                 print(f"      ⚠️  {tier_name}: skipping — {skip_reason}")
