@@ -492,25 +492,140 @@ class TierRunner:
             f"(${max_cost} budget, {max_duration}min cap)..."
         )
 
+        # Global cumulative-budget tracker (singleton across all sentinels in this
+        # `dev-kid execute` run). Halts the whole run if cumulative cap exceeded —
+        # prevents 65-task wave plans from burning 65 × per-task-cap = $325+ silently.
+        from sentinel.budget_tracker import get_tracker
+        from sentinel import handoff as _handoff
+        global_tracker = get_tracker()
+
+        # Surface global budget state once per sentinel run for visibility
+        if global_tracker.task_count > 0:
+            print(
+                f"      💰 Cumulative spend: ${global_tracker.cumulative_cost:.2f} of "
+                f"${global_tracker.budget_usd:.2f} ({global_tracker.task_count} prior sentinels)"
+            )
+
+        # Hard halt if global budget already exhausted from prior sentinels
+        if global_tracker.is_exhausted():
+            print(
+                f"      🛑 GLOBAL BUDGET EXHAUSTED — ${global_tracker.cumulative_cost:.2f} >= "
+                f"${global_tracker.budget_usd:.2f}. Halting before this sentinel runs. "
+                f"To raise: `export DEVKID_SENTINEL_BUDGET_USD=<higher>` and resume, "
+                f"or use the Claude Code handoff tier."
+            )
+            return TierResult(
+                attempted=False, skipped=True, tier_name="global_budget_halt",
+                error_messages=["global cumulative budget exhausted"],
+                final_status="FAIL",
+            )
+
         total_start = time.time()
         total_cost = 0.0
         last_result = None
         skipped_tiers: list[tuple[str, str]] = []  # (tier_name, reason) — for end-of-run summary
+        tier_history: list[Dict[str, Any]] = []  # Phase B: passed to handoff request if reached
 
         for tier_idx, tier in enumerate(tiers):
             tier_name = tier.get("name", f"tier-{tier_idx}")
             models = tier.get("models", {})
             artisan_model = models.get("artisan", "")
             max_iter = tier.get("maxIterations", 5)
+            tier_type = tier.get("type", "micro-agent")  # NEW: Phase B handoff support
 
-            # Budget guard
+            # Budget guard (per-sentinel cap, original behavior preserved)
             elapsed_total = time.time() - total_start
             if total_cost >= max_cost:
-                print(f"      ⚠️  Budget exhausted (${total_cost:.2f} >= ${max_cost}) — stopping")
+                print(f"      ⚠️  Per-sentinel budget exhausted (${total_cost:.2f} >= ${max_cost}) — stopping")
                 break
             if elapsed_total >= max_duration * 60:
                 print(f"      ⚠️  Duration cap reached ({elapsed_total:.0f}s >= {max_duration * 60}s) — stopping")
                 break
+
+            # Global budget guard — would this tier likely push us over the global cap?
+            # Conservative estimate: assume worst case = remaining per-sentinel budget.
+            projected_tier_cost = max_cost - total_cost
+            if global_tracker.would_exceed(projected_tier_cost):
+                print(
+                    f"      🛑 Skipping {tier_name}: projected cost ${projected_tier_cost:.2f} "
+                    f"would exceed global budget (${global_tracker.cumulative_cost:.2f} + "
+                    f"${projected_tier_cost:.2f} > ${global_tracker.budget_usd:.2f})"
+                )
+                skipped_tiers.append((tier_name, "would exceed global cumulative budget"))
+                continue
+
+            # ---------------- Phase B: Claude Code handoff tier ----------------
+            # Tiers with `"type": "handoff"` short-circuit the micro-agent invocation
+            # and instead write a handoff-request file for the operator (Claude Code)
+            # to handle, then poll for the complete marker.
+            if tier_type == "handoff":
+                task_id = (objective.split()[0] if objective else "UNKNOWN")
+                # Heuristic: extract task ID from objective if it starts with T###
+                import re as _re
+                m = _re.match(r"^(T\d{1,4})\b", objective.strip())
+                if m:
+                    task_id = m.group(1)
+                print(
+                    f"      🤝 [{tier_idx + 1}/{len(tiers)}] {tier_name} (Claude Code handoff) — "
+                    f"writing request for task {task_id}"
+                )
+                request_path = _handoff.write_handoff_request(
+                    task_id=task_id,
+                    project_root=project_root,
+                    task_description=objective,
+                    test_command=test_cmd,
+                    file_locks=[],
+                    tier_history=tier_history,
+                    cumulative_cost_so_far=global_tracker.cumulative_cost,
+                    cumulative_budget=global_tracker.budget_usd,
+                    reason="cheap_tiers_exhausted_or_handoff_explicitly_chosen",
+                )
+                print(
+                    f"         📝 Request written to: {request_path}\n"
+                    f"         ⏸  Wave executor will pause here. To resume, "
+                    f"either let Claude Code (this session) handle it, or run:\n"
+                    f"            dev-kid handoff-complete {task_id}\n"
+                    f"         (Or invoke /devkid.handoff-process in Claude Code.)"
+                )
+                handoff_timeout = int(tier.get("handoff_timeout_sec", 1800))
+                completion = _handoff.wait_for_handoff_complete(
+                    task_id, project_root, timeout_sec=handoff_timeout
+                )
+                if completion is None:
+                    print(f"         ❌ Handoff timed out after {handoff_timeout}s — escalating")
+                    tier_history.append({
+                        "tier": tier_name, "type": "handoff",
+                        "result": "timeout", "duration_sec": handoff_timeout,
+                    })
+                    last_result = TierResult(
+                        attempted=True, skipped=False, tier_name=tier_name,
+                        tier_index=tier_idx, model="claude-code-handoff",
+                        duration_sec=handoff_timeout, final_status="FAIL",
+                        error_messages=[f"handoff timeout after {handoff_timeout}s"],
+                    )
+                    continue
+                # Handoff completed — record it. Cost is $0 from dev-kid's perspective
+                # (Claude Code subscription absorbs it).
+                global_tracker.record(0.0, time.time() - total_start, task_id)
+                tier_history.append({
+                    "tier": tier_name, "type": "handoff",
+                    "result": "complete", "succeeded": completion.get("succeeded"),
+                })
+                last_result = TierResult(
+                    attempted=True, skipped=False,
+                    tier_name=tier_name, tier_index=tier_idx,
+                    model="claude-code-handoff",
+                    iterations=1, cost_usd=0.0,
+                    duration_sec=time.time() - total_start,
+                    final_status="PASS" if completion.get("succeeded") else "FAIL",
+                    error_messages=[completion.get("notes", "")] if not completion.get("succeeded") else [],
+                )
+                if completion.get("succeeded"):
+                    print(f"         ✅ Handoff completed by Claude Code (free tier — $0)")
+                    return last_result
+                print(f"         ❌ Handoff reported failure — escalating to next tier")
+                continue
+            # ----------------- end Phase B handoff dispatch --------------------
 
             # Gated tier check — require marker file to proceed (per-tier; later gated tiers
             # with their own markers can still run independently).
@@ -603,6 +718,20 @@ class TierRunner:
             tier_cost = parsed.get("cost_usd", 0.0)
             total_cost += tier_cost
             passed = result.returncode == 0
+
+            # Record this tier's cost into the global cumulative budget tracker
+            global_tracker.record(tier_cost, tier_elapsed, None)
+            warn_msg = global_tracker.warn_if_approaching()
+            if warn_msg:
+                print(f"      {warn_msg}")
+            tier_history.append({
+                "tier": tier_name, "type": "micro-agent",
+                "model": artisan_model,
+                "iterations": parsed.get("iterations", 0),
+                "cost_usd": tier_cost,
+                "duration_sec": tier_elapsed,
+                "passed": passed,
+            })
 
             # Surface output for observability
             if result.stderr.strip():

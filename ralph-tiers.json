@@ -21,6 +21,38 @@
       }
     },
     {
+      "name": "groq-fast-free",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "groq/llama-3.3-70b-versatile",
+        "librarian": "groq/llama-3.1-8b-instant",
+        "critic": "groq/llama-3.3-70b-versatile"
+      }
+    },
+    {
+      "name": "cerebras-fast-free",
+      "mode": "full",
+      "maxIterations": 5,
+      "models": {
+        "artisan": "cerebras/llama-3.3-70b",
+        "librarian": "cerebras/llama-3.1-8b",
+        "critic": "cerebras/llama-3.3-70b"
+      }
+    },
+    {
+      "name": "claude-code-handoff",
+      "type": "handoff",
+      "mode": "full",
+      "maxIterations": 1,
+      "handoff_timeout_sec": 1800,
+      "models": {
+        "artisan": "claude-code-session",
+        "librarian": "claude-code-session",
+        "critic": "claude-code-session"
+      }
+    },
+    {
       "name": "openai-artisan-local-critic",
       "mode": "full",
       "maxIterations": 5,
