@@ -178,7 +178,7 @@ class WaveExecutor:
         print(f"\n🔍 Checkpoint after Wave {wave_id}...")
 
         # Step 1: Memory bank keeper verifies tasks.md
-        print("   Step 1: memory-bank-keeper validates tasks.md...")
+        print("   Step 1: project-bank-keeper validates tasks.md...")
         tasks = self.plan["execution_plan"]["waves"][wave_id - 1]["tasks"]
         verified = self.verify_wave_completion(wave_id, tasks)
 
@@ -190,7 +190,7 @@ class WaveExecutor:
         print("   ✅ All tasks verified complete")
 
         # Step 2: Memory bank keeper updates progress.md
-        print("   Step 2: memory-bank-keeper updates progress.md...")
+        print("   Step 2: project-bank-keeper updates progress.md...")
         self._update_progress(wave_id, tasks)
 
         # Step 2a: Sync full memory bank (all 6 tiers via dev-kid sync-memory)
@@ -398,8 +398,12 @@ class WaveExecutor:
                 if instruction in line and "- [ ]" in line:
                     lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
-                # Also match by task_id prefix
-                elif f"] {task_id} " in line and "- [ ]" in line:
+                # Also match by task_id prefix — accepts both space-prefixed
+                # (`- [ ] T001 desc`) and colon-prefixed (`- [ ] T001: desc`)
+                # task formats. Without this fallback supporting both, the
+                # mark-complete step silently no-ops when execution_plan's
+                # `instruction` field drifts from the literal tasks.md line.
+                elif (f"] {task_id} " in line or f"] {task_id}:" in line) and "- [ ]" in line:
                     lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
             self.tasks_file.write_text("\n".join(lines), encoding="utf-8")

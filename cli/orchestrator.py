@@ -20,6 +20,10 @@ class Task:
     agent_role: str = "Developer"
     file_locks: List[str] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)
+    # Tasks this one *blocks* / must come before. Inline "blocks Txxx" or
+    # "before Txxx" lands here; analyze_dependencies() converts each into an
+    # edge target→self so the target depends on us (not the other way round).
+    blocks_tasks: List[str] = field(default_factory=list)
     constitution_rules: List[str] = field(default_factory=list)
     completed: bool = False
 
@@ -43,12 +47,22 @@ class TaskOrchestrator:
     # ConfigSchema.wave_size. Default: 10.
     DEFAULT_MAX_WAVE_SIZE = 10
 
-    def __init__(self, tasks_file: str = "tasks.md", max_wave_size: int = 0):
+    def __init__(
+        self,
+        tasks_file: str = "tasks.md",
+        max_wave_size: int = 0,
+        agent_parse: bool = False,
+    ):
         self.tasks_file = Path(tasks_file)
         self.tasks: List[Task] = []
         self.waves: List[Wave] = []
         self.file_to_tasks: Dict[str, List[str]] = defaultdict(list)
         self._max_wave_size = max_wave_size or self._load_wave_size()
+        # Dependencies declared in a `## Dependencies` prose section.
+        # Populated by parse_tasks(), consumed by analyze_dependencies().
+        self._prose_deps: Dict[str, List[str]] = {}
+        # Enable LLM-backed dep parser (Tier 2 — opt-in, slower but smarter).
+        self._agent_parse = agent_parse or self._agent_parse_enabled_in_yml()
 
     def _load_wave_size(self) -> int:
         """Load max wave size from dev-kid.yml or config. Falls back to DEFAULT_MAX_WAVE_SIZE."""
@@ -116,6 +130,11 @@ class TaskOrchestrator:
         if current_task_lines:
             self._process_task(current_task_lines, task_id)
 
+        # Second pass: parse any `## Dependencies` / `**Dependencies**` prose section.
+        # The bullet parser above stops at empty lines, so prose-section deps
+        # documented separately would otherwise be silently dropped.
+        self._prose_deps = self._parse_dependency_section(content)
+
     def _process_task(self, task_lines: List[str], task_id: int) -> None:
         """Process a single task with its metadata"""
         import re
@@ -125,11 +144,18 @@ class TaskOrchestrator:
         completed = "[x]" in first_line
         description = first_line.split("]", 1)[1].strip()
 
+        # Full task block — used for dep extraction so sub-bullets and
+        # second-line "Dependencies:" / "Requires:" hints are honored.
+        full_text = "\n".join(task_lines)
+
         # Extract file references from description
         file_locks = self._extract_file_references(description)
 
-        # Extract dependencies (if "after T123" or "depends on T456")
-        dependencies = self._extract_dependencies(description)
+        # Extract dependencies — forward verbs only ("this task needs X first").
+        # Reverse verbs (blocks / before) produce edges to OTHER tasks, so they
+        # go through a separate extractor + are merged in analyze_dependencies.
+        dependencies = self._extract_dependencies(full_text)
+        blocks_tasks = self._extract_blocks(full_text)
 
         # Extract constitution rules from subsequent lines
         constitution_rules = []
@@ -146,6 +172,7 @@ class TaskOrchestrator:
             description=description,
             file_locks=file_locks,
             dependencies=dependencies,
+            blocks_tasks=blocks_tasks,
             constitution_rules=constitution_rules,
             completed=completed,
         )
@@ -174,22 +201,332 @@ class TaskOrchestrator:
         return list(set(files))  # deduplicate
 
     def _extract_dependencies(self, description: str) -> List[str]:
-        """Extract task dependencies from description"""
+        """Extract forward dependencies ('this task needs X first').
+
+        Recognised verbs (case-insensitive):
+            after, depends on, requires, prerequisite for/of, needs
+            (plus arrow forms: ->, →)
+
+        Reverse verbs like 'blocks' and 'before' are NOT matched here — they
+        produce edges to OTHER tasks and are handled by _extract_blocks().
+        """
         import re
 
-        # Match "after T1" / "after T001" / "depends on T1234"
-        pattern = r"\b(?:after|depends on)\s+T(\d{1,4})\b"
+        pattern = (
+            r"\b(?:after|depends\s+on|requires|needs|"
+            r"prerequisite\s+(?:for|of))\s+T(\d{1,4})\b"
+        )
+        matches = re.findall(pattern, description, re.IGNORECASE)
+        # Arrow forms: "T005 → T018" or "T005 -> T018" inside a task bullet.
+        # Heuristic: arrow usually means "predecessor → current task", so if
+        # T005 → appears in T018's block, T018 depends on T005.
+        arrow_matches = re.findall(
+            r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE
+        )
+        return [f"T{m.zfill(3)}" for m in matches + arrow_matches]
+
+    def _extract_blocks(self, description: str) -> List[str]:
+        """Extract reverse dependencies — T-IDs this task *blocks* (precedes).
+
+        'blocks Txxx' / 'before Txxx' / 'must complete before Txxx' inside
+        THIS task's block means: Txxx depends on us. analyze_dependencies()
+        converts each into an edge Txxx → self.
+        """
+        import re
+
+        pattern = (
+            r"\b(?:blocks|before|must\s+(?:complete|be\s+done|land)\s+before|"
+            r"must\s+precede|precedes)\s+T(\d{1,4})\b"
+        )
         matches = re.findall(pattern, description, re.IGNORECASE)
         return [f"T{m.zfill(3)}" for m in matches]
 
+    # ------------------------------------------------------------------
+    # Symbol-graph dependency inference
+    # ------------------------------------------------------------------
+    # Verbs that signal a task DEFINES a symbol (class/function/Protocol).
+    # Case-insensitive. Matched only when adjacent to a backticked identifier
+    # to avoid flagging narrative prose.
+    _DEFINER_VERBS = (
+        r"(?:define|create|implement|add|build|introduce|write|"
+        r"scaffold|author|establish|register|expose)"
+    )
+    # Optional kind-word that often follows the verb.
+    _KIND_WORDS = (
+        r"(?:new\s+)?"
+        r"(?:class|protocol|function|method|interface|trait|struct|"
+        r"enum|type|module|decorator|fixture|dataclass)?\s*"
+    )
+    # Regex identifying a valid Python/TS/Rust identifier inside backticks.
+    # Rejects things that contain dots/slashes (file paths), * (globs), or
+    # spaces. Accepts trailing () to mean "callable".
+    _SYMBOL_IDENT_RE = r"([A-Za-z_][A-Za-z0-9_]*(?:\(\))?)"
+
+    def _extract_used_symbols(self, description: str) -> Set[str]:
+        """Return backticked identifiers that look like symbols, not file paths."""
+        import re
+
+        symbols: Set[str] = set()
+        for raw in re.findall(r"`([^`]+)`", description):
+            clean = raw.strip().rstrip("()")
+            # Reject file paths, globs, version strings
+            if "/" in clean or "." in clean or "*" in clean or " " in clean:
+                continue
+            if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", clean):
+                continue
+            # Reject single-letter and common-word false positives
+            if len(clean) < 3:
+                continue
+            symbols.add(clean)
+        return symbols
+
+    def _extract_defined_symbols(self, description: str) -> Set[str]:
+        """Return backticked symbols this task *defines* (vs. merely references).
+
+        Trigger: a definer verb (define/create/implement/...) appears within
+        ~30 characters before a backticked identifier. This conservative window
+        avoids flagging unrelated backticks later in the same sentence.
+        """
+        import re
+
+        pattern = re.compile(
+            rf"\b{self._DEFINER_VERBS}\s+{self._KIND_WORDS}`{self._SYMBOL_IDENT_RE}`",
+            re.IGNORECASE,
+        )
+        defined: Set[str] = set()
+        for match in pattern.findall(description):
+            clean = match.strip().rstrip("()")
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", clean) and len(clean) >= 3:
+                defined.add(clean)
+        return defined
+
+    def _build_symbol_graph(self) -> Dict[str, Set[str]]:
+        """Infer task→task edges from backticked-symbol defines/uses.
+
+        Heuristic:
+          1. For each task, collect defined-symbols (verb-gated) and
+             used-symbols (any backticked identifier).
+          2. First task in document order to *define* a symbol becomes its
+             definer.
+          3. Later tasks that *use* that symbol get an edge → definer,
+             unless the user task also defined it (which would be a redefine,
+             not a dependency).
+
+        Returns: {task_id: {definer_task_id, ...}}
+
+        False positives are safer than false negatives here — an extra edge
+        serialises tasks that could have been parallel; a missing edge causes
+        runtime ImportError. We accept the tradeoff.
+        """
+        from collections import defaultdict
+
+        task_defines: Dict[str, Set[str]] = {}
+        task_uses: Dict[str, Set[str]] = {}
+        for task in self.tasks:
+            task_defines[task.id] = self._extract_defined_symbols(task.description)
+            task_uses[task.id] = self._extract_used_symbols(task.description)
+
+        # First-definer wins (document order).
+        symbol_definer: Dict[str, str] = {}
+        for task in self.tasks:
+            for sym in task_defines[task.id]:
+                symbol_definer.setdefault(sym, task.id)
+
+        edges: Dict[str, Set[str]] = defaultdict(set)
+        # Precompute document order so edges only point backward.
+        order = {task.id: i for i, task in enumerate(self.tasks)}
+        for task in self.tasks:
+            for sym in task_uses[task.id]:
+                if sym in task_defines[task.id]:
+                    continue  # This task defines it — not a dep on anyone.
+                definer = symbol_definer.get(sym)
+                if not definer or definer == task.id:
+                    continue
+                if order[definer] >= order[task.id]:
+                    continue  # Only backward edges — avoid phantom cycles.
+                edges[task.id].add(definer)
+        return dict(edges)
+
+    def _parse_dependency_section(self, content: str) -> Dict[str, List[str]]:
+        """Parse `## Dependencies` / `**Dependencies**` blocks (incl. subsections).
+
+        Returns: {task_id: [list of dep task_ids]}
+
+        Section entry — any heading level 1-6 whose first word is "Dependencies"
+        (optionally followed by trailing text like `& Execution Order`), OR a
+        bold `**Dependencies**` lead-in.
+
+        Section exit — only at a heading of the SAME OR HIGHER level than the
+        one we entered on. This lets `### Within-phase dependencies` subsections
+        stay inside a `## Dependencies & Execution Order` block.
+
+        Recognised forms (anywhere in the block, optionally bullet-prefixed):
+
+          Structured rows:
+            T018 requires T005, T006
+            T018 depends on T005
+            T018 -> T005           /  T018 → T005
+            T005 blocks T018       (reverse — T018 gets T005 as dep)
+            T005 before T018       (reverse)
+
+          Narrative (common in speckit-generated tasks.md):
+            T018 must complete before T020 and before T022
+            T033 must precede T035
+            T018 comes before T020, T022
+            T005 must be done before T018
+
+          Arrow lists inside prose:
+            T005 → T018 → T020
+        """
+        import re
+        from collections import defaultdict
+
+        deps: Dict[str, List[str]] = defaultdict(list)
+
+        section_header_re = re.compile(
+            r"^\s*(#{1,6})\s*Dependencies\b.*$"     # heading form
+            r"|^\s*\*\*Dependencies\*\*\s*:?\s*$",  # bold form
+            re.IGNORECASE,
+        )
+        heading_re = re.compile(r"^\s*(#{1,6})\s+\S")
+
+        lines = content.split("\n")
+        in_section = False
+        entry_level = 0  # # count on the heading that opened the section
+
+        def _record_forward(task_id_num: str, deps_blob: str) -> None:
+            task_id = f"T{task_id_num.zfill(3)}"
+            for d in re.findall(r"T(\d{1,4})", deps_blob):
+                dep_id = f"T{d.zfill(3)}"
+                if dep_id != task_id and dep_id not in deps[task_id]:
+                    deps[task_id].append(dep_id)
+
+        def _record_reverse(source_num: str, target_blob: str) -> None:
+            source = f"T{source_num.zfill(3)}"
+            for t in re.findall(r"T(\d{1,4})", target_blob):
+                target = f"T{t.zfill(3)}"
+                if source != target and source not in deps[target]:
+                    deps[target].append(source)
+
+        for line in lines:
+            sh = section_header_re.match(line)
+            if sh:
+                in_section = True
+                # Hashes captured in group 1 for heading form; bold form → 0
+                hashes = sh.group(1) if sh.group(1) else ""
+                entry_level = len(hashes) if hashes else 99
+                continue
+            if not in_section:
+                continue
+            # Close on heading of same-or-higher level (smaller # count)
+            h = heading_re.match(line)
+            if h:
+                this_level = len(h.group(1))
+                if this_level <= entry_level:
+                    in_section = False
+                    continue
+                # else: subsection — keep parsing inside
+
+            stripped = line.strip().lstrip("-*").strip()
+            if not stripped:
+                continue
+
+            # --- Narrative forms (prose-friendly) ---
+            # "T018 must complete before T020 and before T022"
+            # "T033 must precede T035, T036"
+            # "T005 must be done before T018"
+            # "T018 comes before T020"
+            narrative = re.match(
+                r"T(\d{1,4}).*?\b(?:must\s+(?:complete|be\s+done|finish|land)\s+before"
+                r"|must\s+precede"
+                r"|comes\s+before"
+                r"|completes\s+before"
+                r"|precedes)\b(.*)$",
+                stripped, re.IGNORECASE,
+            )
+            if narrative:
+                source_num = narrative.group(1)
+                tail = narrative.group(2)
+                # Collect all T-IDs in the tail; "and before T022" adds T022.
+                target_ids = re.findall(r"T(\d{1,4})", tail)
+                if target_ids:
+                    _record_reverse(source_num, " ".join(f"T{t}" for t in target_ids))
+                    continue
+
+            # "X must complete after Y" / "must be done after Y" → forward
+            fwd_narrative = re.match(
+                r"T(\d{1,4}).*?\b(?:must\s+(?:complete|be\s+done|land)\s+after"
+                r"|must\s+follow)\b(.*)$",
+                stripped, re.IGNORECASE,
+            )
+            if fwd_narrative:
+                task_num = fwd_narrative.group(1)
+                tail = fwd_narrative.group(2)
+                dep_ids = re.findall(r"T(\d{1,4})", tail)
+                if dep_ids:
+                    _record_forward(task_num, " ".join(f"T{d}" for d in dep_ids))
+                    continue
+
+            # --- Structured forward: T<a> <verb> T<b>[, T<c>...] ---
+            fwd = re.match(
+                r"T(\d{1,4})\s*[:\-]?\s*"
+                r"(?:requires|depends\s+on|after|needs|->|→)?\s*"
+                r"((?:T\d{1,4}\s*,?\s*)+)$",
+                stripped, re.IGNORECASE,
+            )
+            if fwd:
+                _record_forward(fwd.group(1), fwd.group(2))
+                continue
+
+            # --- Structured reverse: T<a> blocks/before T<b>[, T<c>...] ---
+            rev = re.match(
+                r"T(\d{1,4})\s+(?:blocks|before)\s+((?:T\d{1,4}\s*,?\s*)+)$",
+                stripped, re.IGNORECASE,
+            )
+            if rev:
+                _record_reverse(rev.group(1), rev.group(2))
+                continue
+
+            # --- Arrow-chain inside prose: "T005 → T018 → T020" ---
+            arrow_chain = re.findall(r"T(\d{1,4})\s*(?:->|→)\s*T(\d{1,4})", stripped)
+            for left, right in arrow_chain:
+                _record_forward(right, f"T{left}")
+
+        return dict(deps)
+
+    def _validate_dependencies(self, graph: Dict[str, Set[str]]) -> None:
+        """Fail fast with a clear error when a dep references a nonexistent task.
+
+        Without this, create_waves() deadlocks and prints the misleading
+        "Circular dependency" error (orchestrator.py:266 historic).
+        """
+        valid_ids = {t.id for t in self.tasks}
+        invalid: List[tuple] = []
+        for task_id, dep_set in graph.items():
+            for dep in dep_set:
+                if dep not in valid_ids:
+                    invalid.append((task_id, dep))
+        if invalid:
+            print("❌ Error: Tasks reference predecessors not found in tasks.md:")
+            for task_id, dep in invalid:
+                print(f"   {task_id} → {dep} (no such task)")
+            print(
+                "   Fix: correct the typo, add the missing task, or remove the dependency."
+            )
+            sys.exit(1)
+
     def analyze_dependencies(self) -> Dict[str, Set[str]]:
-        """Build dependency graph"""
+        """Build dependency graph from inline + prose-section + file-lock signals."""
         graph = defaultdict(set)
 
         for task in self.tasks:
-            # Explicit dependencies from description
+            # Explicit forward dependencies from description
             for dep in task.dependencies:
                 graph[task.id].add(dep)
+
+            # Reverse-blocks: "this task blocks Txxx" → Txxx depends on us
+            for blocked in task.blocks_tasks:
+                graph[blocked].add(task.id)
 
             # Implicit dependencies from file locks
             for file in task.file_locks:
@@ -206,7 +543,164 @@ class TaskOrchestrator:
                         if other_idx < this_idx:
                             graph[task.id].add(other_task_id)
 
+        # Prose `## Dependencies` section deps
+        for task_id, dep_ids in self._prose_deps.items():
+            for dep in dep_ids:
+                graph[task_id].add(dep)
+
+        # Symbol-graph inference (Protocol/class/function defines → uses).
+        # Opt-out via dev-kid.yml: orchestrator.symbol_graph: false
+        if self._symbol_graph_enabled():
+            for task_id, definers in self._build_symbol_graph().items():
+                for definer in definers:
+                    graph[task_id].add(definer)
+
+        # Agent (LLM) dep parser — catches narrative / semantic deps that
+        # regex + symbol graph miss. Opt-in via --agent-parse or dev-kid.yml.
+        if self._agent_parse:
+            self._merge_agent_deps(graph)
+
+        # Validate every referenced predecessor exists — fail fast with a clear
+        # message instead of letting create_waves() report "Circular dependency".
+        self._validate_dependencies(graph)
+
         return graph
+
+    def _merge_agent_deps(self, graph: Dict[str, Set[str]]) -> None:
+        """Call the LLM dep parser and merge its edges into the graph."""
+        try:
+            sys.path.insert(0, str(Path(__file__).parent))
+            from agent_dep_parser import extract_deps_via_agent
+        except Exception as exc:
+            print(f"   ⚠️  agent_dep_parser import failed: {exc}")
+            return
+
+        model, url = self._agent_parse_config()
+        valid_ids = {t.id for t in self.tasks}
+        agent_deps = extract_deps_via_agent(
+            self.tasks_file,
+            model=model,
+            ollama_url=url,
+            valid_task_ids=valid_ids,
+        )
+        # Cycle-safe merge: only add an edge if it doesn't create a backward
+        # reference based on simple transitive reachability from the target.
+        added = 0
+        for task_id, dep_ids in agent_deps.items():
+            for dep in dep_ids:
+                if dep not in graph[task_id] and not self._would_create_cycle(graph, task_id, dep):
+                    graph[task_id].add(dep)
+                    added += 1
+        if added:
+            print(f"   ✅ Agent parser merged {added} new edge(s) into graph")
+
+    @staticmethod
+    def _would_create_cycle(
+        graph: Dict[str, Set[str]], source: str, target: str
+    ) -> bool:
+        """Return True if adding edge source→target would close a cycle."""
+        # Walk deps of target; if we reach source, adding source→target = cycle.
+        seen: Set[str] = set()
+        stack = [target]
+        while stack:
+            node = stack.pop()
+            if node == source:
+                return True
+            if node in seen:
+                continue
+            seen.add(node)
+            stack.extend(graph.get(node, set()))
+        return False
+
+    def _symbol_graph_enabled(self) -> bool:
+        """Return True if orchestrator.symbol_graph is not explicitly disabled."""
+        return self._read_yml_bool("orchestrator", "symbol_graph", default=True)
+
+    def _agent_parse_enabled_in_yml(self) -> bool:
+        """Return True if orchestrator.agent_parse: true in dev-kid.yml."""
+        return self._read_yml_bool("orchestrator", "agent_parse", default=False)
+
+    def _agent_parse_config(self) -> tuple:
+        """Return (model, ollama_url) for the agent dep parser.
+
+        Falls back to sentinel.tier1 values (they use the same Ollama host).
+        """
+        model = self._read_yml_value("orchestrator", "agent_parse_model") or ""
+        url = self._read_yml_value("orchestrator", "agent_parse_url") or ""
+        if not model:
+            # Reuse sentinel tier1 model as sensible default
+            model = self._read_yml_value("sentinel.tier1", "model") or "qwen3-coder:30b"
+        if not url:
+            url = self._read_yml_value("sentinel.tier1", "ollama_url") or "http://localhost:11434"
+        return (model, url)
+
+    def _read_yml_bool(
+        self, section: str, key: str, default: bool = False
+    ) -> bool:
+        try:
+            yml_path = Path("dev-kid.yml")
+            if not yml_path.exists():
+                return default
+            content = yml_path.read_text(encoding="utf-8")
+            in_section = False
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith(f"{section}:"):
+                    in_section = True
+                    continue
+                if in_section:
+                    if stripped and not line.startswith(" ") and ":" in stripped:
+                        break
+                    if stripped.startswith(f"{key}:"):
+                        val = stripped.split(":", 1)[1].strip().lower()
+                        return val not in ("false", "0", "no", "off", '""', "''")
+        except Exception:
+            pass
+        return default
+
+    def _read_yml_value(self, section: str, key: str) -> str:
+        """Read a scalar value from a named section (supports nested 'sentinel.tier1')."""
+        try:
+            yml_path = Path("dev-kid.yml")
+            if not yml_path.exists():
+                return ""
+            content = yml_path.read_text(encoding="utf-8")
+            parts = section.split(".")
+            depth = 0
+            for line in content.splitlines():
+                stripped = line.strip()
+                indent = len(line) - len(line.lstrip())
+                if depth < len(parts):
+                    target = parts[depth] + ":"
+                    if stripped.startswith(target) and indent == depth * 2:
+                        depth += 1
+                        continue
+                if depth == len(parts):
+                    expected_indent = depth * 2
+                    if (
+                        indent == expected_indent
+                        and stripped
+                        and not stripped.startswith("#")
+                        and not stripped.startswith(f"{parts[-1]}:")
+                    ):
+                        if not stripped[0].isalpha():
+                            continue
+                        if ":" in stripped and not stripped.startswith(f"{key}:"):
+                            if indent < expected_indent:
+                                break
+                    if stripped.startswith(f"{key}:"):
+                        return (
+                            stripped.split(":", 1)[1]
+                            .split("#")[0]
+                            .strip()
+                            .strip('"')
+                            .strip("'")
+                        )
+                    if indent < expected_indent and stripped:
+                        break
+        except Exception:
+            pass
+        return ""
 
     def create_waves(self) -> None:
         """Group tasks into execution waves"""
@@ -230,14 +724,19 @@ class TaskOrchestrator:
                 break
             wave_tasks = []
             wave_files = set()
+            # Snapshot "assigned before this wave began". Without this,
+            # sibling tasks added earlier in the same for-loop iteration
+            # falsely satisfy each other's deps, flattening the wave graph.
+            assigned_before_this_wave = set(assigned_tasks)
 
             for task in remaining:
                 if task.id in assigned_tasks:
                     continue
 
-                # Check if all dependencies are assigned to previous waves
+                # Deps must be in a STRICTLY EARLIER wave, not this one.
                 deps_satisfied = all(
-                    dep in assigned_tasks for dep in dependency_graph[task.id]
+                    dep in assigned_before_this_wave
+                    for dep in dependency_graph[task.id]
                 )
 
                 if not deps_satisfied:
@@ -559,7 +1058,7 @@ class TaskOrchestrator:
                             "enabled": wave.checkpoint_enabled,
                             "verification_criteria": f"Verify all Wave {wave.wave_id} tasks are marked [x] in tasks.md",
                             "git_agent": "git-version-manager",
-                            "memory_bank_agent": "memory-bank-keeper",
+                            "memory_bank_agent": "project-bank-keeper",
                         },
                     }
                     for wave in self.waves
@@ -742,7 +1241,7 @@ class TaskOrchestrator:
                                             "enabled": True,
                                             "verification_criteria": f"Verify all Wave {wid} tasks are marked [x] in tasks.md",
                                             "git_agent": "git-version-manager",
-                                            "memory_bank_agent": "memory-bank-keeper",
+                                            "memory_bank_agent": "project-bank-keeper",
                                         },
                                     }
                                 )
@@ -789,10 +1288,17 @@ def main():
         "--tasks-file", default="tasks.md", help="Path to tasks.md file"
     )
     parser.add_argument("--phase-id", default="default", help="Phase identifier")
+    parser.add_argument(
+        "--agent-parse",
+        action="store_true",
+        help="Enable LLM-backed dep extraction (Ollama). "
+        "Slower, but catches narrative deps regex misses. "
+        "Opt-in via dev-kid.yml: orchestrator.agent_parse: true",
+    )
 
     args = parser.parse_args()
 
-    orchestrator = TaskOrchestrator(args.tasks_file)
+    orchestrator = TaskOrchestrator(args.tasks_file, agent_parse=args.agent_parse)
     orchestrator.execute(args.phase_id)
 
 

@@ -7,7 +7,7 @@ Supports two modes:
   2. Legacy 2-tier mode (Ollama → Claude) — used when tiers_file is empty.
 
 When tiers_file is set, sentinel.min_tier lets you skip cheap tiers and start
-from a stronger model (e.g. "azure-heavy" for weekend work).
+from a stronger model (e.g. "openai-heavy" for heavy-lift sessions).
 """
 
 from __future__ import annotations
@@ -34,7 +34,6 @@ def sentinel_health_check(config) -> dict:
 
     Checks per-tier:
       - ollama/ models: Ollama reachable AND specific model exists
-      - azure/ models: Azure API key set AND endpoint reachable
       - anthropic/ models: ANTHROPIC_API_KEY set
       - google/ models: GOOGLE_API_KEY set
       - openai/ models: OPENAI_API_KEY set
@@ -44,7 +43,7 @@ def sentinel_health_check(config) -> dict:
 
     Returns:
         Dict with keys: micro_agent_installed, tier1_available, tier1_url,
-        tier2_available, azure_available, tiers_file_valid,
+        tier2_available, tiers_file_valid,
         any_tier_available, warnings (list[str]), tier_health (list[dict]).
     """
     from shutil import which
@@ -67,18 +66,15 @@ def sentinel_health_check(config) -> dict:
 
     # Check provider API keys
     tier2_available = bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
-    azure_available = bool(
-        os.environ.get("AZURE_OPENAI_API_KEY", "").strip()
-        or os.environ.get("AZURE_API_KEY", "").strip()
+    google_available = bool(
+        os.environ.get("GOOGLE_API_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
     )
-    azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
-    google_available = bool(os.environ.get("GOOGLE_API_KEY", "").strip())
     openai_available = bool(os.environ.get("OPENAI_API_KEY", "").strip())
 
     # Provider status map
     provider_ok = {
         "ollama": tier1_available,
-        "azure": azure_available,
         "anthropic": tier2_available,
         "google": google_available,
         "openai": openai_available,
@@ -162,8 +158,6 @@ def sentinel_health_check(config) -> dict:
         "tier1_available": tier1_available,
         "tier1_url": ollama_url,
         "tier2_available": tier2_available,
-        "azure_available": azure_available,
-        "azure_endpoint": azure_endpoint,
         "google_available": google_available,
         "openai_available": openai_available,
         "tiers_file_valid": tiers_file_valid,
@@ -501,6 +495,7 @@ class TierRunner:
         total_start = time.time()
         total_cost = 0.0
         last_result = None
+        skipped_tiers: list[tuple[str, str]] = []  # (tier_name, reason) — for end-of-run summary
 
         for tier_idx, tier in enumerate(tiers):
             tier_name = tier.get("name", f"tier-{tier_idx}")
@@ -517,18 +512,52 @@ class TierRunner:
                 print(f"      ⚠️  Duration cap reached ({elapsed_total:.0f}s >= {max_duration * 60}s) — stopping")
                 break
 
-            # Build env for this tier's provider
+            # Gated tier check — require marker file to proceed (per-tier; later gated tiers
+            # with their own markers can still run independently).
+            requires_marker = tier.get("requires_marker")
+            if requires_marker:
+                marker_path = project_root / ".claude" / "sentinel" / requires_marker
+                if not marker_path.exists():
+                    reason = f"gated (missing marker: {marker_path})"
+                    print(f"      🔒 {tier_name}: GATED — {reason}")
+                    print(f"         To allow: touch {marker_path}")
+                    skipped_tiers.append((tier_name, reason))
+                    continue
+
+            # Per-role provider-key validation — report exactly which role(s) need which
+            # missing provider so the user knows why a tier was skipped.
             env = {**os.environ}
             ollama_url = getattr(config, "sentinel_tier1_ollama_url", "http://localhost:11434")
-            if artisan_model.startswith("ollama/"):
+            roles_needing_ollama = [r for r, m in models.items() if m and m.startswith("ollama/")]
+            roles_needing_google = [r for r, m in models.items() if m and m.startswith("google/")]
+            roles_needing_openai = [r for r, m in models.items() if m and m.startswith("openai/")]
+            has_google_key = bool(
+                os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+            )
+            has_openai_key = bool(os.environ.get("OPENAI_API_KEY"))
+
+            skip_reason = None
+            if roles_needing_ollama:
                 env["OLLAMA_BASE_URL"] = ollama_url
                 if not check_ollama_available(ollama_url):
-                    print(f"      ⚠️  {tier_name}: Ollama not reachable — skipping")
-                    continue
-            elif artisan_model.startswith("azure/"):
-                if not (os.environ.get("AZURE_OPENAI_API_KEY") or os.environ.get("AZURE_API_KEY")):
-                    print(f"      ⚠️  {tier_name}: No Azure API key — skipping")
-                    continue
+                    skip_reason = (
+                        f"Ollama not reachable at {ollama_url} "
+                        f"(needed for: {', '.join(roles_needing_ollama)})"
+                    )
+            if not skip_reason and roles_needing_google and not has_google_key:
+                skip_reason = (
+                    f"GOOGLE_API_KEY / GEMINI_API_KEY not set "
+                    f"(needed for: {', '.join(roles_needing_google)})"
+                )
+            if not skip_reason and roles_needing_openai and not has_openai_key:
+                skip_reason = (
+                    f"OPENAI_API_KEY not set "
+                    f"(needed for: {', '.join(roles_needing_openai)})"
+                )
+            if skip_reason:
+                print(f"      ⚠️  {tier_name}: skipping — {skip_reason}")
+                skipped_tiers.append((tier_name, skip_reason))
+                continue
 
             # Write per-tier ralph.config.yaml so micro-agent uses the right models
             tier_config_file = _write_tier_config(
@@ -614,6 +643,12 @@ class TierRunner:
             except Exception:
                 pass
 
+        # End-of-run skip summary
+        if skipped_tiers:
+            print(f"      📋 Skipped {len(skipped_tiers)} tier(s):")
+            for name, reason in skipped_tiers:
+                print(f"         • {name}: {reason}")
+
         # All tiers exhausted
         total_elapsed = time.time() - total_start
         if last_result is None:
@@ -636,8 +671,8 @@ def _extract_winning_tier(stdout: str) -> str:
     """Extract the tier name that achieved PASS from micro-agent output.
 
     Looks for patterns like:
-      Tier 3: azure-mini [full] — PASS
-      ✅ Tier 2 (azure-nano) passed
+      Tier 3: mixed-mid [full] — PASS
+      ✅ Tier 2 (local-plus-gemini-lib) passed
     """
     # Pattern: Tier N: name [mode] — PASS
     match = re.search(
@@ -656,8 +691,8 @@ def _extract_winning_model(stdout: str) -> str:
     """Extract the model name from micro-agent tier output.
 
     Looks for patterns like:
-      Artisan: azure/gpt-4.1-mini
-      Model: azure/gpt-5
+      Artisan: openai/gpt-4.1-mini
+      Model: google/gemini-2.5-pro
     """
     match = re.search(r"Artisan:\s*(\S+)", stdout, re.IGNORECASE)
     if match:
@@ -690,8 +725,8 @@ def _write_tier_config(
         return None
 
     # Build ralph.config.yaml models section
-    # ralph-tiers.json format: "artisan": "azure/gpt-4.1-mini"
-    # ralph.config.yaml format: artisan: { provider: "azure", model: "gpt-4.1-mini" }
+    # ralph-tiers.json format: "artisan": "openai/gpt-4.1-mini"
+    # ralph.config.yaml format: artisan: { provider: "openai", model: "gpt-4.1-mini" }
     yaml_models = {}
     for role, model_str in models_raw.items():
         if "/" in model_str:

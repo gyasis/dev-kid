@@ -14,7 +14,7 @@ Validates wave task completion, enforces constitution rules, and creates semanti
 3. Integration Sentinel validates output (placeholder scan, test loop, interface diff, change radius)
 4. Checks constitution compliance for modified files
 5. Blocks checkpoint if sentinel or constitution violations found
-6. Spawns `memory-bank-keeper` agent to sync progress.md and memory bank
+6. Spawns `project-bank-keeper` agent to sync progress.md and memory bank
 7. Spawns `git-version-manager` agent to create semantic git checkpoint
 8. Logs checkpoint to activity_stream.md
 
@@ -186,7 +186,7 @@ fi
    ├─ Check rules (type hints, docstrings, secrets, coverage, patterns)
    └─ HALT if violations
 
-4. Memory Sync (agent: memory-bank-keeper)
+4. Memory Sync (agent: project-bank-keeper)
    ├─ Update progress.md
    ├─ Sync all 6 memory bank tiers
    └─ Log to activity_stream.md

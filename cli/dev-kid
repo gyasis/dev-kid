@@ -61,8 +61,12 @@ Usage: dev-kid [COMMAND] [OPTIONS]
 
 CORE COMMANDS:
   init [PATH]              Initialize dev-kid in project (default: current dir)
+  init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
-  execute                  Execute waves from execution_plan.json
+  preflight                Run sentinel-health + .env source check (no execute)
+  execute [--no-preflight] [--yes]
+                           Execute waves from execution_plan.json
+                           (preflight gate runs first by default; --no-preflight bypass)
   sync-memory              Update Memory Bank with current state
   checkpoint [MESSAGE]     Create semantic git checkpoint
   micro-checkpoint [MSG]   Quick commit (Ralph smart zone optimization)
@@ -103,6 +107,11 @@ CONSTITUTION & CONFIG:
   config validate          Validate config file
 
 SENTINEL:
+  sentinel-run TASK_ID     Run sentinel on one task (no execution_plan.json needed)
+  sentinel-run --list      List task IDs in tasks.md (no run)
+  sentinel-run --all       Run sentinel on every task in tasks.md
+  sentinel-run --pending   Run sentinel on unchecked [ ] tasks only
+  sentinel-run --completed Run sentinel on checked [x] tasks only
   sentinel-status          Show sentinel run history (task, tier, result, cost)
   sentinel-health          Check provider connectivity (Ollama, API key, micro-agent CLI)
 
@@ -143,9 +152,19 @@ cmd_init() {
 }
 
 cmd_orchestrate() {
-    local phase_id="${1:-default}"
+    # Parse optional --agent-parse flag, phase id is the first non-flag arg
+    local agent_parse=""
+    local phase_id=""
+    for arg in "$@"; do
+        case "$arg" in
+            --agent-parse) agent_parse="--agent-parse" ;;
+            *) [ -z "$phase_id" ] && phase_id="$arg" ;;
+        esac
+    done
+    phase_id="${phase_id:-default}"
 
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
+    [ -n "$agent_parse" ] && echo -e "   ${YELLOW}ℹ${NC}  LLM-backed dep parser ENABLED"
 
     # Always prefer the speckit canonical tasks.md when one exists.
     # This ensures [x] completion markers are read from the source of truth,
@@ -180,15 +199,50 @@ cmd_orchestrate() {
         fi
     fi
 
-    # Run orchestrator
-    python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
+    # Run orchestrator (with optional --agent-parse)
+    if [ -n "$agent_parse" ]; then
+        python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id" --agent-parse
+    else
+        python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
+    fi
 }
 
 cmd_execute() {
-    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+    # Parse --no-preflight / --yes flags before dispatch
+    local skip_preflight=false
+    local non_interactive=false
+    local remaining_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            --no-preflight)  skip_preflight=true ;;
+            --yes|-y)        non_interactive=true ;;
+            *)               remaining_args+=("$arg") ;;
+        esac
+    done
 
-    # Run wave executor
-    python3 "$DEV_KID_ROOT/cli/wave_executor.py"
+    # Default: preflight gate first (auto-source .env, sentinel-health,
+    # interactive y/N confirmation). Bypass with --no-preflight (advanced).
+    # Preflight calls back into `dev-kid execute --no-preflight` after user confirms.
+    if [[ "$skip_preflight" != "true" ]]; then
+        local preflight_args=("--execute" "execute" "--no-preflight")
+        [[ "$non_interactive" == "true" ]] && preflight_args=("--execute" "--yes" "execute" "--no-preflight")
+        bash "$DEV_KID_ROOT/cli/preflight.sh" "${preflight_args[@]}" "${remaining_args[@]}"
+        return $?
+    fi
+
+    # Past the gate — actually execute waves
+    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+    python3 "$DEV_KID_ROOT/cli/wave_executor.py" "${remaining_args[@]}"
+}
+
+cmd_preflight() {
+    # Standalone preflight check — no execute, just report provider readiness.
+    bash "$DEV_KID_ROOT/cli/preflight.sh" "$@"
+}
+
+cmd_init_check() {
+    # Validate project setup. Distinct from `init` (which scaffolds a fresh project).
+    python3 "$DEV_KID_ROOT/cli/init_check.py" "$@"
 }
 
 cmd_sync_memory() {
@@ -468,6 +522,18 @@ cmd_sentinel_status() {
     python3 "$DEV_KID_ROOT/cli/sentinel/status_reporter.py" --project-root "$project_root"
 }
 
+cmd_sentinel_run() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}❌ Usage: dev-kid sentinel-run TASK_ID [--files ...] [--instruction \"...\"] [--tasks-file PATH]${NC}"
+        echo "         dev-kid sentinel-run --list      # show task IDs"
+        echo "         dev-kid sentinel-run --all       # run on every task"
+        echo "         dev-kid sentinel-run --pending   # run on [ ] tasks"
+        echo "         dev-kid sentinel-run --completed # run on [x] tasks"
+        exit 2
+    fi
+    python3 "$DEV_KID_ROOT/cli/sentinel_run.py" "$@"
+}
+
 cmd_sentinel_health() {
     local project_root="${PROJECT_ROOT:-$(pwd)}"
     echo -e "${GREEN}🛡️  Sentinel Provider Health Check${NC}"
@@ -529,9 +595,8 @@ try:
     print("  Providers:")
     providers = [
         ('Ollama', health['tier1_available'], health['tier1_url']),
-        ('Azure OpenAI', health.get('azure_available', False), health.get('azure_endpoint', '') or 'AZURE_OPENAI_ENDPOINT'),
         ('Anthropic', health['tier2_available'], 'ANTHROPIC_API_KEY'),
-        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY'),
+        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
         ('OpenAI', health.get('openai_available', False), 'OPENAI_API_KEY'),
     ]
     for name, ok, detail in providers:
@@ -711,6 +776,8 @@ main() {
         init)               cmd_init "$@" ;;
         orchestrate)        cmd_orchestrate "$@" ;;
         execute)            cmd_execute "$@" ;;
+        preflight)          cmd_preflight "$@" ;;
+        init-check)         cmd_init_check "$@" ;;
         sync-memory)        cmd_sync_memory "$@" ;;
         checkpoint)         cmd_checkpoint "$@" ;;
         micro-checkpoint)   cmd_micro_checkpoint "$@" ;;
@@ -731,6 +798,7 @@ main() {
         gh-status)          cmd_gh_status "$@" ;;
         constitution)       cmd_constitution "$@" ;;
         config)             cmd_config "$@" ;;
+        sentinel-run)       cmd_sentinel_run "$@" ;;
         sentinel-status)    cmd_sentinel_status "$@" ;;
         sentinel-health)    cmd_sentinel_health "$@" ;;
         status)             cmd_status "$@" ;;
