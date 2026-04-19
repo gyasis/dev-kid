@@ -26,6 +26,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/post-tool-use.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/handoff-notifier.sh"
           }
         ]
       }
@@ -36,6 +40,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/user-prompt-submit.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/handoff-notifier.sh"
           }
         ]
       }
@@ -46,6 +54,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/handoff-notifier.sh"
           }
         ]
       }
