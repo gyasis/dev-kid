@@ -61,8 +61,12 @@ Usage: dev-kid [COMMAND] [OPTIONS]
 
 CORE COMMANDS:
   init [PATH]              Initialize dev-kid in project (default: current dir)
+  init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
-  execute                  Execute waves from execution_plan.json
+  preflight                Run sentinel-health + .env source check (no execute)
+  execute [--no-preflight] [--yes]
+                           Execute waves from execution_plan.json
+                           (preflight gate runs first by default; --no-preflight bypass)
   sync-memory              Update Memory Bank with current state
   checkpoint [MESSAGE]     Create semantic git checkpoint
   micro-checkpoint [MSG]   Quick commit (Ralph smart zone optimization)

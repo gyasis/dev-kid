@@ -9,7 +9,7 @@ Executes wave-based implementation plan with automatic checkpointing, constituti
 
 ## What This Does
 
-1. Runs sentinel health check (validates Ollama models, Azure keys, provider endpoints)
+1. **Preflight gate (built-in since dev-kid v2.1)** — Auto-sources `.env` from project root, runs `dev-kid sentinel-health`, presents an interactive menu if any provider is missing, and requires explicit y/N confirmation before any wave runs. Bypass with `--no-preflight` (advanced) or `--yes` for non-interactive CI.
 2. Starts task watchdog for monitoring
 3. Loads constitution rules
 4. Executes waves sequentially (max 10 tasks per wave, configurable via dev-kid.yml wave_size)
@@ -20,6 +20,8 @@ Executes wave-based implementation plan with automatic checkpointing, constituti
    d. Memory sync via `project-bank-keeper` agent
    e. Git checkpoint via `git-version-manager` agent
 6. Reports PASS/FAIL/SKIP per task with tier info
+
+**Recommendation**: Run `/devkid.init-check` once before your first `/devkid.execute` to validate setup.
 
 ## Usage
 
@@ -45,12 +47,7 @@ if [ ! -f "tasks.md" ]; then
     exit 1
 fi
 
-echo "🚀 Starting wave-based execution..."
-echo ""
-
-# Pre-flight: sentinel health check
-echo "🛡️  Pre-flight: checking sentinel providers..."
-dev-kid sentinel-health 2>/dev/null | grep -E "tiers ready|will run|will SKIP|MISSING|UNAVAIL" || true
+echo "🚀 Starting wave-based execution (preflight gate built-in)..."
 echo ""
 
 # Start watchdog
@@ -64,7 +61,9 @@ if [ -f "memory-bank/shared/.constitution.md" ]; then
     echo ""
 fi
 
-# Execute waves (auto-resumes from first incomplete wave)
+# Execute waves — `dev-kid execute` now runs the preflight gate by default
+# (auto-sources .env, sentinel-health, interactive y/N confirmation).
+# Pass --no-preflight to bypass the gate, or --yes for non-interactive CI.
 echo "🌊 Executing waves..."
 echo ""
 dev-kid execute
