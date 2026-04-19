@@ -204,10 +204,41 @@ cmd_orchestrate() {
 }
 
 cmd_execute() {
-    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+    # Parse --no-preflight / --yes flags before dispatch
+    local skip_preflight=false
+    local non_interactive=false
+    local remaining_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            --no-preflight)  skip_preflight=true ;;
+            --yes|-y)        non_interactive=true ;;
+            *)               remaining_args+=("$arg") ;;
+        esac
+    done
 
-    # Run wave executor
-    python3 "$DEV_KID_ROOT/cli/wave_executor.py"
+    # Default: preflight gate first (auto-source .env, sentinel-health,
+    # interactive y/N confirmation). Bypass with --no-preflight (advanced).
+    # Preflight calls back into `dev-kid execute --no-preflight` after user confirms.
+    if [[ "$skip_preflight" != "true" ]]; then
+        local preflight_args=("--execute" "execute" "--no-preflight")
+        [[ "$non_interactive" == "true" ]] && preflight_args=("--execute" "--yes" "execute" "--no-preflight")
+        bash "$DEV_KID_ROOT/cli/preflight.sh" "${preflight_args[@]}" "${remaining_args[@]}"
+        return $?
+    fi
+
+    # Past the gate — actually execute waves
+    echo -e "${GREEN}🌊 Executing waves from execution plan${NC}"
+    python3 "$DEV_KID_ROOT/cli/wave_executor.py" "${remaining_args[@]}"
+}
+
+cmd_preflight() {
+    # Standalone preflight check — no execute, just report provider readiness.
+    bash "$DEV_KID_ROOT/cli/preflight.sh" "$@"
+}
+
+cmd_init_check() {
+    # Validate project setup. Distinct from `init` (which scaffolds a fresh project).
+    python3 "$DEV_KID_ROOT/cli/init_check.py" "$@"
 }
 
 cmd_sync_memory() {
@@ -741,6 +772,8 @@ main() {
         init)               cmd_init "$@" ;;
         orchestrate)        cmd_orchestrate "$@" ;;
         execute)            cmd_execute "$@" ;;
+        preflight)          cmd_preflight "$@" ;;
+        init-check)         cmd_init_check "$@" ;;
         sync-memory)        cmd_sync_memory "$@" ;;
         checkpoint)         cmd_checkpoint "$@" ;;
         micro-checkpoint)   cmd_micro_checkpoint "$@" ;;
