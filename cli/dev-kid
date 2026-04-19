@@ -67,7 +67,7 @@ CORE COMMANDS:
   execute [--no-preflight] [--yes] [--fresh-budget]
                            Execute waves from execution_plan.json
                            (preflight gate runs first by default; --no-preflight bypass)
-                           (--fresh-budget resets cumulative sentinel spend to $0)
+                           (--fresh-budget resets cumulative sentinel spend to \$0)
   budget-status            Show cumulative sentinel spend for this project
   handoff-status           List pending Claude Code handoff requests
   handoff-complete <T###> [--failed] [--notes "msg"]
