@@ -196,6 +196,8 @@ except Exception as e:
     print(f"   ⚠️  Health check failed: {e}")
 PYEOF
     else
+        # Defense-in-depth: explicitly flip to false in case template default ever drifts.
+        sed -i 's/enabled: true/enabled: false/' dev-kid.yml
         echo "   ℹ️  Sentinel disabled — edit dev-kid.yml to enable later"
     fi
 else
