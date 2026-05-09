@@ -17,7 +17,7 @@ jq --version          # jq 1.5+
 cargo --version       # Rust 1.70+ (for building watchdog)
 ```
 
-If anything is missing, see [DEPENDENCIES.md](docs/development/DEPENDENCIES.md) for installation instructions.
+If anything is missing, the installer will report it with platform-specific install commands.
 
 ## Installation (2 minutes)
 
@@ -25,7 +25,7 @@ If anything is missing, see [DEPENDENCIES.md](docs/development/DEPENDENCIES.md) 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dev-kid.git
+git clone https://github.com/gyasis/dev-kid.git
 cd dev-kid
 
 # Run the installer (no .sh extension needed!)
@@ -301,10 +301,10 @@ After each task completes, the Integration Sentinel automatically:
 3. Checks if changes exceed the radius budget (3 files / 150 lines / no interface breaks)
 4. Writes a manifest to `.claude/sentinel/<id>/` (manifest.json, diff.patch, summary.md)
 
-**Enable/disable** in `dev-kid.yml`:
+**Enable/disable** in `dev-kid.yml` (PROJECT-SPECIFIC — only affects this project, not others on your machine):
 ```yaml
 sentinel:
-  enabled: true          # false to disable
+  enabled: true          # false to disable per-task automated test validation
   injection_granularity: per-task   # per-task | per-wave | per-n
   injection_n: 3         # used with per-n
 ```
@@ -315,6 +315,29 @@ dev-kid sentinel-status
 ```
 
 **View last run summary:** injected automatically at the top of every Claude Code prompt.
+
+**When to disable**: fast scaffolding waves with no LLM cost; smoke-testing your setup; unstable test suite that keeps halting. Disabling means tasks get marked `[x]` without any automated test verification — you verify manually.
+
+**Quick disable / re-enable**:
+```bash
+sed -i 's/^  enabled: true/  enabled: false/' dev-kid.yml      # disable
+sed -i 's/^  enabled: false/  enabled: true/' dev-kid.yml      # re-enable
+```
+
+**Cumulative budget tracker (v2.2)**: even with sentinel ON, total spend is capped at $25.00 USD across all sentinels in one `dev-kid execute` invocation. Override:
+```bash
+export DEVKID_SENTINEL_BUDGET_USD=50.0    # raise the cap
+dev-kid execute --fresh-budget            # also reset cumulative state
+dev-kid budget-status                     # see current spend
+```
+
+**Claude Code handoff tier (v2.2)**: route failed sentinels to the active Claude Code session instead of paying for OpenAI/Anthropic API tiers. Opt-in:
+```bash
+touch .claude/sentinel/allow-handoff      # enable the handoff tier
+# When sentinel reaches the handoff tier, it writes a request file and pauses.
+# Claude Code (this session) auto-receives the notification, processes the
+# task, and runs `dev-kid handoff-complete <T###>` to signal completion.
+```
 
 ### Step 10: Mark Tasks Complete as You Work
 
@@ -718,7 +741,7 @@ If `/speckit.tasks` doesn't create tasks:
    - Multi-user support
 
 3. **Join the community**:
-   - Report issues: [GitHub Issues](https://github.com/yourusername/dev-kid/issues)
+   - Report issues: [GitHub Issues](https://github.com/gyasis/dev-kid/issues)
    - Contribute: [CONTRIBUTING.md](docs/development/CONTRIBUTING.md)
 
 ---

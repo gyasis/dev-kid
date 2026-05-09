@@ -863,7 +863,7 @@ class TaskOrchestrator:
         """Return (tier1_model, tier1_url, tier2_model) from dev-kid.yml, with defaults."""
         defaults = (
             "qwen3-coder:30b",
-            "http://192.168.0.159:11434",
+            "http://localhost:11434",
             "claude-sonnet-4-20250514",
         )
         try:

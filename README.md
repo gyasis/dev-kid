@@ -57,6 +57,51 @@ This was added after a 2026-04-19 incident where a smoke test inadvertently kick
 
 > **Integration Sentinel** is configured in `dev-kid.yml` with `sentinel.enabled: true/false`. Enable it to activate automatic micro-agent test validation after every task before wave checkpoints commit.
 
+### Configuration scope: `dev-kid.yml` is PROJECT-SPECIFIC (not global)
+
+The runtime only reads `<project-root>/dev-kid.yml`. The file at `~/.dev-kid/dev-kid.yml` is just an install template that gets copied into projects when they run `dev-kid init`. Editing the install template does NOT affect any running project — you must edit the project-local copy.
+
+Search order at runtime (per `cli/wave_executor.py`):
+1. `<project-root>/dev-kid.yml`  ← what gets used
+2. Legacy `<project-root>/.devkid/config.json`  ← fallback
+3. Built-in compiled defaults
+
+This means **disabling sentinel for one project does not affect any other projects on the same machine**.
+
+### When to disable sentinel
+
+| Scenario | Recommendation |
+|----------|----------------|
+| You want fast scaffolding waves with no LLM cost | Disable temporarily |
+| Your test suite is unstable and sentinel keeps halting | Disable + verify manually |
+| Running a smoke-test wave just to validate setup | Disable for the smoke run |
+| micro-agent crashes with TTY EINVAL in your CI / non-TTY env | Update dev-kid (since v2.2 the wrapper handles this — see "TTY Wrapper" below) |
+| Production wave run where every task MUST have automated test verification | Keep enabled |
+
+### Disable / re-enable
+
+```bash
+# Disable sentinel for this project (one-line edit)
+sed -i 's/^  enabled: true/  enabled: false/' dev-kid.yml
+
+# Verify
+grep -A1 "^sentinel:" dev-kid.yml
+# Expected:
+#   sentinel:
+#     enabled: false
+
+# Re-enable
+sed -i 's/^  enabled: false/  enabled: true/' dev-kid.yml
+```
+
+### TTY Wrapper (v2.2)
+
+When dev-kid is invoked from a non-TTY context (Claude Code slash command, CI runner, captured subprocess), micro-agent v0.1.5 unconditionally calls `@clack/prompts.prompt()` → `uv_tty_init` which fails with EINVAL and crashes every tier with 0 iterations.
+
+`cli/sentinel/tier_runner.py` now detects `sys.stdin.isatty() == False` and wraps the micro-agent invocation with `script -qfc <cmd> /dev/null` to provide a pseudo-TTY. When `dev-kid execute` IS run from a real terminal, the wrapper is bypassed (pass-through native).
+
+Requires `script` (util-linux) on PATH. Falls back to non-wrapped invocation if missing.
+
 ## 💰 Cumulative Budget Tracker (v2.2)
 
 Without a global cap, a 65-task wave plan with `max_total_cost_usd: $5.00` per sentinel can theoretically burn $325. The `BudgetTracker` enforces a **GLOBAL cap across the entire `dev-kid execute` invocation** (default $25.00 USD).
@@ -195,7 +240,14 @@ Set `GROQ_API_KEY` and/or `CEREBRAS_API_KEY` to activate. Tier validation in `cl
 ### Recommended
 - **sed**, **grep** (template processing)
 
-The installer automatically checks all dependencies and provides installation instructions if anything is missing. See [DEPENDENCIES.md](DEPENDENCIES.md) for detailed requirements and platform-specific installation instructions.
+The installer automatically checks all dependencies and provides installation instructions if anything is missing.
+
+**Additional runtime prerequisites** (checked at first use, not at install):
+- **Node.js 20+ & npm** — for the micro-agent CLI used by Sentinel Tier 1/2
+- **Rust / cargo** (optional) — to build the rust-watchdog binary
+- **`script` (util-linux)** — used by the TTY wrapper for non-TTY contexts (Claude Code, CI)
+- **Ollama daemon** at `http://localhost:11434` — for free Tier 1 sentinel runs
+- **At least one API key** if Tier 1 is unavailable: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, or `CEREBRAS_API_KEY`
 
 ## 🚀 Quickstart
 
@@ -228,7 +280,7 @@ dev-kid execute
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/dev-kid.git
+git clone https://github.com/gyasis/dev-kid.git
 cd dev-kid
 
 # Run installer (no .sh extension needed!)
