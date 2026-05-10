@@ -78,8 +78,14 @@ elif command -v npm &> /dev/null; then
         fi
     else
         echo -e "   ${YELLOW}⚠${NC}  micro-agent local fork not found at $MA_LOCAL_DIR"
-        echo "   Clone it: git clone https://github.com/gyasis/micro-agent.git $MA_LOCAL_DIR"
-        echo "   Then: cd $MA_LOCAL_DIR && npm install && npm link"
+        echo "   Attempting global install from GitHub..."
+        if npm install -g github:gyasis/micro-agent 2>/dev/null; then
+            echo -e "   ${GREEN}✓${NC} micro-agent - installed globally from github:gyasis/micro-agent"
+        else
+            echo -e "   ${YELLOW}⚠${NC}  Global install failed (likely missing build tools for native addons)"
+            echo "   Sentinel Tier 1/2 will be skipped until installed."
+            echo "   Manual fix: git clone https://github.com/gyasis/micro-agent.git $MA_LOCAL_DIR && cd $MA_LOCAL_DIR && npm install && npm link"
+        fi
     fi
 else
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - skipped (npm not found)"

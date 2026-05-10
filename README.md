@@ -227,7 +227,7 @@ Set `GROQ_API_KEY` and/or `CEREBRAS_API_KEY` to activate. Tier validation in `cl
 - **UserPromptSubmit Hook**: Auto-inject project context (branch, constitution, progress)
 - **SessionStart/End Hooks**: Auto-restore context on startup, finalize on shutdown
 - Configuration: `.claude/settings.json` with 6 lifecycle hooks
-- [Full Hooks Reference →](HOOKS_REFERENCE.md) | [Compaction Strategy →](CONTEXT_COMPACTION_STRATEGY.md)
+- [Full Hooks Reference →](HOOKS_REFERENCE.md) | [Compaction Strategy →](docs/archive/CONTEXT_COMPACTION_STRATEGY.md)
 
 ## Dependencies
 
@@ -1342,7 +1342,7 @@ python3 -c "import json; ..."
 
 ## Documentation
 
-- **DEV_KID.md**: Complete implementation guide (1,500+ lines)
+- **docs/archive/DEV_KID.md**: Complete implementation guide (1,500+ lines, archived)
 - **skills/**: Individual skill documentation
 - **templates/**: Template file reference
 

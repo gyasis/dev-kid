@@ -5,7 +5,8 @@ Complete installation guide for dev-kid with Claude Code integration.
 ## Quick Install
 
 ```bash
-cd /home/gyasis/Documents/code/dev-kid
+git clone https://github.com/gyasis/dev-kid.git
+cd dev-kid
 ./scripts/install.sh
 ```
 

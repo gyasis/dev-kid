@@ -62,3 +62,4 @@ Thumbs.db
 /tmp/
 *.tmp
 .memory/
+execution_plan.json

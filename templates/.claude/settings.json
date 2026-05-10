@@ -107,7 +107,7 @@
     "timeout": 30000,
     "env": {
       "DEV_KID_HOOKS_ENABLED": "true",
-      "DEV_KID_AUTO_SYNC_GITHUB": "true",
+      "DEV_KID_AUTO_SYNC_GITHUB": "false",
       "DEV_KID_AUTO_CHECKPOINT": "true"
     }
   }

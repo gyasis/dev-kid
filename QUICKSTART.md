@@ -732,7 +732,7 @@ If `/speckit.tasks` doesn't create tasks:
 1. **Read the full docs**:
    - [README.md](README.md) - Complete feature documentation
    - [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - Architecture deep dive
-   - [DEV_KID.md](DEV_KID.md) - Implementation reference
+   - [DEV_KID.md](docs/archive/DEV_KID.md) - Implementation reference (archived)
 
 2. **Explore advanced features**:
    - Custom constitution rules
