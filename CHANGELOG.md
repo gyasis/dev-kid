@@ -4,6 +4,30 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ---
 
+## v2.2.1 — 2026-05-22
+
+Patch release for the install script.
+
+### Fixed
+
+- `scripts/install.sh` aborted with `cp: cannot stat 'DEV_KID.md'` partway
+  through (DEV_KID.md was removed during the `db3df65` "repo cleanup for
+  public-facing release" but install.sh kept referencing it). Anyone cloning
+  a fresh copy hit this immediately.
+- Post-install help text said `cat $INSTALL_DIR/DEV_KID.md` for the same
+  missing file. Now points at the first available of `README.md` /
+  `QUICKSTART.md` / `CHANGELOG.md`.
+- install.sh's own `VERSION=` header was lagging at `2.0.0`. Synced to
+  match the CLI's `2.2.1` so the install banner doesn't lie.
+
+### Changed
+
+- Documentation-file copy is now graceful: a loop with `[ -f ]` guards. Any
+  doc file removed in future repo cleanup will be skipped with a warning
+  instead of bailing the entire install.
+
+---
+
 ## v2.2.0 — 2026-05-22
 
 Catch-up release. The version string had drifted (README claimed v2.2 since
