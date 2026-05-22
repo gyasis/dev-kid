@@ -60,6 +60,67 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -z "$DEVKID_CMD" ]] && DEVKID_CMD="execute"
 
+# Spec 002 audit fix #11 — preflight result cache.
+# Avoid re-prompting on every wave re-entry. Cache for 30 min in .devkid/.
+PREFLIGHT_CACHE_DIR="$PROJECT_ROOT/.devkid"
+PREFLIGHT_CACHE_FILE="$PREFLIGHT_CACHE_DIR/.preflight-ok"
+PREFLIGHT_CACHE_TTL_SEC=1800   # 30 min
+
+if [[ -f "$PREFLIGHT_CACHE_FILE" ]] && [[ "$RUN_AFTER" == "true" ]]; then
+    cache_mtime=$(stat -c %Y "$PREFLIGHT_CACHE_FILE" 2>/dev/null || echo 0)
+    now=$(date +%s)
+    age=$(( now - cache_mtime ))
+    if [[ $age -lt $PREFLIGHT_CACHE_TTL_SEC ]]; then
+        # Verify the cache matches the current env-hash (simple sentinel check)
+        cached_hash=$(cat "$PREFLIGHT_CACHE_FILE" 2>/dev/null || echo "")
+        env_hash=$(echo "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GOOGLE_API_KEY:-}${OLLAMA_BASE_URL:-}" | md5sum | cut -d' ' -f1)
+        if [[ "$cached_hash" == "$env_hash" ]]; then
+            echo "✓ preflight cached (age ${age}s, TTL ${PREFLIGHT_CACHE_TTL_SEC}s) — skipping re-check"
+            exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
+        fi
+    fi
+fi
+
+# Spec 002 audit fix #4 — short-circuit when sentinel is disabled.
+# Provider keys are ONLY needed by the sentinel micro-agent. If the project
+# has `sentinel.enabled: false` in dev-kid.yml, the keys are irrelevant and
+# the preflight provider gate is over-strict (this was the user's #1 friction).
+SENTINEL_ENABLED="true"
+if [[ -f "$PROJECT_ROOT/dev-kid.yml" ]]; then
+    SENTINEL_ENABLED=$(python3 -c "
+import sys
+try:
+    import yaml
+    c = yaml.safe_load(open('$PROJECT_ROOT/dev-kid.yml')) or {}
+    v = (c.get('sentinel') or {}).get('enabled', True)
+    print('true' if v is True else 'false' if v is False else 'true')
+except Exception:
+    print('true')  # safe default — gate stays on if yaml broken
+" 2>/dev/null || echo "true")
+fi
+
+if [[ "$SENTINEL_ENABLED" == "false" ]]; then
+    echo "==============================================="
+    echo "  dev-kid Preflight: sentinel disabled"
+    echo "  → skipping provider readiness check"
+    echo "  → dev-kid.yml has sentinel.enabled: false"
+    echo "==============================================="
+    if [[ "$RUN_AFTER" == "true" ]]; then
+        exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
+    else
+        echo "✅ Preflight passes (sentinel disabled — no providers required)"
+        exit 0
+    fi
+fi
+
+# Spec 002 audit fix #10 — non-TTY auto-yes (scripts/cron/agents don't have stdin).
+# Only fires when --yes was NOT explicitly passed AND we don't have a TTY.
+# Preserves interactive behavior for human terminal use.
+if [[ "$NON_INTERACTIVE" == "false" ]] && [[ ! -t 0 ]]; then
+    NON_INTERACTIVE=true
+    echo "  (non-TTY detected — auto-enabling --yes; pass --no-preflight to fully bypass)" >&2
+fi
+
 # Run sentinel-health, capture output
 if ! command -v dev-kid &>/dev/null; then
     echo "❌ dev-kid CLI not on PATH. Install dev-kid first." >&2
@@ -109,10 +170,18 @@ fi
 if [[ "$NON_INTERACTIVE" == "true" ]]; then
     if [[ "$ALL_READY" == "true" ]]; then
         echo "All providers ready. --yes flag set, proceeding..."
+        # Cache the success so subsequent waves don't re-check
+        mkdir -p "$PREFLIGHT_CACHE_DIR" 2>/dev/null && \
+            echo "$(echo "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GOOGLE_API_KEY:-}${OLLAMA_BASE_URL:-}" | md5sum | cut -d' ' -f1)" > "$PREFLIGHT_CACHE_FILE"
         exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
     else
         echo "❌ --yes flag passed but providers not ready (${TIERS_READY:-?}/${TIERS_TOTAL:-?})." >&2
         echo "   Refusing to proceed in non-interactive mode with reduced tiers." >&2
+        echo >&2
+        echo "   Bypass options:" >&2
+        echo "     1. Set sentinel.enabled: false in dev-kid.yml (skips this gate entirely)" >&2
+        echo "     2. Pass --no-preflight to dev-kid execute (this run only)" >&2
+        echo "     3. Source provider keys: source ~/.env / export ANTHROPIC_API_KEY=..." >&2
         exit 1
     fi
 fi
@@ -123,6 +192,9 @@ if [[ "$ALL_READY" == "true" ]]; then
     echo
     read -r -p "Proceed? (y/N): " confirm
     if [[ "${confirm,,}" == "y" || "${confirm,,}" == "yes" ]]; then
+        # Cache the success so subsequent waves don't re-prompt
+        mkdir -p "$PREFLIGHT_CACHE_DIR" 2>/dev/null && \
+            echo "$(echo "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GOOGLE_API_KEY:-}${OLLAMA_BASE_URL:-}" | md5sum | cut -d' ' -f1)" > "$PREFLIGHT_CACHE_FILE"
         exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
     else
         echo "Aborted by user. No dev-kid command was run."

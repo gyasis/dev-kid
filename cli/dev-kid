@@ -3,7 +3,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="2.2.0"
 export DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Color output
@@ -62,6 +62,7 @@ Usage: dev-kid [COMMAND] [OPTIONS]
 CORE COMMANDS:
   init [PATH]              Initialize dev-kid in project (default: current dir)
   init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
+  spec-resolve             Print which tasks.md devkid would use + why (pure read, no side effects)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
   preflight                Run sentinel-health + .env source check (no execute)
   execute [--no-preflight] [--yes] [--fresh-budget]
@@ -157,12 +158,15 @@ cmd_init() {
 }
 
 cmd_orchestrate() {
-    # Parse optional --agent-parse flag, phase id is the first non-flag arg
+    # Parse flags: --agent-parse, --force-symlink (Spec 002 autonomy fix);
+    # phase id is the first non-flag arg.
     local agent_parse=""
+    local force_symlink=""
     local phase_id=""
     for arg in "$@"; do
         case "$arg" in
-            --agent-parse) agent_parse="--agent-parse" ;;
+            --agent-parse)   agent_parse="--agent-parse" ;;
+            --force-symlink) force_symlink="1" ;;
             *) [ -z "$phase_id" ] && phase_id="$arg" ;;
         esac
     done
@@ -171,36 +175,98 @@ cmd_orchestrate() {
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
     [ -n "$agent_parse" ] && echo -e "   ${YELLOW}ℹ${NC}  LLM-backed dep parser ENABLED"
 
-    # Always prefer the speckit canonical tasks.md when one exists.
-    # This ensures [x] completion markers are read from the source of truth,
-    # not from a stale plain-file copy in the project root.
+    # ─── Resolve tasks.md (Spec 002 audit fix — autonomy refactor 2026-05-22) ───
+    # Resolution chain, highest priority first. Devkid attaches to A tasks.md no
+    # matter what — falls through deterministically, surfaces the source.
+    # See: ~/.dev-kid/AUTONOMY_FIXES.md (created by the audit synthesis)
+    #
+    #   0. Existing valid tasks.md symlink (HONOR user's explicit choice)
+    #   1. .specify/feature.json "feature_directory" / "name" (speckit canonical pointer)
+    #   2. .specify/specs/{branch}/tasks.md  (speckit branch convention)
+    #   3. specs/{branch}/tasks.md           (speckit without .specify prefix)
+    #   4. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (was: alphabetical-first, picked stale spec)
+    #
+    # Override flag: --force-symlink rebuilds the symlink from the chain regardless.
     BRANCH=$(git branch --show-current 2>/dev/null || echo "")
     FOUND=""
+    REASON=""
 
-    # 1. .specify/specs/{branch}/tasks.md  (speckit standard layout)
-    if [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
-        FOUND=".specify/specs/$BRANCH/tasks.md"
+    # 0. Honor existing symlink if it points at a real tasks.md (user gets the lever).
+    if [ -z "$force_symlink" ] && [ -L "tasks.md" ]; then
+        EXISTING_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+        if [ -n "$EXISTING_LINK" ] && [ -f "$EXISTING_LINK" ]; then
+            FOUND="$EXISTING_LINK"
+            REASON="existing-symlink (honored — pass --force-symlink to override)"
+        fi
     fi
 
-    # 2. specs/{branch}/tasks.md  (speckit without .specify prefix)
+    # 1. .specify/feature.json — speckit canonical pointer (was IGNORED before this fix)
+    if [ -z "$FOUND" ] && [ -f ".specify/feature.json" ]; then
+        FEATURE_DIR=$(python3 -c "
+import json
+try:
+    d = json.load(open('.specify/feature.json'))
+    print(d.get('feature_directory') or d.get('name') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+        if [ -n "$FEATURE_DIR" ]; then
+            for candidate in ".specify/$FEATURE_DIR/tasks.md" "$FEATURE_DIR/tasks.md" "specs/$FEATURE_DIR/tasks.md" ".specify/specs/$FEATURE_DIR/tasks.md"; do
+                if [ -f "$candidate" ]; then
+                    FOUND="$candidate"
+                    REASON=".specify/feature.json → $FEATURE_DIR"
+                    break
+                fi
+            done
+        fi
+    fi
+
+    # 2. .specify/specs/{branch}/tasks.md  (speckit standard layout)
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+        FOUND=".specify/specs/$BRANCH/tasks.md"
+        REASON="branch match (.specify/specs/$BRANCH)"
+    fi
+
+    # 3. specs/{branch}/tasks.md  (speckit without .specify prefix)
     if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
         FOUND="specs/$BRANCH/tasks.md"
+        REASON="branch match (specs/$BRANCH)"
     fi
 
-    # 3. specs/*/tasks.md  (fallback — sorted for determinism)
+    # 4. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (fix #7: was lexical-first)
     if [ -z "$FOUND" ]; then
-        FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | sort | head -1)
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+        if [ -n "$FOUND" ]; then
+            REASON="mtime-newest fallback (no branch/feature.json match)"
+        fi
     fi
 
-    if [ -n "$FOUND" ]; then
-        # Replace root tasks.md with a symlink if:
-        #   - it doesn't exist yet, OR
-        #   - it's a plain file (stale copy), OR
-        #   - it's a symlink pointing elsewhere
-        CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
-        if [ ! -e "tasks.md" ] || [ ! -L "tasks.md" ] || [ "$CURRENT_LINK" != "$FOUND" ]; then
-            echo -e "   ${YELLOW}ℹ${NC}  Symlinking tasks.md → $FOUND (speckit canonical source)"
+    if [ -z "$FOUND" ]; then
+        echo -e "   ${RED}❌${NC} Could not resolve tasks.md. Tried: existing symlink, .specify/feature.json, branch=$BRANCH, specs/*/tasks.md."
+        echo -e "      Fix: create .specify/feature.json, checkout a matching branch, or place tasks.md manually."
+        exit 2
+    fi
+
+    # Print the resolution explicitly. Fix #6 lite (full introspection is `dev-kid spec-resolve`).
+    echo -e "   ${GREEN}✓${NC} tasks.md = ${FOUND}"
+    echo -e "      source: ${REASON}"
+
+    # Update the symlink only when needed. Fix #2: surface the destructive case loudly.
+    CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+    if [ ! -e "tasks.md" ]; then
+        echo -e "   ${YELLOW}ℹ${NC}  Creating tasks.md → $FOUND"
+        ln -sf "$FOUND" tasks.md
+    elif [ ! -L "tasks.md" ]; then
+        echo -e "   ${YELLOW}⚠${NC}  REPLACING plain-file tasks.md with symlink → $FOUND"
+        ln -sf "$FOUND" tasks.md
+    elif [ "$CURRENT_LINK" != "$FOUND" ]; then
+        if [ -n "$force_symlink" ]; then
+            echo -e "   ${YELLOW}⚠${NC}  --force-symlink: OVERWRITING tasks.md symlink ($CURRENT_LINK → $FOUND)"
             ln -sf "$FOUND" tasks.md
+        else
+            # Should never reach here — priority-0 honors existing symlink.
+            # Kept as a defensive guard.
+            echo -e "   ${YELLOW}ℹ${NC}  tasks.md already symlinked to $CURRENT_LINK (matching resolver output)"
         fi
     fi
 
@@ -258,6 +324,125 @@ cmd_preflight() {
 cmd_init_check() {
     # Validate project setup. Distinct from `init` (which scaffolds a fresh project).
     python3 "$DEV_KID_ROOT/cli/init_check.py" "$@"
+}
+
+cmd_spec_resolve() {
+    # Spec 002 autonomy fix #6 — introspection: print the speckit resolution
+    # tuple (branch / feature.json / existing symlink / find-fallback) WITHOUT
+    # mutating anything. Lets the user / Claude see what tasks.md devkid would
+    # pick, before orchestrate gets a chance to create or overwrite the symlink.
+    #
+    # The "assembly-line manager" frame: this is the floor inspection. Before
+    # any work dispatches, you can see which station devkid is pointed at.
+    local BRANCH
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    echo -e "${BLUE}━━━ dev-kid spec-resolve — pure read, no side effects ━━━${NC}"
+    echo
+    echo "  cwd:              $(pwd)"
+    echo "  git branch:       ${BRANCH:-(detached HEAD or not a git repo)}"
+
+    # feature.json
+    if [ -f ".specify/feature.json" ]; then
+        local FJ
+        FJ=$(python3 -c "
+import json
+try:
+    d = json.load(open('.specify/feature.json'))
+    print(d.get('feature_directory') or d.get('name') or '(empty)')
+except Exception as e:
+    print(f'(parse-error: {e})')
+" 2>/dev/null)
+        echo "  .specify/feature.json: ${FJ}"
+    else
+        echo "  .specify/feature.json: (absent)"
+    fi
+
+    # current tasks.md symlink
+    if [ -L "tasks.md" ]; then
+        local CL
+        CL=$(readlink tasks.md)
+        if [ -f "$CL" ]; then
+            echo "  tasks.md symlink: → ${CL} (target exists)"
+        else
+            echo -e "  tasks.md symlink: → ${RED}${CL}${NC} (BROKEN — target missing)"
+        fi
+    elif [ -e "tasks.md" ]; then
+        echo "  tasks.md: (plain file, not a symlink — will be replaced on orchestrate)"
+    else
+        echo "  tasks.md: (absent — will be created on orchestrate)"
+    fi
+
+    # Re-run resolution chain (READ-ONLY — no ln -sf)
+    local FOUND="" REASON=""
+    if [ -L "tasks.md" ]; then
+        local EXISTING_LINK
+        EXISTING_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+        if [ -n "$EXISTING_LINK" ] && [ -f "$EXISTING_LINK" ]; then
+            FOUND="$EXISTING_LINK"
+            REASON="existing-symlink (priority 0)"
+        fi
+    fi
+    if [ -z "$FOUND" ] && [ -f ".specify/feature.json" ]; then
+        local FD
+        FD=$(python3 -c "
+import json
+try:
+    d = json.load(open('.specify/feature.json'))
+    print(d.get('feature_directory') or d.get('name') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+        if [ -n "$FD" ]; then
+            for candidate in ".specify/$FD/tasks.md" "$FD/tasks.md" "specs/$FD/tasks.md" ".specify/specs/$FD/tasks.md"; do
+                if [ -f "$candidate" ]; then
+                    FOUND="$candidate"
+                    REASON=".specify/feature.json → ${FD} (priority 1)"
+                    break
+                fi
+            done
+        fi
+    fi
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+        FOUND=".specify/specs/$BRANCH/tasks.md"
+        REASON="branch match (.specify/specs/$BRANCH) (priority 2)"
+    fi
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
+        FOUND="specs/$BRANCH/tasks.md"
+        REASON="branch match (specs/$BRANCH) (priority 2)"
+    fi
+    if [ -z "$FOUND" ]; then
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+        if [ -n "$FOUND" ]; then
+            REASON="mtime-newest fallback (priority 3)"
+        fi
+    fi
+
+    echo
+    if [ -n "$FOUND" ]; then
+        echo -e "  ${GREEN}━━━ RESOLUTION ━━━${NC}"
+        echo "  devkid would use: ${FOUND}"
+        echo "  source:           ${REASON}"
+        # Sanity check — task count + completion ratio
+        local TOTAL DONE
+        TOTAL=$(grep -cE "^- \[[ x]\]" "$FOUND" 2>/dev/null || echo "?")
+        DONE=$(grep -cE "^- \[x\]" "$FOUND" 2>/dev/null || echo "?")
+        echo "  task count:       ${DONE} / ${TOTAL} marked [x]"
+        if [ "$TOTAL" != "?" ] && [ "$DONE" = "$TOTAL" ] && [ "$TOTAL" -gt "0" ] 2>/dev/null; then
+            echo -e "  ${YELLOW}⚠${NC}  100% complete — orchestrate would produce 0 waves."
+            echo "      If you wanted a different spec, set .specify/feature.json or re-symlink."
+        fi
+    else
+        echo -e "  ${RED}━━━ NO RESOLUTION ━━━${NC}"
+        echo "  No tasks.md found via any source. Devkid will exit 2 on orchestrate."
+    fi
+
+    echo
+    # Cross-source agreement (init-check style) — surfaces divergence
+    local SOURCES=""
+    [ -L "tasks.md" ] && SOURCES="symlink=$(readlink tasks.md); "
+    [ -f ".specify/feature.json" ] && SOURCES="${SOURCES}feature.json=${FJ:-?}; "
+    [ -n "$BRANCH" ] && SOURCES="${SOURCES}branch=$BRANCH"
+    echo "  signals:  ${SOURCES}"
 }
 
 cmd_handoff_status() {
@@ -858,6 +1043,7 @@ main() {
         execute)            cmd_execute "$@" ;;
         preflight)          cmd_preflight "$@" ;;
         init-check)         cmd_init_check "$@" ;;
+        spec-resolve|which-spec)  cmd_spec_resolve "$@" ;;
         handoff-status)     cmd_handoff_status "$@" ;;
         handoff-complete)   cmd_handoff_complete "$@" ;;
         budget-status)      cmd_budget_status "$@" ;;
@@ -886,7 +1072,7 @@ main() {
         sentinel-health)    cmd_sentinel_health "$@" ;;
         status)             cmd_status "$@" ;;
         validate)           cmd_validate "$@" ;;
-        version)            echo "dev-kid v$VERSION" ;;
+        version|-v|--version) echo "dev-kid v$VERSION" ;;
         help|-h|--help)     show_help ;;
         *)
             echo -e "${RED}❌ Unknown command: $command${NC}"

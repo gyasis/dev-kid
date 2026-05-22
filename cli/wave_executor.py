@@ -132,15 +132,39 @@ class WaveExecutor:
             sys.exit(1)
 
     def _wave_already_complete(self, tasks: List[Dict]) -> bool:
-        """Return True if every task in the wave is already marked [x] in tasks.md."""
+        """Return True if every task in the wave is already marked [x] in tasks.md.
+
+        Spec 002 audit fix #5 — do NOT swallow file I/O errors as "incomplete".
+        Broken symlinks or unreadable tasks.md previously caused an infinite
+        replay loop where every wave was reported as not-done. Now we fail fast
+        with a diagnostic so the symlink / file problem surfaces immediately.
+        """
         try:
             content = self.tasks_file.read_text(encoding="utf-8")
-        except Exception:
-            return False
+        except FileNotFoundError:
+            print(f"⚠️  tasks.md missing or broken symlink: {self.tasks_file}")
+            print(f"    Diagnose with: dev-kid spec-resolve")
+            sys.exit(2)
+        except PermissionError as e:
+            print(f"⚠️  Cannot read tasks.md ({e}).")
+            sys.exit(2)
+        except Exception as e:
+            print(f"⚠️  Unexpected error reading tasks.md ({e}). Halting to avoid silent misroute.")
+            sys.exit(2)
         for task in tasks:
             task_desc = task["instruction"]
+            # Spec 002 audit fix #4 (related) — prefer task_id boundary match
+            # to avoid cross-spec substring collisions on shared phrases like
+            # "Create the data model" / "Add unit tests".
+            task_id = task.get("task_id", "")
             for line in content.split("\n"):
-                if task_desc in line:
+                # Strict-then-loose: prefer task-id anchored line; fall back to substring.
+                hit = False
+                if task_id and (f"] {task_id} " in line or f"] {task_id}:" in line or line.lstrip().startswith(f"- [x] {task_id}") or line.lstrip().startswith(f"- [ ] {task_id}")):
+                    hit = True
+                elif task_desc in line:
+                    hit = True
+                if hit:
                     if "[x]" not in line:
                         return False
                     break
