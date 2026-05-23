@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Using dev-kid in someone else's project?** Read [`AGENT_GUIDE.md`](AGENT_GUIDE.md) first — it covers *when* to reach for dev-kid, picking SpecKit vs lightweight mode, the canonical 5-line workflows, and anti-patterns. This CLAUDE.md is for editing dev-kid itself.
+
 ## Project Overview
 
 **Dev-Kid v2.0** is a complete development workflow system for Claude Code that provides:
