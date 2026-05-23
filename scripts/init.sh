@@ -146,14 +146,25 @@ if [ ! -f "dev-kid.yml" ]; then
     fi
 
     # Ask about sentinel setup (only on first init — dev-kid.yml didn't exist)
+    # Non-TTY contexts (CI, pipes, `echo N | dev-kid init`) default to N so the
+    # script doesn't hang or abort under `set -e` when read fails on EOF.
     echo ""
-    read -p "🛡️  Enable Integration Sentinel (auto test-fix loop after each task)? (y/N): " -n 1 -r
+    if [ -t 0 ]; then
+        read -p "🛡️  Enable Integration Sentinel (auto test-fix loop after each task)? (y/N): " -n 1 -r
+    else
+        REPLY="N"
+        echo "🛡️  Enable Integration Sentinel? (non-interactive: defaulting to N)"
+    fi
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     sed -i 's/enabled: false/enabled: true/' dev-kid.yml
     echo "   ✅ Sentinel enabled"
     echo ""
-    read -p "   Ollama URL for Tier 1 (local model) [http://localhost:11434, Enter to skip Tier 1]: " OLLAMA_URL
+    if [ -t 0 ]; then
+        read -p "   Ollama URL for Tier 1 (local model) [http://localhost:11434, Enter to skip Tier 1]: " OLLAMA_URL
+    else
+        OLLAMA_URL=""
+    fi
     if [ -n "$OLLAMA_URL" ]; then
         sed -i "s|ollama_url:.*|ollama_url: $OLLAMA_URL|" dev-kid.yml
         echo "   ✅ Ollama URL set to $OLLAMA_URL"
@@ -208,9 +219,14 @@ fi
 echo "   Creating config.json..."
 python3 "$DEV_KID_ROOT/cli/config_manager.py" init --force > /dev/null 2>&1
 
-# Ask about constitution setup
+# Ask about constitution setup (non-TTY safe — defaults to N)
 echo ""
-read -p "📜 Initialize project constitution? (y/N): " -n 1 -r
+if [ -t 0 ]; then
+    read -p "📜 Initialize project constitution? (y/N): " -n 1 -r
+else
+    REPLY="N"
+    echo "📜 Initialize project constitution? (non-interactive: defaulting to N)"
+fi
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "   Setting up constitution..."

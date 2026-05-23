@@ -60,7 +60,10 @@ show_help() {
 Usage: dev-kid [COMMAND] [OPTIONS]
 
 CORE COMMANDS:
-  init [PATH]              Initialize dev-kid in project (default: current dir)
+  init [PATH] [--lightweight]
+                           Initialize dev-kid in project (default: current dir)
+                           --lightweight: scaffold .dk/tasks.md marker for standalone mode
+                           (no SpecKit ceremony required; coexists with SpecKit if present)
   init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
   spec-resolve             Print which tasks.md devkid would use + why (pure read, no side effects)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
@@ -135,6 +138,7 @@ OPTIONS:
 
 EXAMPLES:
   dev-kid init                    # Initialize in current directory
+  dev-kid init --lightweight      # Standalone mode (no SpecKit) — creates .dk/tasks.md
   dev-kid orchestrate "Phase 7"   # Create execution plan from tasks.md
   dev-kid execute                 # Execute all waves
   dev-kid watchdog-start          # Start task monitoring
@@ -149,12 +153,44 @@ EOF
 # Command implementations
 
 cmd_init() {
-    local project_path="${1:-.}"
+    local lightweight=""
+    local project_path="."
+    for arg in "$@"; do
+        case "$arg" in
+            --lightweight) lightweight="1" ;;
+            *) project_path="$arg" ;;
+        esac
+    done
 
     echo -e "${GREEN}🚀 Initializing dev-kid in: $project_path${NC}"
 
     # Run init script
     "$DEV_KID_ROOT/scripts/init.sh" "$project_path"
+
+    # Lightweight mode: scaffold .dk/ marker dir with placeholder tasks.md
+    if [ -n "$lightweight" ]; then
+        local dk_dir="$project_path/.dk"
+        mkdir -p "$dk_dir"
+        if [ ! -f "$dk_dir/tasks.md" ]; then
+            cat > "$dk_dir/tasks.md" <<'EOF'
+# Tasks
+
+dev-kid lightweight mode — orchestrate any project without SpecKit ceremony.
+
+Format: `- [ ] TASK-ID: Description affecting `path/to/file.ext``
+Mark complete with `[x]` between waves; dev-kid verifies before each checkpoint.
+
+## Wave 1
+
+- [ ] T001: Replace this placeholder with your first task
+
+EOF
+            echo -e "   ${GREEN}✓${NC} Created $dk_dir/tasks.md (lightweight mode marker)"
+        else
+            echo -e "   ${YELLOW}ℹ${NC}  $dk_dir/tasks.md already exists — left untouched"
+        fi
+        echo -e "   ${GREEN}✓${NC} Lightweight mode active. Edit .dk/tasks.md then run: dev-kid orchestrate"
+    fi
 }
 
 cmd_orchestrate() {
@@ -181,10 +217,11 @@ cmd_orchestrate() {
     # See: ~/.dev-kid/AUTONOMY_FIXES.md (created by the audit synthesis)
     #
     #   0. Existing valid tasks.md symlink (HONOR user's explicit choice)
-    #   1. .specify/feature.json "feature_directory" / "name" (speckit canonical pointer)
-    #   2. .specify/specs/{branch}/tasks.md  (speckit branch convention)
-    #   3. specs/{branch}/tasks.md           (speckit without .specify prefix)
-    #   4. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (was: alphabetical-first, picked stale spec)
+    #   1. ./.dk/tasks.md — lightweight mode marker (explicit opt-in, coexists with SpecKit)
+    #   2. .specify/feature.json "feature_directory" / "name" (speckit canonical pointer)
+    #   3. .specify/specs/{branch}/tasks.md  (speckit branch convention)
+    #   4. specs/{branch}/tasks.md           (speckit without .specify prefix)
+    #   5. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (was: alphabetical-first, picked stale spec)
     #
     # Override flag: --force-symlink rebuilds the symlink from the chain regardless.
     BRANCH=$(git branch --show-current 2>/dev/null || echo "")
@@ -200,7 +237,13 @@ cmd_orchestrate() {
         fi
     fi
 
-    # 1. .specify/feature.json — speckit canonical pointer (was IGNORED before this fix)
+    # 1. ./.dk/tasks.md — lightweight mode marker (explicit opt-in via `dev-kid init --lightweight`)
+    if [ -z "$FOUND" ] && [ -f ".dk/tasks.md" ]; then
+        FOUND=".dk/tasks.md"
+        REASON="lightweight mode (.dk/tasks.md marker)"
+    fi
+
+    # 2. .specify/feature.json — speckit canonical pointer (was IGNORED before this fix)
     if [ -z "$FOUND" ] && [ -f ".specify/feature.json" ]; then
         FEATURE_DIR=$(python3 -c "
 import json
@@ -221,19 +264,19 @@ except Exception:
         fi
     fi
 
-    # 2. .specify/specs/{branch}/tasks.md  (speckit standard layout)
+    # 3. .specify/specs/{branch}/tasks.md  (speckit standard layout)
     if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
         FOUND=".specify/specs/$BRANCH/tasks.md"
         REASON="branch match (.specify/specs/$BRANCH)"
     fi
 
-    # 3. specs/{branch}/tasks.md  (speckit without .specify prefix)
+    # 4. specs/{branch}/tasks.md  (speckit without .specify prefix)
     if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
         FOUND="specs/$BRANCH/tasks.md"
         REASON="branch match (specs/$BRANCH)"
     fi
 
-    # 4. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (fix #7: was lexical-first)
+    # 5. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (fix #7: was lexical-first)
     if [ -z "$FOUND" ]; then
         FOUND=$(find specs -name "tasks.md" -maxdepth 3 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
         if [ -n "$FOUND" ]; then
@@ -242,8 +285,8 @@ except Exception:
     fi
 
     if [ -z "$FOUND" ]; then
-        echo -e "   ${RED}❌${NC} Could not resolve tasks.md. Tried: existing symlink, .specify/feature.json, branch=$BRANCH, specs/*/tasks.md."
-        echo -e "      Fix: create .specify/feature.json, checkout a matching branch, or place tasks.md manually."
+        echo -e "   ${RED}❌${NC} Could not resolve tasks.md. Tried: existing symlink, .dk/tasks.md, .specify/feature.json, branch=$BRANCH, specs/*/tasks.md."
+        echo -e "      Fix: run 'dev-kid init --lightweight' for standalone mode, or create .specify/feature.json / matching branch for SpecKit."
         exit 2
     fi
 
@@ -341,6 +384,13 @@ cmd_spec_resolve() {
     echo "  cwd:              $(pwd)"
     echo "  git branch:       ${BRANCH:-(detached HEAD or not a git repo)}"
 
+    # .dk/ marker (lightweight mode)
+    if [ -f ".dk/tasks.md" ]; then
+        echo "  .dk/tasks.md:     present (lightweight mode active)"
+    else
+        echo "  .dk/tasks.md:     (absent)"
+    fi
+
     # feature.json
     if [ -f ".specify/feature.json" ]; then
         local FJ
@@ -382,6 +432,10 @@ except Exception as e:
             REASON="existing-symlink (priority 0)"
         fi
     fi
+    if [ -z "$FOUND" ] && [ -f ".dk/tasks.md" ]; then
+        FOUND=".dk/tasks.md"
+        REASON="lightweight mode (.dk/tasks.md marker) (priority 1)"
+    fi
     if [ -z "$FOUND" ] && [ -f ".specify/feature.json" ]; then
         local FD
         FD=$(python3 -c "
@@ -396,7 +450,7 @@ except Exception:
             for candidate in ".specify/$FD/tasks.md" "$FD/tasks.md" "specs/$FD/tasks.md" ".specify/specs/$FD/tasks.md"; do
                 if [ -f "$candidate" ]; then
                     FOUND="$candidate"
-                    REASON=".specify/feature.json → ${FD} (priority 1)"
+                    REASON=".specify/feature.json → ${FD} (priority 2)"
                     break
                 fi
             done
@@ -404,16 +458,16 @@ except Exception:
     fi
     if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
         FOUND=".specify/specs/$BRANCH/tasks.md"
-        REASON="branch match (.specify/specs/$BRANCH) (priority 2)"
+        REASON="branch match (.specify/specs/$BRANCH) (priority 3)"
     fi
     if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
         FOUND="specs/$BRANCH/tasks.md"
-        REASON="branch match (specs/$BRANCH) (priority 2)"
+        REASON="branch match (specs/$BRANCH) (priority 4)"
     fi
     if [ -z "$FOUND" ]; then
         FOUND=$(find specs -name "tasks.md" -maxdepth 3 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
         if [ -n "$FOUND" ]; then
-            REASON="mtime-newest fallback (priority 3)"
+            REASON="mtime-newest fallback (priority 5)"
         fi
     fi
 
