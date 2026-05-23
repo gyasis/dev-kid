@@ -116,6 +116,158 @@ dev-kid status                          # shows current wave + pending tasks
 
 ---
 
+## 4b. Sentinel tier escalation — the decision tree
+
+When `dev-kid execute` runs a task with sentinel enabled, the **tier escalation logic** decides which model tier runs the test-and-fix loop. This is the most-asked "why did this happen?" question, so the full path is here.
+
+### The two configurations
+
+Dev-kid supports two tier modes — pick one in `dev-kid.yml`:
+
+```yaml
+sentinel:
+  enabled: true
+  tiers_file: ralph-tiers.json   # N-tier mode (preferred)
+  # OR
+  tier1:                          # Legacy 2-tier mode (when tiers_file is empty)
+    model: qwen3-coder:30b
+    ollama_url: http://localhost:11434
+    max_iterations: 5
+  tier2:
+    model: claude-sonnet-4-20250514
+    max_iterations: 10
+    max_budget_usd: 2.0
+```
+
+### N-tier ladder (with `tiers_file`)
+
+Reads tier definitions from a JSON file (`ralph-tiers.json` shipped with dev-kid). Tries each tier in order; first one that returns PASS wins. Sample ladder:
+
+| Tier name | Type | Models (artisan / librarian / critic) | Cost | Why |
+|---|---|---|---|---|
+| `all-local` | local | ollama/qwen3-coder:30b / gemma3:27b / deepseek-r1:32b | $0 | Free, but needs all three local models pulled |
+| `local-plus-gemini-lib` | mixed | qwen3-coder (local) + gemini-2.5-flash (free) + deepseek (local) | ~$0 | Free tier of Gemini |
+| `groq-fast-free` | cloud-free | groq/llama-3.3-70b (×3) | $0 | Free Groq tier, fast |
+| `cerebras-fast-free` | cloud-free | cerebras/llama-3.3-70b | $0 | Free Cerebras tier |
+| `openai-artisan-local-critic` | mixed | gpt-4o-mini + gemini-flash + deepseek-r1 (local) | ~$0.01-0.05 | Cheap cloud + free critic |
+| `mixed-budget` | cloud | gpt-4o-mini + gemini-flash + gemini-pro | ~$0.05-0.20 | Budget cloud |
+| `mixed-mid` | cloud | upgrade path | ~$0.20-1.00 | Mid-tier |
+| `claude-code-handoff` | handoff | claude-code-session (×3) | $0 (your subscription) | Tier 3 — escalate to YOU via Claude Code |
+
+### Escalation triggers (when does it move up a tier?)
+
+A tier returns one of: **PASSED** / **EXHAUSTED** / **SKIPPED** / **FAILED**.
+
+| Condition | Action |
+|---|---|
+| Tier returns **PASSED** | Stop. This is the winning tier. Record `tier_name_used` in manifest. |
+| Tier returns **EXHAUSTED** (hit `maxIterations` without PASS) | Escalate to next tier in ladder |
+| Tier returns **SKIPPED** (provider unreachable, e.g. Ollama down) | Escalate to next tier; logs `⚠️ skipped` |
+| Tier returns **FAILED** (model error, crash, timeout >300s) | Escalate to next tier |
+| Tier is `type: handoff` AND `requires_marker: allow-handoff` is **absent** (`.claude/sentinel/allow-handoff`) | **Skip the handoff tier entirely** — escalate to next or end |
+| Cumulative cost across ALL tiers > `sentinel.tier_orchestration.max_total_cost_usd` (default $5) | **HALT** entire `dev-kid execute` — no more sentinel runs |
+| Cumulative duration > `sentinel.tier_orchestration.max_total_duration_min` (default 30 min) | **HALT** entire `dev-kid execute` |
+| All tiers exhausted with no PASS | Sentinel result = FAIL, wave halts before checkpoint |
+
+### Legacy 2-tier (when `tiers_file` is empty)
+
+Simpler: just Tier 1 (Ollama) → Tier 2 (Claude Sonnet). No handoff.
+
+| Step | What |
+|---|---|
+| Tier 1 attempt | `cli/sentinel/tier_runner.py::run_tier1()` — invokes `micro-agent` against Ollama, up to `tier1.max_iterations` (default 5) |
+| Tier 1 timeout | 300s hard cap |
+| Tier 1 → Tier 2 escalation | Triggered by: Ollama unreachable OR exhausted iterations OR crash |
+| Tier 2 attempt | `cli/sentinel/tier_runner.py::run_tier2()` — invokes Claude Sonnet, up to `tier2.max_iterations` (default 10), `tier2.max_budget_usd` cap (default $2.00) |
+| Tier 2 budget exceeded | Stop Tier 2; if cumulative budget remaining, the next task gets a fresh attempt |
+| Both fail | Sentinel result = FAIL, wave halts |
+
+### Tier 3 — the Claude Code handoff (opt-in)
+
+When Tier 1 + Tier 2 (or all N-tier cloud tiers) exhaust without PASS, **AND** `.claude/sentinel/allow-handoff` exists, dev-kid creates a handoff request:
+
+```bash
+.claude/sentinel/SENTINEL-T001/handoff/request.json
+```
+
+This file lists the task, tier history, and what failed. Claude Code (the agent you're using right now) picks it up via:
+- `/devkid.handoff-process` slash command (interactive — Claude reads the request, works on it, then runs `dev-kid handoff-complete`)
+- `dev-kid handoff-status` (lists all pending)
+
+**To enable handoff:**
+```bash
+touch .claude/sentinel/allow-handoff
+```
+
+**To disable:**
+```bash
+rm .claude/sentinel/allow-handoff
+```
+
+### Decision tree (compact)
+
+```
+For each task:
+  ┌─ Sentinel enabled in dev-kid.yml? ─── no ──→ skip sentinel, proceed to checkpoint
+  │
+  yes
+  │
+  ▼
+  Detect test command (pytest / npm test / cargo test / etc.)
+  │
+  ┌─ Detected? ─── no ──→ result = PASS (vacuous; no test loop)
+  │
+  yes
+  │
+  ▼
+  Check cumulative budget cap ─── exceeded ──→ HALT execute (no more sentinel)
+  │
+  not exceeded
+  │
+  ▼
+  ┌─ tiers_file set? ──→ N-tier mode (loop ladder)
+  │                      ┌─ each tier in order:
+  │                      │   ┌─ tier.type == "handoff"?
+  │                      │   │   ┌─ allow-handoff marker exists? ── no → skip tier
+  │                      │   │   yes ↓
+  │                      │   ↓
+  │                      │   run tier
+  │                      │   ┌─ PASSED ──→ stop ladder, record winner
+  │                      │   ├─ EXHAUSTED/FAILED/SKIPPED → next tier
+  │                      │   └─ no more tiers → result = FAIL
+  │                      └─
+  │
+  └─ tiers_file empty? → 2-tier mode
+                          ┌─ run_tier1() (Ollama)
+                          │   ┌─ PASSED → stop, success
+                          │   └─ exhausted/skipped/failed ↓
+                          ▼
+                          run_tier2() (Claude Sonnet)
+                          ┌─ PASSED → stop, success
+                          └─ exhausted/failed → result = FAIL
+```
+
+### How to inspect what happened
+
+```bash
+# Per-task sentinel result + tier used
+jq '.result, .tier_used, .tier_name, .cost_usd, .iterations' \
+  .claude/sentinel/SENTINEL-T001/manifest.json
+
+# Cross-task dashboard
+dev-kid sentinel-status
+
+# Current cumulative budget
+dev-kid budget-status
+
+# Why did it escalate? Read the summary
+cat .claude/sentinel/SENTINEL-T001/summary.md
+```
+
+Full state-file schemas (manifest, handoff request, budget): see [`STATE_FILES_REFERENCE.md`](STATE_FILES_REFERENCE.md).
+
+---
+
 ## 5. Quick troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -149,6 +301,7 @@ When in doubt: ask the user *"want to run this through dev-kid?"* — short answ
 | For | See |
 |---|---|
 | Install / first-time human setup | `QUICKSTART.md` |
+| **`.claude/` state file schemas (no black boxes)** | `STATE_FILES_REFERENCE.md` |
 | Architecture deep-dive (Bash / Python / Rust split) | `INTEGRATION_GUIDE.md` |
 | Hook lifecycle (PreCompact, TaskCompleted, etc.) | `HOOKS_REFERENCE.md` |
 | Implementation notes (for editing dev-kid itself) | `CLAUDE.md` |

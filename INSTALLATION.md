@@ -7,7 +7,7 @@ Complete installation guide for dev-kid with Claude Code integration.
 ```bash
 git clone https://github.com/gyasis/dev-kid.git
 cd dev-kid
-./scripts/install.sh
+./install
 ```
 
 ## What Gets Installed
@@ -230,7 +230,7 @@ To update to latest version:
 ```bash
 cd /home/gyasis/Documents/code/dev-kid
 git pull
-./scripts/install.sh
+./install
 ```
 
 Skills and commands will be automatically updated in `~/.claude/`.

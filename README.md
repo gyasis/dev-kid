@@ -23,8 +23,8 @@ Dev-kid is dual-mode — works **standalone** as a CLI tool OR through **Claude 
 ### Standalone CLI
 
 ```bash
-dev-kid init                        # Initialize in current directory (SpecKit-style)
-dev-kid init --lightweight          # Initialize lightweight mode (no SpecKit ceremony — .dk/tasks.md)
+dev-kid init                        # Initialize in current directory (works with SpecKit if present)
+dev-kid init --lightweight          # Initialize lightweight mode (.dk/tasks.md — no SpecKit ceremony needed)
 dev-kid init-check                  # Validate project setup (10 health checks)
 dev-kid orchestrate "My phase"      # Build wave execution plan from tasks.md
 dev-kid preflight                   # Verify sentinel providers are ready
@@ -57,7 +57,7 @@ The slash commands invoke the CLI internally and add Claude-Code-specific UX (co
 - `--no-preflight` — skip the gate entirely
 - `--yes` / `-y` — skip the confirmation prompt only (CI use; refuses if tiers missing)
 
-This was added after a 2026-04-19 incident where a smoke test inadvertently kicked off a real wave execution because the preflight in older `devkid-preflight.sh` wrappers proceeded silently when all providers were ready. The y/N gate is now mandatory in interactive use.
+This was added after a 2026-04-19 incident where a smoke test inadvertently kicked off a real wave execution because the preflight in older `devkid-preflight.sh` wrappers proceeded silently when all providers were ready. The y/N gate is the **default** in interactive use — `--no-preflight` and `--yes` bypass it explicitly. Use `--no-preflight` only for repeated runs in a session where you've already validated providers.
 
 > **Integration Sentinel** is configured in `dev-kid.yml` with `sentinel.enabled: true/false`. Enable it to activate automatic micro-agent test validation after every task before wave checkpoints commit.
 
@@ -262,21 +262,25 @@ The installer automatically checks all dependencies and provides installation in
 # Install
 ./install
 
-# In your project
+# In your project — pick ONE mode:
+
+# Mode A: Lightweight (no SpecKit ceremony — just tasks + sentinel + checkpoints)
+cd your-project
+dev-kid init --lightweight       # scaffolds .dk/tasks.md placeholder
+$EDITOR .dk/tasks.md             # author your tasks
+dev-kid orchestrate "Phase 1"
+dev-kid execute
+
+# Mode B: With SpecKit (formal spec → plan → tasks paper trail)
 cd your-project
 dev-kid init
-
-# With Speckit (recommended)
 /speckit.constitution
 /speckit.specify "Your feature"
 /speckit.tasks
 /devkid.execute
-
-# Or standalone
-echo "- [ ] Task 1" > tasks.md
-dev-kid orchestrate "Phase 1"
-dev-kid execute
 ```
+
+**Which mode?** See [`AGENT_GUIDE.md`](AGENT_GUIDE.md) for the decision tree. Short version: lightweight for experiments and one-off work; SpecKit for big features needing the formal paper trail. Both coexist (`.dk/` wins when both present).
 
 ## Installation
 
