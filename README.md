@@ -18,9 +18,13 @@ That's it! No `.sh` extension, no complex setup. One command installs everything
 
 Dev-kid is dual-mode — works **standalone** as a CLI tool OR through **Claude Code** as a set of slash-command skills.
 
+> **AI agents:** see [`AGENT_GUIDE.md`](AGENT_GUIDE.md) for *when* to invoke dev-kid, picking SpecKit vs lightweight mode, canonical workflows, and anti-patterns.
+
 ### Standalone CLI
 
 ```bash
+dev-kid init                        # Initialize in current directory (SpecKit-style)
+dev-kid init --lightweight          # Initialize lightweight mode (no SpecKit ceremony — .dk/tasks.md)
 dev-kid init-check                  # Validate project setup (10 health checks)
 dev-kid orchestrate "My phase"      # Build wave execution plan from tasks.md
 dev-kid preflight                   # Verify sentinel providers are ready
