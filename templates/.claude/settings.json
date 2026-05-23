@@ -26,6 +26,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/post-tool-use.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/handoff-notifier.sh"
           }
         ]
       }
@@ -36,6 +40,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/user-prompt-submit.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/handoff-notifier.sh"
           }
         ]
       }
@@ -46,6 +54,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/handoff-notifier.sh"
           }
         ]
       }
@@ -95,7 +107,7 @@
     "timeout": 30000,
     "env": {
       "DEV_KID_HOOKS_ENABLED": "true",
-      "DEV_KID_AUTO_SYNC_GITHUB": "true",
+      "DEV_KID_AUTO_SYNC_GITHUB": "false",
       "DEV_KID_AUTO_CHECKPOINT": "true"
     }
   }

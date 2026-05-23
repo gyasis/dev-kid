@@ -144,6 +144,69 @@ def check_sentinel_can_parse_tasks() -> Tuple[str, str]:
     return CheckResult.WARN, "sentinel-run output unrecognized format — may need investigation"
 
 
+def check_speckit_alignment() -> Tuple[str, str]:
+    """Spec 002 audit fix #8 — verify branch / feature.json / symlink agree.
+
+    The user's #1 friction event was a silent divergence between these three
+    signals. This check surfaces the divergence so it's caught BEFORE
+    orchestrate runs and (mis-)resolves to the wrong spec.
+    """
+    try:
+        # branch
+        result = subprocess.run(
+            ["git", "branch", "--show-current"], capture_output=True, text=True, timeout=5
+        )
+        branch = result.stdout.strip()
+    except Exception:
+        branch = ""
+
+    # feature.json
+    feature_dir = None
+    fj = CWD / ".specify" / "feature.json"
+    if fj.exists():
+        try:
+            import json
+            d = json.loads(fj.read_text())
+            feature_dir = d.get("feature_directory") or d.get("name")
+        except Exception as e:
+            return CheckResult.WARN, f".specify/feature.json present but unparseable: {e}"
+
+    # symlink target
+    tm = CWD / "tasks.md"
+    symlink_target = None
+    if tm.is_symlink():
+        try:
+            symlink_target = os.readlink(tm)
+        except Exception:
+            pass
+
+    # Cross-reference. What does each signal "point at"?
+    branch_dir = f"specs/{branch}" if branch else None
+    fj_dir = feature_dir if feature_dir else None
+    sl_dir = None
+    if symlink_target:
+        # strip /tasks.md suffix
+        sl_dir = symlink_target.rsplit("/tasks.md", 1)[0] if "/tasks.md" in symlink_target else symlink_target
+
+    live_sources = {k: v for k, v in {
+        "branch": branch_dir,
+        "feature.json": fj_dir,
+        "symlink": sl_dir,
+    }.items() if v}
+
+    if not live_sources:
+        return CheckResult.WARN, "no speckit signals present (no branch, no feature.json, no symlink) — orchestrate will use mtime fallback"
+
+    # All signals agree?
+    distinct = set(live_sources.values())
+    if len(distinct) == 1:
+        return CheckResult.PASS, f"speckit signals agree → {next(iter(distinct))}  (sources: {list(live_sources)})"
+
+    # Disagreement — show what each says
+    summary = ", ".join(f"{k}={v}" for k, v in live_sources.items())
+    return CheckResult.FAIL, f"speckit signals DISAGREE: {summary}. Run `dev-kid spec-resolve` to see which wins."
+
+
 CHECKS = [
     ("dev-kid on PATH", check_dev_kid_on_path),
     ("dev-kid.yml", check_dev_kid_yml),
@@ -151,6 +214,7 @@ CHECKS = [
     (".env keys", check_env_keys),
     ("tasks.md", check_tasks_md),
     ("tasks.md symlink", check_tasks_md_symlink),
+    ("speckit alignment", check_speckit_alignment),  # Spec 002 audit fix #8
     ("execution_plan.json", check_execution_plan),
     ("constitution", check_constitution),
     ("Claude Code hooks", check_claude_hooks),

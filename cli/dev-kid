@@ -3,7 +3,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="2.2.1"
 export DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Color output
@@ -60,13 +60,22 @@ show_help() {
 Usage: dev-kid [COMMAND] [OPTIONS]
 
 CORE COMMANDS:
-  init [PATH]              Initialize dev-kid in project (default: current dir)
+  init [PATH] [--lightweight]
+                           Initialize dev-kid in project (default: current dir)
+                           --lightweight: scaffold .dk/tasks.md marker for standalone mode
+                           (no SpecKit ceremony required; coexists with SpecKit if present)
   init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
+  spec-resolve             Print which tasks.md devkid would use + why (pure read, no side effects)
   orchestrate [PHASE]      Convert tasks.md into wave execution plan
   preflight                Run sentinel-health + .env source check (no execute)
-  execute [--no-preflight] [--yes]
+  execute [--no-preflight] [--yes] [--fresh-budget]
                            Execute waves from execution_plan.json
                            (preflight gate runs first by default; --no-preflight bypass)
+                           (--fresh-budget resets cumulative sentinel spend to \$0)
+  budget-status            Show cumulative sentinel spend for this project
+  handoff-status           List pending Claude Code handoff requests
+  handoff-complete <T###> [--failed] [--notes "msg"]
+                           Mark a Claude Code handoff request complete
   sync-memory              Update Memory Bank with current state
   checkpoint [MESSAGE]     Create semantic git checkpoint
   micro-checkpoint [MSG]   Quick commit (Ralph smart zone optimization)
@@ -129,6 +138,7 @@ OPTIONS:
 
 EXAMPLES:
   dev-kid init                    # Initialize in current directory
+  dev-kid init --lightweight      # Standalone mode (no SpecKit) — creates .dk/tasks.md
   dev-kid orchestrate "Phase 7"   # Create execution plan from tasks.md
   dev-kid execute                 # Execute all waves
   dev-kid watchdog-start          # Start task monitoring
@@ -143,21 +153,56 @@ EOF
 # Command implementations
 
 cmd_init() {
-    local project_path="${1:-.}"
+    local lightweight=""
+    local project_path="."
+    for arg in "$@"; do
+        case "$arg" in
+            --lightweight) lightweight="1" ;;
+            *) project_path="$arg" ;;
+        esac
+    done
 
     echo -e "${GREEN}🚀 Initializing dev-kid in: $project_path${NC}"
 
     # Run init script
     "$DEV_KID_ROOT/scripts/init.sh" "$project_path"
+
+    # Lightweight mode: scaffold .dk/ marker dir with placeholder tasks.md
+    if [ -n "$lightweight" ]; then
+        local dk_dir="$project_path/.dk"
+        mkdir -p "$dk_dir"
+        if [ ! -f "$dk_dir/tasks.md" ]; then
+            cat > "$dk_dir/tasks.md" <<'EOF'
+# Tasks
+
+dev-kid lightweight mode — orchestrate any project without SpecKit ceremony.
+
+Format: `- [ ] TASK-ID: Description affecting `path/to/file.ext``
+Mark complete with `[x]` between waves; dev-kid verifies before each checkpoint.
+
+## Wave 1
+
+- [ ] T001: Replace this placeholder with your first task
+
+EOF
+            echo -e "   ${GREEN}✓${NC} Created $dk_dir/tasks.md (lightweight mode marker)"
+        else
+            echo -e "   ${YELLOW}ℹ${NC}  $dk_dir/tasks.md already exists — left untouched"
+        fi
+        echo -e "   ${GREEN}✓${NC} Lightweight mode active. Edit .dk/tasks.md then run: dev-kid orchestrate"
+    fi
 }
 
 cmd_orchestrate() {
-    # Parse optional --agent-parse flag, phase id is the first non-flag arg
+    # Parse flags: --agent-parse, --force-symlink (Spec 002 autonomy fix);
+    # phase id is the first non-flag arg.
     local agent_parse=""
+    local force_symlink=""
     local phase_id=""
     for arg in "$@"; do
         case "$arg" in
-            --agent-parse) agent_parse="--agent-parse" ;;
+            --agent-parse)   agent_parse="--agent-parse" ;;
+            --force-symlink) force_symlink="1" ;;
             *) [ -z "$phase_id" ] && phase_id="$arg" ;;
         esac
     done
@@ -166,36 +211,105 @@ cmd_orchestrate() {
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
     [ -n "$agent_parse" ] && echo -e "   ${YELLOW}ℹ${NC}  LLM-backed dep parser ENABLED"
 
-    # Always prefer the speckit canonical tasks.md when one exists.
-    # This ensures [x] completion markers are read from the source of truth,
-    # not from a stale plain-file copy in the project root.
+    # ─── Resolve tasks.md (Spec 002 audit fix — autonomy refactor 2026-05-22) ───
+    # Resolution chain, highest priority first. Devkid attaches to A tasks.md no
+    # matter what — falls through deterministically, surfaces the source.
+    # See: ~/.dev-kid/AUTONOMY_FIXES.md (created by the audit synthesis)
+    #
+    #   0. Existing valid tasks.md symlink (HONOR user's explicit choice)
+    #   1. ./.dk/tasks.md — lightweight mode marker (explicit opt-in, coexists with SpecKit)
+    #   2. .specify/feature.json "feature_directory" / "name" (speckit canonical pointer)
+    #   3. .specify/specs/{branch}/tasks.md  (speckit branch convention)
+    #   4. specs/{branch}/tasks.md           (speckit without .specify prefix)
+    #   5. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (was: alphabetical-first, picked stale spec)
+    #
+    # Override flag: --force-symlink rebuilds the symlink from the chain regardless.
     BRANCH=$(git branch --show-current 2>/dev/null || echo "")
     FOUND=""
+    REASON=""
 
-    # 1. .specify/specs/{branch}/tasks.md  (speckit standard layout)
-    if [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
-        FOUND=".specify/specs/$BRANCH/tasks.md"
+    # 0. Honor existing symlink if it points at a real tasks.md (user gets the lever).
+    if [ -z "$force_symlink" ] && [ -L "tasks.md" ]; then
+        EXISTING_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+        if [ -n "$EXISTING_LINK" ] && [ -f "$EXISTING_LINK" ]; then
+            FOUND="$EXISTING_LINK"
+            REASON="existing-symlink (honored — pass --force-symlink to override)"
+        fi
     fi
 
-    # 2. specs/{branch}/tasks.md  (speckit without .specify prefix)
+    # 1. ./.dk/tasks.md — lightweight mode marker (explicit opt-in via `dev-kid init --lightweight`)
+    if [ -z "$FOUND" ] && [ -f ".dk/tasks.md" ]; then
+        FOUND=".dk/tasks.md"
+        REASON="lightweight mode (.dk/tasks.md marker)"
+    fi
+
+    # 2. .specify/feature.json — speckit canonical pointer (was IGNORED before this fix)
+    if [ -z "$FOUND" ] && [ -f ".specify/feature.json" ]; then
+        FEATURE_DIR=$(python3 -c "
+import json
+try:
+    d = json.load(open('.specify/feature.json'))
+    print(d.get('feature_directory') or d.get('name') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+        if [ -n "$FEATURE_DIR" ]; then
+            for candidate in ".specify/$FEATURE_DIR/tasks.md" "$FEATURE_DIR/tasks.md" "specs/$FEATURE_DIR/tasks.md" ".specify/specs/$FEATURE_DIR/tasks.md"; do
+                if [ -f "$candidate" ]; then
+                    FOUND="$candidate"
+                    REASON=".specify/feature.json → $FEATURE_DIR"
+                    break
+                fi
+            done
+        fi
+    fi
+
+    # 3. .specify/specs/{branch}/tasks.md  (speckit standard layout)
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+        FOUND=".specify/specs/$BRANCH/tasks.md"
+        REASON="branch match (.specify/specs/$BRANCH)"
+    fi
+
+    # 4. specs/{branch}/tasks.md  (speckit without .specify prefix)
     if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
         FOUND="specs/$BRANCH/tasks.md"
+        REASON="branch match (specs/$BRANCH)"
     fi
 
-    # 3. specs/*/tasks.md  (fallback — sorted for determinism)
+    # 5. specs/*/tasks.md — MOST-RECENTLY-MODIFIED (fix #7: was lexical-first)
     if [ -z "$FOUND" ]; then
-        FOUND=$(find specs -name "tasks.md" -maxdepth 3 2>/dev/null | sort | head -1)
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+        if [ -n "$FOUND" ]; then
+            REASON="mtime-newest fallback (no branch/feature.json match)"
+        fi
     fi
 
-    if [ -n "$FOUND" ]; then
-        # Replace root tasks.md with a symlink if:
-        #   - it doesn't exist yet, OR
-        #   - it's a plain file (stale copy), OR
-        #   - it's a symlink pointing elsewhere
-        CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
-        if [ ! -e "tasks.md" ] || [ ! -L "tasks.md" ] || [ "$CURRENT_LINK" != "$FOUND" ]; then
-            echo -e "   ${YELLOW}ℹ${NC}  Symlinking tasks.md → $FOUND (speckit canonical source)"
+    if [ -z "$FOUND" ]; then
+        echo -e "   ${RED}❌${NC} Could not resolve tasks.md. Tried: existing symlink, .dk/tasks.md, .specify/feature.json, branch=$BRANCH, specs/*/tasks.md."
+        echo -e "      Fix: run 'dev-kid init --lightweight' for standalone mode, or create .specify/feature.json / matching branch for SpecKit."
+        exit 2
+    fi
+
+    # Print the resolution explicitly. Fix #6 lite (full introspection is `dev-kid spec-resolve`).
+    echo -e "   ${GREEN}✓${NC} tasks.md = ${FOUND}"
+    echo -e "      source: ${REASON}"
+
+    # Update the symlink only when needed. Fix #2: surface the destructive case loudly.
+    CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+    if [ ! -e "tasks.md" ]; then
+        echo -e "   ${YELLOW}ℹ${NC}  Creating tasks.md → $FOUND"
+        ln -sf "$FOUND" tasks.md
+    elif [ ! -L "tasks.md" ]; then
+        echo -e "   ${YELLOW}⚠${NC}  REPLACING plain-file tasks.md with symlink → $FOUND"
+        ln -sf "$FOUND" tasks.md
+    elif [ "$CURRENT_LINK" != "$FOUND" ]; then
+        if [ -n "$force_symlink" ]; then
+            echo -e "   ${YELLOW}⚠${NC}  --force-symlink: OVERWRITING tasks.md symlink ($CURRENT_LINK → $FOUND)"
             ln -sf "$FOUND" tasks.md
+        else
+            # Should never reach here — priority-0 honors existing symlink.
+            # Kept as a defensive guard.
+            echo -e "   ${YELLOW}ℹ${NC}  tasks.md already symlinked to $CURRENT_LINK (matching resolver output)"
         fi
     fi
 
@@ -208,17 +322,27 @@ cmd_orchestrate() {
 }
 
 cmd_execute() {
-    # Parse --no-preflight / --yes flags before dispatch
+    # Parse --no-preflight / --yes / --fresh-budget flags before dispatch
     local skip_preflight=false
     local non_interactive=false
+    local fresh_budget=false
     local remaining_args=()
     for arg in "$@"; do
         case "$arg" in
             --no-preflight)  skip_preflight=true ;;
             --yes|-y)        non_interactive=true ;;
+            --fresh-budget)  fresh_budget=true ;;
             *)               remaining_args+=("$arg") ;;
         esac
     done
+
+    # --fresh-budget: reset cumulative spend BEFORE the run begins
+    if [[ "$fresh_budget" == "true" ]]; then
+        if [ -f .claude/sentinel/.budget-state.json ]; then
+            rm .claude/sentinel/.budget-state.json
+            echo -e "${YELLOW}🔄 --fresh-budget: cumulative spend reset to \$0.00${NC}"
+        fi
+    fi
 
     # Default: preflight gate first (auto-source .env, sentinel-health,
     # interactive y/N confirmation). Bypass with --no-preflight (advanced).
@@ -243,6 +367,198 @@ cmd_preflight() {
 cmd_init_check() {
     # Validate project setup. Distinct from `init` (which scaffolds a fresh project).
     python3 "$DEV_KID_ROOT/cli/init_check.py" "$@"
+}
+
+cmd_spec_resolve() {
+    # Spec 002 autonomy fix #6 — introspection: print the speckit resolution
+    # tuple (branch / feature.json / existing symlink / find-fallback) WITHOUT
+    # mutating anything. Lets the user / Claude see what tasks.md devkid would
+    # pick, before orchestrate gets a chance to create or overwrite the symlink.
+    #
+    # The "assembly-line manager" frame: this is the floor inspection. Before
+    # any work dispatches, you can see which station devkid is pointed at.
+    local BRANCH
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    echo -e "${BLUE}━━━ dev-kid spec-resolve — pure read, no side effects ━━━${NC}"
+    echo
+    echo "  cwd:              $(pwd)"
+    echo "  git branch:       ${BRANCH:-(detached HEAD or not a git repo)}"
+
+    # .dk/ marker (lightweight mode)
+    if [ -f ".dk/tasks.md" ]; then
+        echo "  .dk/tasks.md:     present (lightweight mode active)"
+    else
+        echo "  .dk/tasks.md:     (absent)"
+    fi
+
+    # feature.json
+    if [ -f ".specify/feature.json" ]; then
+        local FJ
+        FJ=$(python3 -c "
+import json
+try:
+    d = json.load(open('.specify/feature.json'))
+    print(d.get('feature_directory') or d.get('name') or '(empty)')
+except Exception as e:
+    print(f'(parse-error: {e})')
+" 2>/dev/null)
+        echo "  .specify/feature.json: ${FJ}"
+    else
+        echo "  .specify/feature.json: (absent)"
+    fi
+
+    # current tasks.md symlink
+    if [ -L "tasks.md" ]; then
+        local CL
+        CL=$(readlink tasks.md)
+        if [ -f "$CL" ]; then
+            echo "  tasks.md symlink: → ${CL} (target exists)"
+        else
+            echo -e "  tasks.md symlink: → ${RED}${CL}${NC} (BROKEN — target missing)"
+        fi
+    elif [ -e "tasks.md" ]; then
+        echo "  tasks.md: (plain file, not a symlink — will be replaced on orchestrate)"
+    else
+        echo "  tasks.md: (absent — will be created on orchestrate)"
+    fi
+
+    # Re-run resolution chain (READ-ONLY — no ln -sf)
+    local FOUND="" REASON=""
+    if [ -L "tasks.md" ]; then
+        local EXISTING_LINK
+        EXISTING_LINK=$(readlink tasks.md 2>/dev/null || echo "")
+        if [ -n "$EXISTING_LINK" ] && [ -f "$EXISTING_LINK" ]; then
+            FOUND="$EXISTING_LINK"
+            REASON="existing-symlink (priority 0)"
+        fi
+    fi
+    if [ -z "$FOUND" ] && [ -f ".dk/tasks.md" ]; then
+        FOUND=".dk/tasks.md"
+        REASON="lightweight mode (.dk/tasks.md marker) (priority 1)"
+    fi
+    if [ -z "$FOUND" ] && [ -f ".specify/feature.json" ]; then
+        local FD
+        FD=$(python3 -c "
+import json
+try:
+    d = json.load(open('.specify/feature.json'))
+    print(d.get('feature_directory') or d.get('name') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+        if [ -n "$FD" ]; then
+            for candidate in ".specify/$FD/tasks.md" "$FD/tasks.md" "specs/$FD/tasks.md" ".specify/specs/$FD/tasks.md"; do
+                if [ -f "$candidate" ]; then
+                    FOUND="$candidate"
+                    REASON=".specify/feature.json → ${FD} (priority 2)"
+                    break
+                fi
+            done
+        fi
+    fi
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f ".specify/specs/$BRANCH/tasks.md" ]; then
+        FOUND=".specify/specs/$BRANCH/tasks.md"
+        REASON="branch match (.specify/specs/$BRANCH) (priority 3)"
+    fi
+    if [ -z "$FOUND" ] && [ -n "$BRANCH" ] && [ -f "specs/$BRANCH/tasks.md" ]; then
+        FOUND="specs/$BRANCH/tasks.md"
+        REASON="branch match (specs/$BRANCH) (priority 4)"
+    fi
+    if [ -z "$FOUND" ]; then
+        FOUND=$(find specs -name "tasks.md" -maxdepth 3 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+        if [ -n "$FOUND" ]; then
+            REASON="mtime-newest fallback (priority 5)"
+        fi
+    fi
+
+    echo
+    if [ -n "$FOUND" ]; then
+        echo -e "  ${GREEN}━━━ RESOLUTION ━━━${NC}"
+        echo "  devkid would use: ${FOUND}"
+        echo "  source:           ${REASON}"
+        # Sanity check — task count + completion ratio
+        local TOTAL DONE
+        TOTAL=$(grep -cE "^- \[[ x]\]" "$FOUND" 2>/dev/null || echo "?")
+        DONE=$(grep -cE "^- \[x\]" "$FOUND" 2>/dev/null || echo "?")
+        echo "  task count:       ${DONE} / ${TOTAL} marked [x]"
+        if [ "$TOTAL" != "?" ] && [ "$DONE" = "$TOTAL" ] && [ "$TOTAL" -gt "0" ] 2>/dev/null; then
+            echo -e "  ${YELLOW}⚠${NC}  100% complete — orchestrate would produce 0 waves."
+            echo "      If you wanted a different spec, set .specify/feature.json or re-symlink."
+        fi
+    else
+        echo -e "  ${RED}━━━ NO RESOLUTION ━━━${NC}"
+        echo "  No tasks.md found via any source. Devkid will exit 2 on orchestrate."
+    fi
+
+    echo
+    # Cross-source agreement (init-check style) — surfaces divergence
+    local SOURCES=""
+    [ -L "tasks.md" ] && SOURCES="symlink=$(readlink tasks.md); "
+    [ -f ".specify/feature.json" ] && SOURCES="${SOURCES}feature.json=${FJ:-?}; "
+    [ -n "$BRANCH" ] && SOURCES="${SOURCES}branch=$BRANCH"
+    echo "  signals:  ${SOURCES}"
+}
+
+cmd_handoff_status() {
+    # Show all pending Claude Code handoff requests in the current project.
+    python3 -c "
+import sys
+sys.path.insert(0, '$DEV_KID_ROOT/cli')
+from pathlib import Path
+from sentinel.handoff import list_pending_handoffs
+pending = list_pending_handoffs(Path.cwd())
+if not pending:
+    print('No pending handoff requests.')
+else:
+    print(f'Pending Claude Code handoffs ({len(pending)}):')
+    for req in pending:
+        print(f\"  - {req.get('task_id')}: {req.get('task_description', '(no description)')[:80]}\")
+        print(f\"    request file: .claude/sentinel/SENTINEL-{req.get('task_id')}/handoff/request.json\")
+"
+}
+
+cmd_handoff_complete() {
+    # Mark a handoff complete: dev-kid handoff-complete <task_id> [--failed] [--notes msg]
+    # Args passed via env vars (NOT string interpolation) to defeat shell injection
+    # via crafted --notes payloads (e.g. --notes "'; os.system('rm -rf .'); '").
+    local task_id=""
+    local succeeded="True"
+    local notes=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --failed) succeeded="False"; shift ;;
+            --notes) notes="$2"; shift 2 ;;
+            *) [[ -z "$task_id" ]] && task_id="$1"; shift ;;
+        esac
+    done
+    if [[ -z "$task_id" ]]; then
+        echo "Usage: dev-kid handoff-complete <task_id> [--failed] [--notes \"message\"]" >&2
+        exit 2
+    fi
+    DK_TASK_ID="$task_id" DK_SUCCEEDED="$succeeded" DK_NOTES="$notes" \
+    python3 -c "
+import os, sys
+sys.path.insert(0, os.path.join(os.environ['DEV_KID_ROOT'], 'cli'))
+from pathlib import Path
+from sentinel.handoff import write_handoff_complete
+p = write_handoff_complete(
+    task_id=os.environ['DK_TASK_ID'],
+    project_root=Path.cwd(),
+    succeeded=(os.environ['DK_SUCCEEDED'] == 'True'),
+    notes=os.environ.get('DK_NOTES', ''),
+)
+print(f'Wrote handoff complete: {p}')
+"
+}
+
+cmd_budget_status() {
+    # Show cumulative sentinel spend for this project.
+    python3 -c "
+import sys
+sys.path.insert(0, '$DEV_KID_ROOT/cli')
+from sentinel.budget_tracker import get_tracker
+print(get_tracker().summary())
+"
 }
 
 cmd_sync_memory() {
@@ -593,11 +909,14 @@ try:
 
     # Provider status
     print("  Providers:")
+    import os as _os
     providers = [
         ('Ollama', health['tier1_available'], health['tier1_url']),
-        ('Anthropic', health['tier2_available'], 'ANTHROPIC_API_KEY'),
-        ('Google', health.get('google_available', False), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
-        ('OpenAI', health.get('openai_available', False), 'OPENAI_API_KEY'),
+        ('Anthropic', health['tier2_available'] or bool(_os.environ.get('ANTHROPIC_API_KEY')), 'ANTHROPIC_API_KEY'),
+        ('Google', health.get('google_available', False) or bool(_os.environ.get('GOOGLE_API_KEY') or _os.environ.get('GEMINI_API_KEY')), 'GOOGLE_API_KEY or GEMINI_API_KEY'),
+        ('OpenAI', health.get('openai_available', False) or bool(_os.environ.get('OPENAI_API_KEY')), 'OPENAI_API_KEY'),
+        ('Groq', bool(_os.environ.get('GROQ_API_KEY')), 'GROQ_API_KEY'),
+        ('Cerebras', bool(_os.environ.get('CEREBRAS_API_KEY')), 'CEREBRAS_API_KEY'),
     ]
     for name, ok, detail in providers:
         icon = '✅' if ok else '❌'
@@ -778,6 +1097,10 @@ main() {
         execute)            cmd_execute "$@" ;;
         preflight)          cmd_preflight "$@" ;;
         init-check)         cmd_init_check "$@" ;;
+        spec-resolve|which-spec)  cmd_spec_resolve "$@" ;;
+        handoff-status)     cmd_handoff_status "$@" ;;
+        handoff-complete)   cmd_handoff_complete "$@" ;;
+        budget-status)      cmd_budget_status "$@" ;;
         sync-memory)        cmd_sync_memory "$@" ;;
         checkpoint)         cmd_checkpoint "$@" ;;
         micro-checkpoint)   cmd_micro_checkpoint "$@" ;;
@@ -803,7 +1126,7 @@ main() {
         sentinel-health)    cmd_sentinel_health "$@" ;;
         status)             cmd_status "$@" ;;
         validate)           cmd_validate "$@" ;;
-        version)            echo "dev-kid v$VERSION" ;;
+        version|-v|--version) echo "dev-kid v$VERSION" ;;
         help|-h|--help)     show_help ;;
         *)
             echo -e "${RED}❌ Unknown command: $command${NC}"

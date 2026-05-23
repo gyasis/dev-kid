@@ -4,6 +4,7 @@ Task Orchestrator - Converts linear tasks into parallel wave execution
 """
 
 import json
+import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -712,6 +713,29 @@ class TaskOrchestrator:
         if skipped:
             print(f"   Skipping {skipped} already-completed task(s) [x]")
 
+        # Spec 002 audit fix #3 — refuse 100%-skip case loudly.
+        # A 100%-complete tasks.md usually means "wrong file loaded" (e.g. the
+        # symlink got reset to a stale spec). Failing silently with 0 waves
+        # produced the user's #1 confusion event.
+        # Bypass: --allow-empty (set ALLOW_EMPTY_WAVES=1 in env).
+        if pending_tasks == [] and len(self.tasks) > 0:
+            if os.environ.get("ALLOW_EMPTY_WAVES") != "1":
+                import sys
+                print()
+                print("⚠️  All", len(self.tasks), "tasks in tasks.md are already marked [x].")
+                print()
+                print("   This usually means ONE of:")
+                print("     (a) Feature is genuinely complete — set ALLOW_EMPTY_WAVES=1 to acknowledge.")
+                print("     (b) Wrong tasks.md is loaded — devkid resolved to a stale/wrong spec.")
+                print()
+                print("   Diagnose:")
+                print("     dev-kid spec-resolve            # show which tasks.md was picked + why")
+                print("     ls -la tasks.md                  # check symlink target")
+                print("     cat .specify/feature.json        # check speckit pointer")
+                print()
+                print("   Refusing to write an empty execution_plan.json. Exit 3.")
+                sys.exit(3)
+
         # Track which tasks are assigned (seed with completed task IDs so
         # dependency resolution works correctly for remaining tasks)
         assigned_tasks = {t.id for t in self.tasks if t.completed}
@@ -863,7 +887,7 @@ class TaskOrchestrator:
         """Return (tier1_model, tier1_url, tier2_model) from dev-kid.yml, with defaults."""
         defaults = (
             "qwen3-coder:30b",
-            "http://192.168.0.159:11434",
+            "http://localhost:11434",
             "claude-sonnet-4-20250514",
         )
         try:

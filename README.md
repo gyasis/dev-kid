@@ -1,4 +1,4 @@
-# Dev-Kid v2.1 🚀
+# Dev-Kid v2.2 🚀
 
 **Enhanced Planning System for Claude Code with Task Orchestration & Context Protection**
 
@@ -18,9 +18,13 @@ That's it! No `.sh` extension, no complex setup. One command installs everything
 
 Dev-kid is dual-mode — works **standalone** as a CLI tool OR through **Claude Code** as a set of slash-command skills.
 
+> **AI agents:** see [`AGENT_GUIDE.md`](AGENT_GUIDE.md) for *when* to invoke dev-kid, picking SpecKit vs lightweight mode, canonical workflows, and anti-patterns.
+
 ### Standalone CLI
 
 ```bash
+dev-kid init                        # Initialize in current directory (SpecKit-style)
+dev-kid init --lightweight          # Initialize lightweight mode (no SpecKit ceremony — .dk/tasks.md)
 dev-kid init-check                  # Validate project setup (10 health checks)
 dev-kid orchestrate "My phase"      # Build wave execution plan from tasks.md
 dev-kid preflight                   # Verify sentinel providers are ready
@@ -56,6 +60,108 @@ The slash commands invoke the CLI internally and add Claude-Code-specific UX (co
 This was added after a 2026-04-19 incident where a smoke test inadvertently kicked off a real wave execution because the preflight in older `devkid-preflight.sh` wrappers proceeded silently when all providers were ready. The y/N gate is now mandatory in interactive use.
 
 > **Integration Sentinel** is configured in `dev-kid.yml` with `sentinel.enabled: true/false`. Enable it to activate automatic micro-agent test validation after every task before wave checkpoints commit.
+
+### Configuration scope: `dev-kid.yml` is PROJECT-SPECIFIC (not global)
+
+The runtime only reads `<project-root>/dev-kid.yml`. The file at `~/.dev-kid/dev-kid.yml` is just an install template that gets copied into projects when they run `dev-kid init`. Editing the install template does NOT affect any running project — you must edit the project-local copy.
+
+Search order at runtime (per `cli/wave_executor.py`):
+1. `<project-root>/dev-kid.yml`  ← what gets used
+2. Legacy `<project-root>/.devkid/config.json`  ← fallback
+3. Built-in compiled defaults
+
+This means **disabling sentinel for one project does not affect any other projects on the same machine**.
+
+### When to disable sentinel
+
+| Scenario | Recommendation |
+|----------|----------------|
+| You want fast scaffolding waves with no LLM cost | Disable temporarily |
+| Your test suite is unstable and sentinel keeps halting | Disable + verify manually |
+| Running a smoke-test wave just to validate setup | Disable for the smoke run |
+| micro-agent crashes with TTY EINVAL in your CI / non-TTY env | Update dev-kid (since v2.2 the wrapper handles this — see "TTY Wrapper" below) |
+| Production wave run where every task MUST have automated test verification | Keep enabled |
+
+### Disable / re-enable
+
+```bash
+# Disable sentinel for this project (one-line edit)
+sed -i 's/^  enabled: true/  enabled: false/' dev-kid.yml
+
+# Verify
+grep -A1 "^sentinel:" dev-kid.yml
+# Expected:
+#   sentinel:
+#     enabled: false
+
+# Re-enable
+sed -i 's/^  enabled: false/  enabled: true/' dev-kid.yml
+```
+
+### TTY Wrapper (v2.2)
+
+When dev-kid is invoked from a non-TTY context (Claude Code slash command, CI runner, captured subprocess), micro-agent v0.1.5 unconditionally calls `@clack/prompts.prompt()` → `uv_tty_init` which fails with EINVAL and crashes every tier with 0 iterations.
+
+`cli/sentinel/tier_runner.py` now detects `sys.stdin.isatty() == False` and wraps the micro-agent invocation with `script -qfc <cmd> /dev/null` to provide a pseudo-TTY. When `dev-kid execute` IS run from a real terminal, the wrapper is bypassed (pass-through native).
+
+Requires `script` (util-linux) on PATH. Falls back to non-wrapped invocation if missing.
+
+## 💰 Cumulative Budget Tracker (v2.2)
+
+Without a global cap, a 65-task wave plan with `max_total_cost_usd: $5.00` per sentinel can theoretically burn $325. The `BudgetTracker` enforces a **GLOBAL cap across the entire `dev-kid execute` invocation** (default $25.00 USD).
+
+Per-project state persists in `.claude/sentinel/.budget-state.json` so a resumed run picks up cumulative spend instead of resetting. Trackers are **keyed on absolute project root** so switching projects in the same Claude Code session produces a fresh tracker per project — no cross-project pollution.
+
+```bash
+dev-kid budget-status                  # Show cumulative spend for this project
+dev-kid execute --fresh-budget         # Reset cumulative spend before running
+```
+
+Tunable via env vars:
+- `DEVKID_SENTINEL_BUDGET_USD` — global cap (default `25.0`)
+- `DEVKID_SENTINEL_WARN_PCT` — warn-at percentage (default `0.80` = 80% spent)
+- `DEVKID_SENTINEL_HANDOFF_THRESHOLD` — per-task spend that triggers handoff escalation (default `1.0`)
+
+When cumulative spend reaches the cap, `dev-kid execute` halts cleanly with a clear message. To raise the cap and resume:
+
+```bash
+export DEVKID_SENTINEL_BUDGET_USD=50.0
+dev-kid execute
+```
+
+## 🤝 Claude Code Handoff Tier (v2.2)
+
+Instead of escalating sentinel to expensive per-token API tiers (OpenAI/Anthropic direct API), users with a Claude Code subscription can route failing tasks to the active Claude Code session. The session does the work for free (flat-fee subscription absorbs it) and dev-kid resumes after the operator marks the task complete.
+
+**How it works**:
+1. `ralph-tiers.json` includes a `claude-code-handoff` tier with `"type": "handoff"` and `"requires_marker": "allow-handoff"` (opt-in)
+2. To enable: `touch .claude/sentinel/allow-handoff` in your project
+3. When sentinel reaches this tier (after cheaper tiers fail), it writes `.claude/sentinel/SENTINEL-<T###>/handoff/request.json` and pauses
+4. The handoff-notifier hook surfaces pending requests as a `<system-reminder>` block in Claude Code's context
+5. Claude Code (this session) reads the request, applies the fix, runs `dev-kid handoff-complete <T###>` to signal completion
+6. dev-kid wave executor unpauses and continues
+
+**CLI commands**:
+```bash
+dev-kid handoff-status                                    # List pending handoffs
+dev-kid handoff-complete T015 --notes "fixed the auth refresh"  # Mark complete
+dev-kid handoff-complete T015 --failed --notes "can't fix"     # Mark failed (escalates)
+```
+
+**Slash commands** (Claude Code):
+- `/devkid.handoff-status` — list pending
+- `/devkid.handoff-process` — process all pending in this session
+- `/devkid.budget-status` — show cumulative spend
+
+**Auto-notification**: the `templates/.claude/hooks/handoff-notifier.sh` hook fires on `UserPromptSubmit`, `SessionStart`, and `PostToolUse`, so Claude Code sees pending handoffs proactively (no manual polling).
+
+## 🌐 Free Tier Additions (v2.2)
+
+`ralph-tiers.json` now includes two free-tier entries between `local-plus-gemini-lib` and the paid tiers:
+- `groq-fast-free` — Llama-3.3-70B + Llama-3.1-8B via Groq (free tier with rate limits, super fast)
+- `cerebras-fast-free` — Llama-3.3-70B + Llama-3.1-8B via Cerebras (free tier, very fast inference)
+
+Set `GROQ_API_KEY` and/or `CEREBRAS_API_KEY` to activate. Tier validation in `cli/sentinel/tier_runner.py` skips tiers cleanly if the key is missing instead of crashing inside micro-agent.
 
 ## Key Features
 
@@ -125,7 +231,7 @@ This was added after a 2026-04-19 incident where a smoke test inadvertently kick
 - **UserPromptSubmit Hook**: Auto-inject project context (branch, constitution, progress)
 - **SessionStart/End Hooks**: Auto-restore context on startup, finalize on shutdown
 - Configuration: `.claude/settings.json` with 6 lifecycle hooks
-- [Full Hooks Reference →](HOOKS_REFERENCE.md) | [Compaction Strategy →](CONTEXT_COMPACTION_STRATEGY.md)
+- [Full Hooks Reference →](HOOKS_REFERENCE.md) | [Compaction Strategy →](docs/archive/CONTEXT_COMPACTION_STRATEGY.md)
 
 ## Dependencies
 
@@ -138,7 +244,14 @@ This was added after a 2026-04-19 incident where a smoke test inadvertently kick
 ### Recommended
 - **sed**, **grep** (template processing)
 
-The installer automatically checks all dependencies and provides installation instructions if anything is missing. See [DEPENDENCIES.md](DEPENDENCIES.md) for detailed requirements and platform-specific installation instructions.
+The installer automatically checks all dependencies and provides installation instructions if anything is missing.
+
+**Additional runtime prerequisites** (checked at first use, not at install):
+- **Node.js 20+ & npm** — for the micro-agent CLI used by Sentinel Tier 1/2
+- **Rust / cargo** (optional) — to build the rust-watchdog binary
+- **`script` (util-linux)** — used by the TTY wrapper for non-TTY contexts (Claude Code, CI)
+- **Ollama daemon** at `http://localhost:11434` — for free Tier 1 sentinel runs
+- **At least one API key** if Tier 1 is unavailable: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, or `CEREBRAS_API_KEY`
 
 ## 🚀 Quickstart
 
@@ -171,7 +284,7 @@ dev-kid execute
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/dev-kid.git
+git clone https://github.com/gyasis/dev-kid.git
 cd dev-kid
 
 # Run installer (no .sh extension needed!)
@@ -1233,7 +1346,7 @@ python3 -c "import json; ..."
 
 ## Documentation
 
-- **DEV_KID.md**: Complete implementation guide (1,500+ lines)
+- **docs/archive/DEV_KID.md**: Complete implementation guide (1,500+ lines, archived)
 - **skills/**: Individual skill documentation
 - **templates/**: Template file reference
 

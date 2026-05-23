@@ -3,7 +3,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="2.2.1"
 INSTALL_DIR="${1:-$HOME/.dev-kid}"
 
 # Color output
@@ -78,8 +78,14 @@ elif command -v npm &> /dev/null; then
         fi
     else
         echo -e "   ${YELLOW}⚠${NC}  micro-agent local fork not found at $MA_LOCAL_DIR"
-        echo "   Clone it: git clone https://github.com/gyasis/micro-agent.git $MA_LOCAL_DIR"
-        echo "   Then: cd $MA_LOCAL_DIR && npm install && npm link"
+        echo "   Attempting global install from GitHub..."
+        if npm install -g github:gyasis/micro-agent 2>/dev/null; then
+            echo -e "   ${GREEN}✓${NC} micro-agent - installed globally from github:gyasis/micro-agent"
+        else
+            echo -e "   ${YELLOW}⚠${NC}  Global install failed (likely missing build tools for native addons)"
+            echo "   Sentinel Tier 1/2 will be skipped until installed."
+            echo "   Manual fix: git clone https://github.com/gyasis/micro-agent.git $MA_LOCAL_DIR && cd $MA_LOCAL_DIR && npm install && npm link"
+        fi
     fi
 else
     echo -e "   ${YELLOW}⚠${NC}  micro-agent - skipped (npm not found)"
@@ -128,15 +134,18 @@ cp -r "$PROJECT_ROOT/commands" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/scripts" "$INSTALL_DIR/"
 cp -r "$PROJECT_ROOT/templates" "$INSTALL_DIR/"
 
-# Copy documentation files
-cp "$PROJECT_ROOT/DEV_KID.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/CLAUDE.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/README.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/QUICKSTART.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/HOOKS_REFERENCE.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/INTEGRATION_GUIDE.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/CONTEXT_COMPACTION_STRATEGY.md" "$INSTALL_DIR/"
-cp "$PROJECT_ROOT/dev-kid.yml" "$INSTALL_DIR/"
+# Copy documentation files (gracefully — repo cleanup may have removed some)
+# v2.2.1 fix: was using bare `cp` which aborted the whole install (set -e) if
+# any single doc file was missing. Now skip missing files with a warning.
+for doc in DEV_KID.md CLAUDE.md README.md QUICKSTART.md CHANGELOG.md \
+           HOOKS_REFERENCE.md INTEGRATION_GUIDE.md CONTEXT_COMPACTION_STRATEGY.md \
+           dev-kid.yml; do
+    if [ -f "$PROJECT_ROOT/$doc" ]; then
+        cp "$PROJECT_ROOT/$doc" "$INSTALL_DIR/"
+    else
+        echo "   ⚠️  $doc not present in source — skipping (probably removed during repo cleanup)"
+    fi
+done
 
 # Install machine-level ralph-tiers.json (model tier config)
 if [ -f "$PROJECT_ROOT/ralph-tiers.json" ]; then
@@ -294,7 +303,14 @@ echo "  sync-memory.md        # Auto-updates memory bank after checkpoints"
 echo "  speckit-workflow.md   # Complete workflow guide"
 echo ""
 echo "Documentation:"
-echo "  cat $INSTALL_DIR/DEV_KID.md"
+# v2.2.1 fix: was hard-coded to DEV_KID.md which was removed during repo cleanup.
+# Point at whichever of README.md / CHANGELOG.md / QUICKSTART.md exists.
+for doc in README.md QUICKSTART.md CHANGELOG.md; do
+    if [ -f "$INSTALL_DIR/$doc" ]; then
+        echo "  cat $INSTALL_DIR/$doc"
+        break
+    fi
+done
 echo ""
 echo "Task Watchdog:"
 echo "  dev-kid watchdog-start    # Start background task monitor"
