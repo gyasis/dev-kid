@@ -5,6 +5,7 @@ Task Orchestrator - Converts linear tasks into parallel wave execution
 
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -48,6 +49,17 @@ class TaskOrchestrator:
     # ConfigSchema.wave_size. Default: 10.
     DEFAULT_MAX_WAVE_SIZE = 10
 
+    # Wave-section header recognized in lightweight-mode tasks.md. Acts as a
+    # hard phase boundary — every task under `## Wave N` gets implicit dep
+    # edges to every task in Waves 1..N-1 (see analyze_dependencies). Accepts
+    # Wave / Phase / Step / Stage with a numeric or alpha id and optional
+    # title after `:`, `-`, en-dash, or em-dash.
+    WAVE_HEADER_RE = re.compile(
+        r"^\s*#{1,6}\s+(?:Wave|Phase|Step|Stage)\s+([0-9A-Za-z]+)"
+        r"\s*(?:[:\-–—].*)?$",
+        re.IGNORECASE,
+    )
+
     def __init__(
         self,
         tasks_file: str = "tasks.md",
@@ -62,6 +74,13 @@ class TaskOrchestrator:
         # Dependencies declared in a `## Dependencies` prose section.
         # Populated by parse_tasks(), consumed by analyze_dependencies().
         self._prose_deps: Dict[str, List[str]] = {}
+        # Wave-section phase membership for lightweight-mode tasks.md.
+        # Each list element is the ordered task IDs under one `## Wave N`
+        # header. Populated by parse_tasks(); consumed by
+        # analyze_dependencies() to emit cross-phase edges so every Wave-N
+        # task depends on every task in Waves 1..N-1. Empty when tasks.md
+        # has no wave headers (SpecKit / hand-authored flat lists).
+        self._wave_phases: List[List[str]] = []
         # Enable LLM-backed dep parser (Tier 2 — opt-in, slower but smarter).
         self._agent_parse = agent_parse or self._agent_parse_enabled_in_yml()
 
@@ -98,8 +117,25 @@ class TaskOrchestrator:
 
         task_id = 1
         current_task_lines = []
+        # Track which wave bucket the next task belongs to. -1 = pre-wave
+        # (no wave header seen yet); a wave header bumps this to 0, 1, 2…
+        current_wave_idx = -1
+        self._wave_phases = []
 
         for i, line in enumerate(lines):
+            # Wave-section phase header — `## Wave N`, `### Phase 2`, etc.
+            # Flush any open task block into the OLD wave before bumping the
+            # index, so a stray task between the last bullet and the next
+            # heading still lands in the correct phase.
+            if self.WAVE_HEADER_RE.match(line):
+                if current_task_lines:
+                    self._process_task(current_task_lines, task_id, current_wave_idx)
+                    task_id += 1
+                    current_task_lines = []
+                self._wave_phases.append([])
+                current_wave_idx = len(self._wave_phases) - 1
+                continue
+
             is_task_line = line.startswith("- [ ]") or line.startswith("- [x]")
             is_sentinel_line = (
                 "SENTINEL-" in line
@@ -107,7 +143,7 @@ class TaskOrchestrator:
             if is_task_line and not is_sentinel_line:
                 # Process previous task if exists
                 if current_task_lines:
-                    self._process_task(current_task_lines, task_id)
+                    self._process_task(current_task_lines, task_id, current_wave_idx)
                     task_id += 1
 
                 # Start new task
@@ -115,7 +151,7 @@ class TaskOrchestrator:
             elif is_task_line and is_sentinel_line:
                 # End any open task block without processing the sentinel line
                 if current_task_lines:
-                    self._process_task(current_task_lines, task_id)
+                    self._process_task(current_task_lines, task_id, current_wave_idx)
                     task_id += 1
                     current_task_lines = []
             elif current_task_lines and line.strip().startswith("- **Constitution**:"):
@@ -123,22 +159,27 @@ class TaskOrchestrator:
                 current_task_lines.append(line)
             elif not line.strip() and current_task_lines:
                 # Empty line ends task block
-                self._process_task(current_task_lines, task_id)
+                self._process_task(current_task_lines, task_id, current_wave_idx)
                 task_id += 1
                 current_task_lines = []
 
         # Process final task if exists
         if current_task_lines:
-            self._process_task(current_task_lines, task_id)
+            self._process_task(current_task_lines, task_id, current_wave_idx)
 
         # Second pass: parse any `## Dependencies` / `**Dependencies**` prose section.
         # The bullet parser above stops at empty lines, so prose-section deps
         # documented separately would otherwise be silently dropped.
         self._prose_deps = self._parse_dependency_section(content)
 
-    def _process_task(self, task_lines: List[str], task_id: int) -> None:
-        """Process a single task with its metadata"""
-        import re
+    def _process_task(
+        self, task_lines: List[str], task_id: int, wave_idx: int = -1
+    ) -> None:
+        """Process a single task with its metadata.
+
+        wave_idx: index into self._wave_phases the task belongs to, or -1 if
+        no `## Wave N` header preceded this task (e.g. flat SpecKit list).
+        """
 
         # First line is the task description
         first_line = task_lines[0]
@@ -179,6 +220,13 @@ class TaskOrchestrator:
         )
 
         self.tasks.append(task)
+
+        # Record wave membership when a `## Wave N` header has been seen.
+        # Defensive guard against the (impossible-in-practice) case where a
+        # wave_idx is passed but self._wave_phases hasn't been resized — we
+        # silently skip the append rather than crash mid-parse.
+        if 0 <= wave_idx < len(self._wave_phases):
+            self._wave_phases[wave_idx].append(task.id)
 
         # Build file-to-task mapping
         for file in file_locks:
@@ -548,6 +596,21 @@ class TaskOrchestrator:
         for task_id, dep_ids in self._prose_deps.items():
             for dep in dep_ids:
                 graph[task_id].add(dep)
+
+        # Wave-section phase boundaries — `## Wave N` headers in tasks.md
+        # establish hard dependency boundaries in lightweight mode. Every
+        # task in Wave N gets an edge to every task in Waves 1..N-1.
+        # Deterministic and free (no LLM call). Companion / superset of the
+        # agent_dep_parser PROMPT_TEMPLATE rule #4 (phase ordering).
+        # No-op when tasks.md has no wave headers (self._wave_phases empty).
+        for wave_idx, task_ids in enumerate(self._wave_phases):
+            if wave_idx == 0:
+                continue  # Wave 1 has no upstream phase
+            for tid in task_ids:
+                for prior_wave in self._wave_phases[:wave_idx]:
+                    for prior_tid in prior_wave:
+                        if prior_tid != tid:
+                            graph[tid].add(prior_tid)
 
         # Symbol-graph inference (Protocol/class/function defines → uses).
         # Opt-out via dev-kid.yml: orchestrator.symbol_graph: false
