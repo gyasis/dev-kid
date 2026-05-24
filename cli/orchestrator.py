@@ -5,6 +5,7 @@ Task Orchestrator - Converts linear tasks into parallel wave execution
 
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -48,6 +49,17 @@ class TaskOrchestrator:
     # ConfigSchema.wave_size. Default: 10.
     DEFAULT_MAX_WAVE_SIZE = 10
 
+    # Wave-section header recognized in lightweight-mode tasks.md. Acts as a
+    # hard phase boundary — every task under `## Wave N` gets implicit dep
+    # edges to every task in Waves 1..N-1 (see analyze_dependencies). Accepts
+    # Wave / Phase / Step / Stage with a numeric or alpha id and optional
+    # title after `:`, `-`, en-dash, or em-dash.
+    WAVE_HEADER_RE = re.compile(
+        r"^\s*#{1,6}\s+(?:Wave|Phase|Step|Stage)\s+([0-9A-Za-z]+)"
+        r"\s*(?:[:\-–—].*)?$",
+        re.IGNORECASE,
+    )
+
     def __init__(
         self,
         tasks_file: str = "tasks.md",
@@ -62,6 +74,13 @@ class TaskOrchestrator:
         # Dependencies declared in a `## Dependencies` prose section.
         # Populated by parse_tasks(), consumed by analyze_dependencies().
         self._prose_deps: Dict[str, List[str]] = {}
+        # Wave-section phase membership for lightweight-mode tasks.md.
+        # Each list element is the ordered task IDs under one `## Wave N`
+        # header. Populated by parse_tasks(); consumed by
+        # analyze_dependencies() to emit cross-phase edges so every Wave-N
+        # task depends on every task in Waves 1..N-1. Empty when tasks.md
+        # has no wave headers (SpecKit / hand-authored flat lists).
+        self._wave_phases: List[List[str]] = []
         # Enable LLM-backed dep parser (Tier 2 — opt-in, slower but smarter).
         self._agent_parse = agent_parse or self._agent_parse_enabled_in_yml()
 
@@ -98,8 +117,25 @@ class TaskOrchestrator:
 
         task_id = 1
         current_task_lines = []
+        # Track which wave bucket the next task belongs to. -1 = pre-wave
+        # (no wave header seen yet); a wave header bumps this to 0, 1, 2…
+        current_wave_idx = -1
+        self._wave_phases = []
 
         for i, line in enumerate(lines):
+            # Wave-section phase header — `## Wave N`, `### Phase 2`, etc.
+            # Flush any open task block into the OLD wave before bumping the
+            # index, so a stray task between the last bullet and the next
+            # heading still lands in the correct phase.
+            if self.WAVE_HEADER_RE.match(line):
+                if current_task_lines:
+                    self._process_task(current_task_lines, task_id, current_wave_idx)
+                    task_id += 1
+                    current_task_lines = []
+                self._wave_phases.append([])
+                current_wave_idx = len(self._wave_phases) - 1
+                continue
+
             is_task_line = line.startswith("- [ ]") or line.startswith("- [x]")
             is_sentinel_line = (
                 "SENTINEL-" in line
@@ -107,7 +143,7 @@ class TaskOrchestrator:
             if is_task_line and not is_sentinel_line:
                 # Process previous task if exists
                 if current_task_lines:
-                    self._process_task(current_task_lines, task_id)
+                    self._process_task(current_task_lines, task_id, current_wave_idx)
                     task_id += 1
 
                 # Start new task
@@ -115,7 +151,7 @@ class TaskOrchestrator:
             elif is_task_line and is_sentinel_line:
                 # End any open task block without processing the sentinel line
                 if current_task_lines:
-                    self._process_task(current_task_lines, task_id)
+                    self._process_task(current_task_lines, task_id, current_wave_idx)
                     task_id += 1
                     current_task_lines = []
             elif current_task_lines and line.strip().startswith("- **Constitution**:"):
@@ -123,22 +159,27 @@ class TaskOrchestrator:
                 current_task_lines.append(line)
             elif not line.strip() and current_task_lines:
                 # Empty line ends task block
-                self._process_task(current_task_lines, task_id)
+                self._process_task(current_task_lines, task_id, current_wave_idx)
                 task_id += 1
                 current_task_lines = []
 
         # Process final task if exists
         if current_task_lines:
-            self._process_task(current_task_lines, task_id)
+            self._process_task(current_task_lines, task_id, current_wave_idx)
 
         # Second pass: parse any `## Dependencies` / `**Dependencies**` prose section.
         # The bullet parser above stops at empty lines, so prose-section deps
         # documented separately would otherwise be silently dropped.
         self._prose_deps = self._parse_dependency_section(content)
 
-    def _process_task(self, task_lines: List[str], task_id: int) -> None:
-        """Process a single task with its metadata"""
-        import re
+    def _process_task(
+        self, task_lines: List[str], task_id: int, wave_idx: int = -1
+    ) -> None:
+        """Process a single task with its metadata.
+
+        wave_idx: index into self._wave_phases the task belongs to, or -1 if
+        no `## Wave N` header preceded this task (e.g. flat SpecKit list).
+        """
 
         # First line is the task description
         first_line = task_lines[0]
@@ -179,6 +220,13 @@ class TaskOrchestrator:
         )
 
         self.tasks.append(task)
+
+        # Record wave membership when a `## Wave N` header has been seen.
+        # Defensive guard against the (impossible-in-practice) case where a
+        # wave_idx is passed but self._wave_phases hasn't been resized — we
+        # silently skip the append rather than crash mid-parse.
+        if 0 <= wave_idx < len(self._wave_phases):
+            self._wave_phases[wave_idx].append(task.id)
 
         # Build file-to-task mapping
         for file in file_locks:
@@ -549,6 +597,21 @@ class TaskOrchestrator:
             for dep in dep_ids:
                 graph[task_id].add(dep)
 
+        # Wave-section phase boundaries — `## Wave N` headers in tasks.md
+        # establish hard dependency boundaries in lightweight mode. Every
+        # task in Wave N gets an edge to every task in Waves 1..N-1.
+        # Deterministic and free (no LLM call). Companion / superset of the
+        # agent_dep_parser PROMPT_TEMPLATE rule #4 (phase ordering).
+        # No-op when tasks.md has no wave headers (self._wave_phases empty).
+        for wave_idx, task_ids in enumerate(self._wave_phases):
+            if wave_idx == 0:
+                continue  # Wave 1 has no upstream phase
+            for tid in task_ids:
+                for prior_wave in self._wave_phases[:wave_idx]:
+                    for prior_tid in prior_wave:
+                        if prior_tid != tid:
+                            graph[tid].add(prior_tid)
+
         # Symbol-graph inference (Protocol/class/function defines → uses).
         # Opt-out via dev-kid.yml: orchestrator.symbol_graph: false
         if self._symbol_graph_enabled():
@@ -564,6 +627,13 @@ class TaskOrchestrator:
         # Validate every referenced predecessor exists — fail fast with a clear
         # message instead of letting create_waves() report "Circular dependency".
         self._validate_dependencies(graph)
+
+        # Cache the graph so render_plan_summary() can show per-task upstream
+        # deps without re-running analyze_dependencies (which has validation
+        # side effects and would double-print warnings).
+        self._last_dep_graph: Dict[str, Set[str]] = {
+            tid: set(deps) for tid, deps in graph.items()
+        }
 
         return graph
 
@@ -1090,8 +1160,99 @@ class TaskOrchestrator:
             }
         }
 
-    def execute(self, phase_id: str = "default") -> None:
-        """Parse tasks and generate execution plan"""
+    def render_plan_summary(
+        self, *, verbose: bool = False, show_diff: bool = True
+    ) -> str:
+        """Human-readable summary of the parsed plan.
+
+        Caller is responsible for having called parse_tasks(),
+        analyze_dependencies(), and create_waves() first — this method is
+        pure formatting over existing state.
+
+        verbose: include per-task dep graph dump
+        show_diff: include declared-vs-computed wave mapping (no-op when
+                   self._wave_phases is empty — flat / SpecKit lists)
+        """
+        parts: List[str] = []
+        parts.append(
+            f"\n📋 Plan Summary — {len(self.tasks)} task(s) → "
+            f"{len(self.waves)} computed wave(s)"
+        )
+
+        # Declared waves (from `## Wave N` headers in tasks.md)
+        if self._wave_phases:
+            non_empty_count = sum(1 for w in self._wave_phases if w)
+            parts.append(
+                f"\n📐 DECLARED WAVES (from `## Wave N` headers, "
+                f"{non_empty_count} non-empty):"
+            )
+            for idx, task_ids in enumerate(self._wave_phases, 1):
+                if task_ids:
+                    parts.append(
+                        f"   Wave {idx}: {len(task_ids)} task(s)  "
+                        f"[{', '.join(task_ids)}]"
+                    )
+
+        # Computed waves (after deps + file-locks)
+        parts.append("\n🌊 COMPUTED WAVES (after deps + file-locks):")
+        for wave in self.waves:
+            parts.append(
+                f"   Wave {wave.wave_id} ({wave.strategy}, "
+                f"{len(wave.tasks)} task(s)):"
+            )
+            for task in wave.tasks:
+                instruction = task.get("instruction", "")
+                trunc = (
+                    instruction
+                    if verbose
+                    else instruction[:70] + ("…" if len(instruction) > 70 else "")
+                )
+                parts.append(f"      {task['task_id']}: {trunc}")
+
+        # Declared → computed mapping (the diff users came for)
+        if show_diff and self._wave_phases:
+            parts.append("\n🔗 DECLARED → COMPUTED MAPPING:")
+            task_to_computed = {
+                t["task_id"]: w.wave_id for w in self.waves for t in w.tasks
+            }
+            for idx, task_ids in enumerate(self._wave_phases, 1):
+                if not task_ids:
+                    continue
+                computed = sorted(
+                    {task_to_computed[t] for t in task_ids if t in task_to_computed}
+                )
+                if len(computed) == 1:
+                    marker = "✓ single wave"
+                elif all(b - a == 1 for a, b in zip(computed, computed[1:])):
+                    marker = "✓ contiguous block"
+                else:
+                    marker = "⚠ NON-CONTIGUOUS — deps split across phase boundary"
+                parts.append(
+                    f"   Declared Wave {idx} → Computed Wave(s) {computed}   {marker}"
+                )
+
+        # Per-task dep graph (verbose only)
+        if verbose and getattr(self, "_last_dep_graph", None):
+            parts.append("\n🧮 DEPENDENCY GRAPH (per-task upstream deps):")
+            for task in self.tasks:
+                deps = sorted(self._last_dep_graph.get(task.id, set()))
+                if deps:
+                    parts.append(f"   {task.id} ← {', '.join(deps)}")
+
+        return "\n".join(parts)
+
+    def execute(
+        self,
+        phase_id: str = "default",
+        *,
+        verify: bool = False,
+        verify_only: bool = False,
+    ) -> None:
+        """Parse tasks and generate execution plan.
+
+        verify: print full plan summary, prompt y/N, then write (or abort)
+        verify_only: print full plan summary, exit BEFORE writing — pure read
+        """
         print("🔍 Parsing tasks...")
         self.parse_tasks()
         print(f"   Found {len(self.tasks)} tasks")
@@ -1278,6 +1439,31 @@ class TaskOrchestrator:
             except Exception as _dbt_err:
                 print(f"   ⚠️  dbt wave ordering failed (non-fatal): {_dbt_err}")
 
+        # Verifier output (Track B): print the full plan BEFORE writing.
+        # verify_only = pure-read preview, never writes execution_plan.json.
+        # verify     = preview then prompt y/N before writing.
+        if verify or verify_only:
+            print(self.render_plan_summary(verbose=True, show_diff=True))
+            if verify_only:
+                print(
+                    "\n📜 verify-only mode — execution_plan.json NOT written. "
+                    "Re-run without --verify-only (or with --verify) to apply."
+                )
+                return
+            # verify mode — gate the write on user confirmation
+            print(
+                "\nWrite execution_plan.json and finalize this plan? [y/N]: ",
+                end="",
+                flush=True,
+            )
+            try:
+                answer = sys.stdin.readline().strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                answer = ""
+            if answer not in ("y", "yes"):
+                print("Aborted — execution_plan.json NOT written.")
+                return
+
         # Output to execution_plan.json (atomic write)
         output_file = Path("execution_plan.json")
         temp_file = output_file.with_suffix(".tmp")
@@ -1291,7 +1477,8 @@ class TaskOrchestrator:
                 temp_file.unlink()
             sys.exit(1)
 
-        # Print summary
+        # Brief summary (always-on at end of orchestrate — preserved from
+        # pre-Track-B behavior so existing tooling parsing this output works).
         print("\n📋 Wave Summary:")
         for wave in self.waves:
             print(
@@ -1319,11 +1506,35 @@ def main():
         "Slower, but catches narrative deps regex misses. "
         "Opt-in via dev-kid.yml: orchestrator.agent_parse: true",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Print the full plan (declared waves, computed waves, "
+        "declared→computed mapping, dep graph) and prompt y/N before "
+        "writing execution_plan.json.",
+    )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Print the full plan and EXIT WITHOUT writing "
+        "execution_plan.json. Pure-read preview, like `dev-kid spec-resolve` "
+        "but covering deps + wave grouping.",
+    )
 
     args = parser.parse_args()
 
+    if args.verify and args.verify_only:
+        print(
+            "❌ --verify and --verify-only are mutually exclusive. "
+            "Use --verify-only for a pure preview, --verify to preview + "
+            "prompt-then-write."
+        )
+        sys.exit(2)
+
     orchestrator = TaskOrchestrator(args.tasks_file, agent_parse=args.agent_parse)
-    orchestrator.execute(args.phase_id)
+    orchestrator.execute(
+        args.phase_id, verify=args.verify, verify_only=args.verify_only
+    )
 
 
 if __name__ == "__main__":
