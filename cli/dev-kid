@@ -66,7 +66,13 @@ CORE COMMANDS:
                            (no SpecKit ceremony required; coexists with SpecKit if present)
   init-check               Validate project setup (10 checks: env, tasks, hooks, parser)
   spec-resolve             Print which tasks.md devkid would use + why (pure read, no side effects)
-  orchestrate [PHASE]      Convert tasks.md into wave execution plan
+  orchestrate [PHASE] [--verify] [--verify-only]
+                           Convert tasks.md into wave execution plan
+                           --verify: preview the full plan + prompt y/N before writing
+                           --verify-only: preview only, never write execution_plan.json
+  verify-plan [PHASE]      Pure-read alias for `orchestrate --verify-only`. Shows
+                           declared waves, computed waves, declared→computed mapping,
+                           and per-task dep graph. No side effects.
   preflight                Run sentinel-health + .env source check (no execute)
   execute [--no-preflight] [--yes] [--fresh-budget]
                            Execute waves from execution_plan.json
@@ -194,15 +200,19 @@ EOF
 }
 
 cmd_orchestrate() {
-    # Parse flags: --agent-parse, --force-symlink (Spec 002 autonomy fix);
+    # Parse flags: --agent-parse, --force-symlink (Spec 002 autonomy fix),
+    # --verify / --verify-only (Track B step verifier);
     # phase id is the first non-flag arg.
     local agent_parse=""
     local force_symlink=""
+    local verify_flag=""
     local phase_id=""
     for arg in "$@"; do
         case "$arg" in
             --agent-parse)   agent_parse="--agent-parse" ;;
             --force-symlink) force_symlink="1" ;;
+            --verify)        verify_flag="--verify" ;;
+            --verify-only)   verify_flag="--verify-only" ;;
             *) [ -z "$phase_id" ] && phase_id="$arg" ;;
         esac
     done
@@ -210,6 +220,8 @@ cmd_orchestrate() {
 
     echo -e "${GREEN}📊 Creating execution plan for: $phase_id${NC}"
     [ -n "$agent_parse" ] && echo -e "   ${YELLOW}ℹ${NC}  LLM-backed dep parser ENABLED"
+    [ "$verify_flag" = "--verify" ] && echo -e "   ${YELLOW}ℹ${NC}  Verify mode: will prompt before writing execution_plan.json"
+    [ "$verify_flag" = "--verify-only" ] && echo -e "   ${YELLOW}ℹ${NC}  Verify-only: NO write to execution_plan.json"
 
     # ─── Resolve tasks.md (Spec 002 audit fix — autonomy refactor 2026-05-22) ───
     # Resolution chain, highest priority first. Devkid attaches to A tasks.md no
@@ -313,12 +325,18 @@ except Exception:
         fi
     fi
 
-    # Run orchestrator (with optional --agent-parse)
-    if [ -n "$agent_parse" ]; then
-        python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id" --agent-parse
-    else
-        python3 "$DEV_KID_ROOT/cli/orchestrator.py" --phase-id "$phase_id"
-    fi
+    # Run orchestrator. Flags compose: --agent-parse and --verify[-only] are
+    # independent and both may be passed.
+    local py_args=(--phase-id "$phase_id")
+    [ -n "$agent_parse" ] && py_args+=(--agent-parse)
+    [ -n "$verify_flag" ] && py_args+=("$verify_flag")
+    python3 "$DEV_KID_ROOT/cli/orchestrator.py" "${py_args[@]}"
+}
+
+cmd_verify_plan() {
+    # Pure-read alias for `orchestrate --verify-only`. Reuses cmd_orchestrate's
+    # full tasks.md resolution + symlink discipline; just adds --verify-only.
+    cmd_orchestrate "$@" --verify-only
 }
 
 cmd_execute() {
@@ -1094,6 +1112,7 @@ main() {
     case "$command" in
         init)               cmd_init "$@" ;;
         orchestrate)        cmd_orchestrate "$@" ;;
+        verify-plan)        cmd_verify_plan "$@" ;;
         execute)            cmd_execute "$@" ;;
         preflight)          cmd_preflight "$@" ;;
         init-check)         cmd_init_check "$@" ;;
