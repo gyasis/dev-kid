@@ -1,0 +1,349 @@
+<section class="module" id="module-10" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">10</span>
+      <h1 class="module-title">Design &amp; Content Philosophy</h1>
+      <p class="module-subtitle">The gallery&rsquo;s house style &mdash; the taste that turns a pile of working widgets into one coherent room.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook + the house-style metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You&rsquo;ve seen the machine. Now meet the taste.</h2>
+        <p>You&rsquo;ve walked the whole factory &mdash; every engine, every fixture. The last secret isn&rsquo;t a part. It&rsquo;s <strong>taste</strong>: the rules that turn a pile of working widgets into something that actually teaches.</p>
+        <p>Think of a gallery&rsquo;s <strong>house style</strong> &mdash; the warm lighting, the one typeface on every placard, the rule that each label fits on an index card. Invisible one at a time, but together they&rsquo;re why the space feels like <em>one place</em> instead of a junk drawer.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">&#127912;</div>
+          <div class="callout-content">
+            <strong class="callout-title">The thesis of this whole course</strong>
+            <p>Two quiet rule-sets do the heavy lifting: a
+              <span class="term" data-definition="A design system is a single agreed set of rules for how everything looks &mdash; colors, fonts, spacing, shadows. It&apos;s the gallery&apos;s house style written down, so every placard matches without anyone re-deciding each time. When talking to AI, you&apos;d say &lsquo;use one consistent design system&rsquo; to mean &lsquo;make it all look like it belongs together.&rsquo;">design system</span>
+              (how it looks) and a <strong>content philosophy</strong> (how it teaches). Master these and you can judge any explainer &mdash; not just build one.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — HERO: before / after (same content, two ways) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The same content, two ways &mdash; let the contrast argue</h2>
+        <p>Here is one idea (&ldquo;the course re-themes from four lines&rdquo;) shown twice. First as a gray wall of text. Then rebuilt the way the philosophy demands: a metaphor, scannable cards, and a defined term. Same facts &mdash; wildly different teaching.</p>
+
+        <div class="badge-list" style="margin-bottom: var(--space-6)">
+          <div class="badge-item" style="border-left: 3px solid var(--color-error); background: var(--color-error-light)">
+            <code class="badge-code" style="background: var(--color-text-secondary)">BEFORE</code>
+            <span class="badge-desc" style="color: var(--color-text); font-family: var(--font-body)">The course&rsquo;s entire color scheme is controlled by a small set of named values at the top of the stylesheet. These values are referenced everywhere in the file, so when you change the four accent values the whole course recolors at once, because nothing hardcodes a color &mdash; every component reads from the central definitions instead, which is why a single edit cascades through hundreds of elements without touching any of them individually, making the system both consistent and trivially re-skinnable across the entire document in one place at the top.</span>
+          </div>
+        </div>
+
+        <p style="text-align: center; color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.1em; margin: var(--space-4) 0">&#8595; same idea, rebuilt &#8595;</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#127919;</div>
+          <div class="callout-content">
+            <strong class="callout-title">AFTER &mdash; metaphor first</strong>
+            <p>Think of a theatre&rsquo;s <strong>master lighting board</strong>: change four dimmer sliders and every spotlight on stage shifts at once. The course&rsquo;s color lives on one such board.</p>
+          </div>
+        </div>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#127913;</div>
+            <h4 class="pattern-title">One board</h4>
+            <p class="pattern-desc">Every color is named once, at the top &mdash; not scattered through the file.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#128279;</div>
+            <h4 class="pattern-title">Everything references it</h4>
+            <p class="pattern-desc">No element hardcodes a color &mdash; each one reads from the board.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-accent)">
+            <div class="pattern-icon" style="background: var(--color-accent)">&#10024;</div>
+            <h4 class="pattern-title">Four lines re-skin all</h4>
+            <p class="pattern-desc">Edit four
+              <span class="term" data-definition="An accent is the single bold standout color in a design &mdash; the one hue that draws the eye amid all the calm neutrals. In this course it&apos;s teal. A good design uses exactly one accent; more than one and nothing stands out. When talking to AI you&apos;d say &lsquo;pick one accent color and use it sparingly.&rsquo;">accent</span>
+              values and the entire course recolors at once.</p>
+          </div>
+        </div>
+        <p style="text-align: center; color: var(--color-text-secondary); margin-top: var(--space-6)">You read the bottom version in about three seconds. That gap &mdash; that&rsquo;s the whole philosophy in one screen.</p>
+      </section>
+
+      <!-- SCREEN 3 — Why care: transferable standards -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why should you care? Because this is a spec you can hand over.</h2>
+        <p>These aren&rsquo;t just this course&rsquo;s habits. They&rsquo;re <strong>transferable standards</strong> for any explainer you ever commission from an AI. &ldquo;Make it warm, one accent, show-don&rsquo;t-tell, define every term&rdquo; is now a sentence you can say with confidence.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#128172;</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! &mdash; the vocabulary IS the power</strong>
+            <p>Knowing the names &mdash;
+              <span class="term" data-definition="A palette is the full set of colors a design uses together &mdash; backgrounds, text, borders, accent. Like a painter&apos;s actual paint tray: a small, deliberate selection chosen to harmonize, not every color that exists. When talking to AI you&apos;d say &lsquo;use a warm palette&rsquo; to set the whole mood.">palette</span>,
+              <span class="term" data-definition="Typography is everything about the text&apos;s appearance &mdash; which fonts, what sizes, how much space between lines. Good typography is a huge part of why a page feels professional vs. amateur, the way a well-set museum placard reads better than a printout. When talking to AI you&apos;d say &lsquo;give it editorial typography&rsquo; to mean &lsquo;make the text feel crafted.&rsquo;">typography</span>,
+              accent &mdash; is what lets you steer an AI precisely instead of saying &ldquo;make it look nicer&rdquo; and hoping.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Code <-> English: the :root accent block -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The whole theming surface is four lines</h2>
+        <p>Here is the actual master lighting board from <code style="font-family: var(--font-mono); font-size: var(--text-sm)">_base.html</code>. These four
+          <span class="term" data-definition="A CSS custom property (also called a CSS variable) is a named, reusable value you define once and reference everywhere &mdash; like writing &lsquo;HOUSE TEAL&rsquo; on a paint can and pointing to it instead of re-mixing the color each time. Change the can once and every wall painted from it updates. They always start with two dashes, like --color-accent.">CSS custom properties</span>
+          are the dimmer sliders &mdash; change them, and every teal thing in the course follows.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-tag">&lt;style&gt;</span></span>
+<span class="code-line">  <span class="code-keyword">:root</span> {</span>
+<span class="code-line">    <span class="code-property">--color-accent</span>:       <span class="code-number">#2A7B9B</span>;</span>
+<span class="code-line">    <span class="code-property">--color-accent-hover</span>: <span class="code-number">#1F6280</span>;</span>
+<span class="code-line">    <span class="code-property">--color-accent-light</span>: <span class="code-number">#E4F2F7</span>;</span>
+<span class="code-line">    <span class="code-property">--color-accent-muted</span>: <span class="code-number">#5A9DB8</span>;</span>
+<span class="code-line">  }</span>
+<span class="code-line"><span class="code-tag">&lt;/style&gt;</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Open the styling section.</p>
+              <p class="tl"><code>:root</code> is the very top shelf &mdash; values defined here are visible to the entire page. This is the lighting board.</p>
+              <p class="tl">The main accent: this exact teal is the course&rsquo;s one bold color.</p>
+              <p class="tl">A slightly darker teal for when you hover over something clickable.</p>
+              <p class="tl">A pale teal wash &mdash; used for soft highlight backgrounds.</p>
+              <p class="tl">A faded teal for quieter accents, like a dashed underline.</p>
+              <p class="tl">(closes the board)</p>
+              <p class="tl">Every button, border, and highlight in the course points at these four names &mdash; so editing four numbers re-themes the whole thing.</p>
+            </div>
+          </div>
+        </div>
+        <p>The course&rsquo;s default accent is vermillion; this build picked <strong>teal</strong> instead. That single choice &mdash; four lines &mdash; is the difference between this course feeling like itself and feeling like every other one.</p>
+      </section>
+
+      <!-- SCREEN 5 — The design-system tokens (real values, badges) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A few real tokens from the house style</h2>
+        <p>The
+          <span class="term" data-definition="A design token is one named setting in the design system &mdash; a single color, a font name, a spacing value &mdash; written so code can refer to it by name. Tokens are the individual paint cans on the shelf; the design system is the whole shelf. When talking to AI you&apos;d say &lsquo;define your design tokens up front&rsquo; to mean &lsquo;decide the colors and fonts once, then reuse them.&rsquo;">design tokens</span>
+          aren&rsquo;t arbitrary. Each one encodes a deliberate taste decision. Here are a handful of the real values from <code style="font-family: var(--font-mono); font-size: var(--text-sm)">design-system.md</code>, with the reasoning baked in.</p>
+
+        <div class="badge-list">
+          <div class="badge-item">
+            <code class="badge-code">--color-bg: #FAF7F2</code>
+            <span class="badge-desc">A warm off-white &mdash; &ldquo;like aged paper.&rdquo; Never a cold clinical white; warmth is the whole mood.</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">--font-display: 'Bricolage Grotesque'</code>
+            <span class="badge-desc">A bold, geometric display face with personality &mdash; explicitly <strong>NOT</strong> Inter, Roboto, or Arial.</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">--color-bg-warm: #F5F0E8</code>
+            <span class="badge-desc">A slightly warmer paper, used only on alternating modules to create visual rhythm.</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">--color-bg-code: #1E1E2E</code>
+            <span class="badge-desc">A deep indigo-charcoal for code blocks &mdash; even the dark surfaces are tinted, never pure black.</span>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">&#127775;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why alternate the background?</strong>
+            <p>Even-numbered modules sit on the cool paper; odd ones on the warm paper. The subtle alternation gives the long scroll a <strong>rhythm</strong> &mdash; your eye feels each module as a distinct room, not one endless hallway. (This module is #10 &mdash; notice it&rsquo;s the cooler paper.)</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Pattern cards: one per content-philosophy rule -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The content philosophy &mdash; six rules, one per card</h2>
+        <p>If the design system is how the gallery <em>looks</em>, the content philosophy is how every placard is <em>written</em>. Six rules do the work. They&rsquo;re shown here the way they should be shown &mdash; as cards, not a paragraph.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#128064;</div>
+            <h4 class="pattern-title">&ge; 50% visual</h4>
+            <p class="pattern-desc">Max 2&ndash;3 sentences per block; every screen at least half pictures. If you&rsquo;re on a fourth sentence, draw something instead.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#127917;</div>
+            <h4 class="pattern-title">Metaphors first</h4>
+            <p class="pattern-desc">Lead with a real-world image, then ground it in the code &mdash; and <strong>never</strong> reach for &ldquo;restaurant.&rdquo;</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5)">
+            <div class="pattern-icon" style="background: var(--color-actor-5)">&#128221;</div>
+            <h4 class="pattern-title">Code &harr; English</h4>
+            <p class="pattern-desc">Real code beside a plain-English translation always beats a paragraph <em>about</em> the code.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">&#129504;</div>
+            <h4 class="pattern-title">Quiz application</h4>
+            <p class="pattern-desc">Ask &ldquo;what would you do?&rdquo; in a new situation &mdash; never &ldquo;what does this word mean?&rdquo;</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">&#128172;</div>
+            <h4 class="pattern-title">Tooltip every term</h4>
+            <p class="pattern-desc">Define each technical word on first use. The vocabulary <em>is</em> the learning.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-accent)">
+            <div class="pattern-icon" style="background: var(--color-accent)">&#10067;</div>
+            <h4 class="pattern-title">Why before how</h4>
+            <p class="pattern-desc">Answer &ldquo;why should I care?&rdquo; before &ldquo;how does it work?&rdquo; &mdash; motivation before mechanism.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — The verbatim checklist -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The same six rules, verbatim &mdash; your spec to hand over</h2>
+        <p>Below is the philosophy in its raw, copy-paste form. This is the checklist the writing agent reads before every module &mdash; and the one you can paste into your own request to any AI.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">THE CHECKLIST</span>
+            <pre><code><span class="code-line"><span class="code-comment">- Max 2-3 sentences per text block; every screen &ge; 50% visual.</span></span>
+<span class="code-line"><span class="code-comment">- Metaphors first, then reality &mdash; and NEVER the "restaurant" metaphor.</span></span>
+<span class="code-line"><span class="code-comment">- Code &harr; English translations beat paragraphs about code.</span></span>
+<span class="code-line"><span class="code-comment">- Quizzes test application (what would you do?), not definitions.</span></span>
+<span class="code-line"><span class="code-comment">- Tooltip EVERY technical term on first use &mdash; the vocabulary IS the learning.</span></span>
+<span class="code-line"><span class="code-comment">- Answer "why should I care?" before "how does it work?".</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">WHY EACH ONE</span>
+            <div class="translation-lines">
+              <p class="tl">Stops the page from becoming a textbook &mdash; eyes glaze on the fourth sentence.</p>
+              <p class="tl">A fresh metaphor makes a concept click; the overused one stops teaching (more on this in the quiz).</p>
+              <p class="tl">Non-technical readers learn from seeing the code <em>and</em> its meaning side by side, not from prose describing it.</p>
+              <p class="tl">The goal is doing something with the knowledge &mdash; not reciting it back.</p>
+              <p class="tl">A learner should never have to leave the page to Google a word. The terms are the takeaway.</p>
+              <p class="tl">Motivation comes before mechanism &mdash; nobody learns &ldquo;how&rdquo; if they don&rsquo;t buy &ldquo;why.&rdquo;</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — The aha callout -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The insight that ties the whole course together</h2>
+        <p>You&rsquo;ve seen every engine and every fixture across nine modules. Here&rsquo;s what they don&rsquo;t do on their own.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#128161;</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! &mdash; tools don&rsquo;t teach. Taste does.</strong>
+            <p>The animations, the quiz engine, the tooltips &mdash; all <em>necessary</em>, none <em>sufficient</em>. A course can have every interactive widget and still be a junk drawer. The philosophy is what makes the widgets <em>land</em>. The machine builds the gallery; the house style is why it feels like one.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — CAPSTONE QUIZ (4 questions) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Capstone &mdash; you can now judge any explainer</h2>
+        <p>No definitions here. Four decisions that synthesize the whole course. Each one asks: now that you know the taste, what would you do?</p>
+
+        <div class="quiz-container" id="quiz-module10">
+          <div class="quiz-question-block"
+               data-correct="opt-spec"
+               data-explanation-right="Exactly. &lsquo;Warm background, one accent, &ge;50% visual, metaphors-first (not restaurant), code&harr;English, tooltip every term, why-before-how&rsquo; &mdash; any three of those is a precise, hand-over-able spec. That precision is the entire payoff of this course."
+               data-explanation-wrong="That answer leans on vague taste (&lsquo;make it pretty&rsquo;) instead of the named rules. The whole point is that you now have specific, transferable standards &mdash; pick three concrete ones like &lsquo;one accent color, &ge;50% visual, tooltip every term.&rsquo;">
+            <h3 class="quiz-question">You&rsquo;re commissioning an explainer from an AI. Which instruction would actually get you a course like this one?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-pretty" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>&ldquo;Make it look really polished and professional and engaging.&rdquo;</span>
+              </button>
+              <button class="quiz-option" data-value="opt-spec" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>&ldquo;Warm background, one accent color, every screen &ge;50% visual, tooltip every technical term.&rdquo;</span>
+              </button>
+              <button class="quiz-option" data-value="opt-more" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>&ldquo;Add as many animations and quizzes as you can fit.&rdquo;</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-rhythm"
+               data-explanation-right="Right &mdash; the alternation gives the long scroll a rhythm, so each module reads as its own room instead of one endless hallway. It&rsquo;s a visual-pacing decision, not a technical one."
+               data-explanation-wrong="It&rsquo;s not about loading or accessibility &mdash; the two background tones are nearly identical warm papers. The reason is pacing: alternating them lets the eye feel each module as a distinct room across a long scroll.">
+            <h3 class="quiz-question">The design system says even modules get one background tone, odd modules get a slightly warmer one. Why bother?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-load" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>It loads faster when colors alternate</span>
+              </button>
+              <button class="quiz-option" data-value="opt-rhythm" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>It gives the long scroll a visual rhythm &mdash; each module feels like its own room</span>
+              </button>
+              <button class="quiz-option" data-value="opt-a11y" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>It&rsquo;s required for screen-reader accessibility</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-overused"
+               data-explanation-right="Yes &mdash; &lsquo;restaurant&rsquo; is so overused it&rsquo;s gone invisible. A metaphor only teaches when it&rsquo;s fresh enough to make the reader picture something specific. The ban forces a metaphor that actually fits the concept."
+               data-explanation-wrong="The ban isn&rsquo;t about accuracy or offense &mdash; restaurants can model plenty of things fine. It&rsquo;s that the metaphor is so overused it stops teaching: the reader&rsquo;s eyes slide right past it. A fresh, concept-specific metaphor does the work.">
+            <h3 class="quiz-question">The philosophy explicitly bans the &ldquo;restaurant&rdquo; metaphor. What&rsquo;s the real reason?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-wrong" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Restaurants are technically inaccurate models of software</span>
+              </button>
+              <button class="quiz-option" data-value="opt-overused" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>It&rsquo;s so overused it stops teaching &mdash; the reader&rsquo;s eyes slide past it</span>
+              </button>
+              <button class="quiz-option" data-value="opt-fancy" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Restaurants make a course feel too casual</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-fail"
+               data-explanation-right="Exactly the right instinct. The skill&rsquo;s own gotchas list &lsquo;not enough tooltips&rsquo; as the #1 failure. A wall of undefined jargon means the course only SAYS it&rsquo;s for non-technical people. You&rsquo;d send it back to tooltip every term and break the text into visuals."
+               data-explanation-wrong="A radar-chart score or a longer intro doesn&rsquo;t fix the core problem: a non-technical reader is stranded on undefined jargon. Measure it against the philosophy &mdash; tooltip every term, &ge;50% visual &mdash; and send it back to fix exactly those gaps.">
+            <h3 class="quiz-question">A colleague&rsquo;s &ldquo;beginner&rdquo; course is dense paragraphs packed with undefined jargon and no tooltips. As a now-trained reviewer, what&rsquo;s your call?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-score" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Give it a numeric score and move on &mdash; it&rsquo;s mostly fine</span>
+              </button>
+              <button class="quiz-option" data-value="opt-fail" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Flag it: tooltip every term and convert the walls of text to visuals &mdash; it fails the philosophy</span>
+              </button>
+              <button class="quiz-option" data-value="opt-intro" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Just add a longer introduction paragraph at the top</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module10')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module10')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 10 — Send-off + recursion callback to Module 1 -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You&rsquo;ve now seen the whole factory</h2>
+        <p>Back in Module 1 there was a twist: <strong>this page was built by the exact machine the course is about.</strong> You stood inside the factory looking at something it made.</p>
+        <p>Now you&rsquo;ve walked every station &mdash; the directory, the briefs, the navigation, the engines, the fixtures, and finally the taste that binds them. The recursion is complete: you&rsquo;ve seen the camera crew <em>and</em> the documentary they shot.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#127881;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Where you stand now</strong>
+            <p>You can do three things you couldn&rsquo;t before: <strong>read</strong> this skill and understand it, <strong>point it</strong> at any repo and build a course, and &mdash; the part most people never reach &mdash; <strong>judge</strong> any explainer by these standards. Tools were never the secret. Taste was. And now it&rsquo;s yours.</p>
+          </div>
+        </div>
+
+        <p style="text-align: center; color: var(--color-text-secondary); margin-top: var(--space-8)">The gallery doors are open. Go build a room of your own.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

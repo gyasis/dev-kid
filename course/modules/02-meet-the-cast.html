@@ -1,0 +1,326 @@
+<section class="module" id="module-2" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">02</span>
+      <h1 class="module-title">Meet the Cast</h1>
+      <p class="module-subtitle">Dev-Kid is a small theater company — once you know each member by name, you can tell the AI exactly who to fix.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — Opening hook + metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A theater company, not a black box</h2>
+        <p>Before we trace anything, meet the people in the building. When something breaks, you need to know <em>who</em> to point the AI at.</p>
+        <p>Dev-Kid is a handful of small parts, each with one job — exactly like the crew that puts on a stage show. Naming them gives you precise vocabulary to steer the AI.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">🎭</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why naming the cast matters</strong>
+            <p>"The watchdog is leaking processes" lands far better than "something's stuck." When you know each part's name and job, your instructions to an AI become surgical instead of vague.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — The hero: interactive architecture diagram -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The full company on one stage</h2>
+        <p>Click any member of the crew below to hear their one job. Notice the
+          <span class="term" data-definition="An apprentice is a junior helper hired to do a specific piece of work under supervision. Here, micro-agent is an outside tool Dev-Kid 'hires' to write and fix code — it isn't part of Dev-Kid itself.">apprentice</span>
+          on the right — micro-agent — and that it has two different faces.</p>
+
+        <div class="arch-diagram">
+          <div class="arch-zone arch-zone-browser">
+            <h4 class="arch-zone-label">The Dev-Kid Crew</h4>
+
+            <div class="arch-component" data-desc="The CLI is the front door. You type 'dev-kid orchestrate', and this Bash script figures out which part of the system should handle it and hands the job over." onclick="showArchDesc(this)">
+              <div class="arch-icon">🚪</div>
+              <span>CLI (front door)</span>
+            </div>
+
+            <div class="arch-component" data-desc="The Orchestrator is the playwright. It reads your linear to-do list (tasks.md) and rewrites it into a running order — grouping work that can happen at the same time into 'waves'." onclick="showArchDesc(this)">
+              <div class="arch-icon">✍️</div>
+              <span>Orchestrator (playwright)</span>
+            </div>
+
+            <div class="arch-component" data-desc="The Wave Executor is the stage manager. It calls each wave's cues in order and refuses to start the next wave until the current one is fully, verifiably done." onclick="showArchDesc(this)">
+              <div class="arch-icon">📋</div>
+              <span>Wave Executor (stage manager)</span>
+            </div>
+
+            <div class="arch-component" data-desc="The Sentinel is the critic. After each scene (each finished task), it reviews the work — runs the tests, looks for fakery — before the stage manager is allowed to move on." onclick="showArchDesc(this)">
+              <div class="arch-icon">🔍</div>
+              <span>Sentinel (critic)</span>
+            </div>
+
+            <div class="arch-component" data-desc="The Watchdog is the night watchman. It walks the halls making sure no actor (no running process) got locked in the building after a scene ended — it catches leftover and orphaned work." onclick="showArchDesc(this)">
+              <div class="arch-icon">🔦</div>
+              <span>Watchdog (night watchman)</span>
+            </div>
+
+            <div class="arch-component" data-desc="The Memory Bank is the company archive — a set of notes that survive between sessions so the next show remembers what the last one decided." onclick="showArchDesc(this)">
+              <div class="arch-icon">📚</div>
+              <span>Memory Bank (archive)</span>
+            </div>
+
+            <div class="arch-component" data-desc="Hooks are automatic stage cues — little scripts that fire on their own at set moments (session start, before context is compressed) so nobody has to remember to pull the lever." onclick="showArchDesc(this)">
+              <div class="arch-icon">🪝</div>
+              <span>Hooks (auto cues)</span>
+            </div>
+          </div>
+
+          <div class="arch-zone arch-zone-external">
+            <h4 class="arch-zone-label">The hired apprentice (external)</h4>
+            <div class="arch-component" data-desc="micro-agent is an outside tool Dev-Kid hires to actually write and repair code. It wears two faces: 'ma' generates a single file once, while 'ma-loop' runs an autonomous repair loop. Which face you summon turns out to matter a great deal..." onclick="showArchDesc(this)">
+              <div class="arch-icon">🧑‍🔧</div>
+              <span>micro-agent — two faces: ma / ma-loop</span>
+            </div>
+          </div>
+
+          <div class="arch-description" id="arch-desc">Click any crew member to hear their one job.</div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🎬</div>
+          <div class="callout-content">
+            <strong class="callout-title">Three languages, one crew</strong>
+            <p>The cast speaks three languages: a <span class="term" data-definition="Bash is the everyday command language of Linux and Mac terminals. A Bash script is a text file of those commands run top-to-bottom — like a recipe the computer follows.">Bash</span> front door, Python brains for the thinking parts, and a single <span class="term" data-definition="Rust is a programming language prized for speed and safety. Programs written in it run extremely fast and use very little memory.">Rust</span> watchman. You don't need to read any of them — you just need to know who's who.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — Visual file tree (where the cast lives) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Where each member sits in the building</h2>
+        <p>Every crew member maps to a real folder or file in the project. This is the actual layout from the repo — the floor plan of the theater.</p>
+
+        <div class="file-tree">
+          <div class="ft-folder open">
+            <span class="ft-name">dev-kid/</span>
+            <span class="ft-desc">the whole theater</span>
+            <div class="ft-children">
+              <div class="ft-file">
+                <span class="ft-name">cli/dev-kid</span>
+                <span class="ft-desc">Bash CLI: routes commands (the front door)</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">cli/orchestrator.py</span>
+                <span class="ft-desc">turns tasks.md into waves (the playwright)</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">cli/wave_executor.py</span>
+                <span class="ft-desc">runs waves, enforces checkpoints (the stage manager)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">cli/sentinel/</span>
+                <span class="ft-desc">the per-task validator, 10+ modules (the critic)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">rust-watchdog/</span>
+                <span class="ft-desc">compiled process/container monitor, ~1.8MB (the night watchman)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">skills/</span>
+                <span class="ft-desc">bash workflow automations (*.sh)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">memory-bank/</span>
+                <span class="ft-desc">persistent project memory (the archive)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">One job each — "separation of concerns"</strong>
+            <p>Notice nobody does two jobs. The playwright never reviews scenes; the critic never calls cues. Engineers call this <span class="term" data-definition="Separation of concerns means each part does exactly one job and trusts the others to do theirs. It makes a system easier to fix, because a bug usually lives in one clearly-named place.">separation of concerns</span> — and it's why you can point the AI at one named part instead of the whole machine.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Icon-label rows: each actor's job in 6 words -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Each actor's job in six words</h2>
+        <p>Memorize these and you've got the vocabulary. Six words per crew member — no more.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">🚪</div>
+            <div>
+              <strong>CLI</strong>
+              <p>Takes your command, hands it off.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">✍️</div>
+            <div>
+              <strong>Orchestrator</strong>
+              <p>Turns a to-do list into waves.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">📋</div>
+            <div>
+              <strong>Wave Executor</strong>
+              <p>Runs waves; verifies before moving on.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">🔍</div>
+            <div>
+              <strong>Sentinel</strong>
+              <p>Reviews each finished task for fakery.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-5)">🔦</div>
+            <div>
+              <strong>Rust Watchdog</strong>
+              <p>Catches leftover processes nobody cleaned up.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">🧑‍🔧</div>
+            <div>
+              <strong>micro-agent</strong>
+              <p>Hired apprentice that writes and repairs code.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Code↔English translation: the bin map / two faces -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The apprentice with two faces</h2>
+        <p>Here's the apprentice's name tag — the part of its setup that decides what happens when you call it. One tool, but it answers to three different names.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line">{ <span class="code-property">"bin"</span>: {</span>
+<span class="code-line">  <span class="code-property">"micro-agent"</span>: <span class="code-string">"./dist/cli.mjs"</span>,       <span class="code-comment">// single-file generator</span></span>
+<span class="code-line">  <span class="code-property">"ma"</span>:          <span class="code-string">"./dist/cli.mjs"</span>,        <span class="code-comment">// alias</span></span>
+<span class="code-line">  <span class="code-property">"ma-loop"</span>:     <span class="code-string">"./dist/ralph-loop.mjs"</span>  <span class="code-comment">// the autonomous "Ralph Loop"</span></span>
+<span class="code-line">}}</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This is a <span class="term" data-definition="A bin map (short for 'binaries map') in a project's package.json lists the command names a tool installs, and which file each name runs. It's like a switchboard: name on the left, destination on the right.">bin map</span> — it tells your computer what commands this tool installs.</p>
+              <p class="tl">Type <code>micro-agent</code> and you get the single-file generator: it writes one file, once, and stops.</p>
+              <p class="tl"><code>ma</code> is just a shortcut — an <span class="term" data-definition="An alias is a nickname for a command. Typing the nickname runs the exact same thing as the full name — like saving a contact under both 'Mom' and her full name.">alias</span> — that points to the very same generator.</p>
+              <p class="tl"><code>ma-loop</code> points somewhere completely different: a file that runs an <span class="term" data-definition="Autonomous means it keeps going on its own without you stepping in at each step — like a robot vacuum that re-runs itself until the floor is clean.">autonomous</span> repair loop. Same tool, very different behavior.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-warning">
+          <div class="callout-icon">🌱</div>
+          <div class="callout-content">
+            <strong class="callout-title">Remember this name tag</strong>
+            <p>Two faces, two file destinations. <code>ma</code> generates; <code>ma-loop</code> loops. Calling the wrong one is exactly the kind of subtle mix-up that becomes <strong>the bug we hunt down in Module&nbsp;9</strong>. Tuck it away for now.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Quiz: which actor? -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check yourself: whose job is it?</h2>
+        <p>Three things go wrong on set. For each, decide which crew member you'd point the AI at. No memorizing names — just match the symptom to the role.</p>
+
+        <div class="quiz-container" id="quiz-module2">
+
+          <div class="quiz-question-block"
+               data-correct="option-orchestrator"
+               data-explanation-right="Exactly. Deciding what can run side-by-side (and what must wait) is the Orchestrator's whole job — it builds the running order of waves. If two things ran in parallel that shouldn't have, the wave grouping was wrong."
+               data-explanation-wrong="Not quite. Think about WHO decides the running order. The Wave Executor just runs the waves it's handed; the Sentinel reviews finished work. The decision about what's allowed to run at the same time happens earlier, when the to-do list is turned into waves.">
+            <h3 class="quiz-question">Two tasks ran at the same time that should NOT have — they both edited the same file and clobbered each other. Whose grouping decision was wrong?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-orchestrator" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Orchestrator (playwright) — it builds the running order of waves</span>
+              </button>
+              <button class="quiz-option" data-value="option-watchdog" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Watchdog (night watchman) — it monitors running processes</span>
+              </button>
+              <button class="quiz-option" data-value="option-memory" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Memory Bank (archive) — it stores project notes</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-watchdog"
+               data-explanation-right="Right. A finished task whose process is still hanging around is an 'orphan' — and catching orphaned, leftover processes is the night watchman's entire purpose. It walks the building after each scene to make sure no actor got locked in."
+               data-explanation-wrong="Not quite. The Sentinel reviews the QUALITY of a finished task's code; the Orchestrator plans the order. But a stray process still running after the work is 'done' is a cleanup problem — that's the night watchman patrolling for actors left in the building.">
+            <h3 class="quiz-question">A task was marked complete, but its background process never got cleaned up and is still eating memory. Who's supposed to catch that?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-sentinel" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Sentinel (critic) — it reviews finished work</span>
+              </button>
+              <button class="quiz-option" data-value="option-watchdog" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Watchdog (night watchman) — it catches leftover processes</span>
+              </button>
+              <button class="quiz-option" data-value="option-cli" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The CLI (front door) — it routes your commands</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-sentinel"
+               data-explanation-right="Exactly. The Sentinel is the critic — it reviews each finished scene before the show moves on, including sniffing out fake or placeholder work pretending to be real. A leftover 'TODO' stub is precisely what it's built to flag."
+               data-explanation-wrong="Not quite. The Watchdog cares about running processes, not code quality; the Orchestrator planned the order before any work happened. Reviewing whether a finished task is REAL (not a fake placeholder) is the critic's job — the Sentinel.">
+            <h3 class="quiz-question">A task claims it's done, but its code is just a placeholder stub with a 'TODO: implement this later'. Which crew member should have refused to let the show move on?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-orchestrator" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Orchestrator (playwright) — it plans the waves</span>
+              </button>
+              <button class="quiz-option" data-value="option-sentinel" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Sentinel (critic) — it reviews each finished task for fakery</span>
+              </button>
+              <button class="quiz-option" data-value="option-hooks" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Hooks (auto cues) — they fire scripts automatically</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module2')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module2')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — Wrap / bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You've met everyone</h2>
+        <p>You now know the cast by name and by job — that's the vocabulary that makes your AI instructions land. Next, we pull the playwright into the spotlight.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: Building Waves</strong>
+            <p>We zoom in on the Orchestrator — the playwright — to see exactly how it turns a flat to-do list into a parallel running order without letting two scenes collide.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

@@ -1,0 +1,378 @@
+<section class="module" id="module-4" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">04</span>
+      <h1 class="module-title">The Checkpoint Contract</h1>
+      <p class="module-subtitle">The one rule that stops an over-eager AI from claiming "done" before it's actually done.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A wave finished... or did it?</h2>
+        <p>A wave of tasks just ran. The AI announces it's all wrapped up and asks to start the next batch. But Dev-Kid does something unusual here — it refuses to take the AI's word for it.</p>
+        <p>Instead it stops, re-reads the task file, and demands <em>proof</em>. That single refusal is the safety mechanism that keeps an excitable assistant honest.</p>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🚪</div>
+          <div class="callout-content">
+            <strong class="callout-title">Hold this picture: a lock on a canal</strong>
+            <p>A boat can't drift into the next chamber until the gate confirms the current one is filled to the right water level. No "close enough" — the level gets measured, then the gate opens. Anything less and the boat runs aground.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — metaphor → reality bridge -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The gate measures before it opens</h2>
+        <p>In a real canal lock, the gate doesn't trust the boat captain's say-so. It checks the water itself. Dev-Kid's <span class="term" data-definition="The Wave Executor (the file cli/wave_executor.py) is the part of Dev-Kid that actually runs each batch of tasks and stands at the gate between waves. Think of it as the lock-keeper who checks the water level before opening the next gate.">Wave Executor</span> plays exactly that role between every batch of work.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📋</div>
+            <div>
+              <strong>The water level = tasks.md</strong>
+              <p>The one source of truth the gate actually measures, line by line.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">📏</div>
+            <div>
+              <strong>The measurement = verification</strong>
+              <p>Is every task in this wave really marked done? Yes or no — no maybes.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-5)">🔒</div>
+            <div>
+              <strong>The gate opening = a git checkpoint</strong>
+              <p>Only once the level checks out does the work get sealed and the next chamber unlock.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>The Executor is what engineers call <span class="term" data-definition="A verification-gated step is one that won't move forward until it has confirmed, with evidence, that the previous step truly finished. The gate stays shut until the check passes — no exceptions, no guesses.">verification-gated</span>: progress is only ever <em>claimed</em> when it's <em>proven on disk</em>.</p>
+      </section>
+
+      <!-- SCREEN 3 — HERO: group chat (the HALT run) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Listen in: the gate refuses to open</h2>
+        <p>Here's the conversation between three characters at the gate — the <strong>Wave Executor</strong> (the lock-keeper), <span class="term" data-definition="tasks.md is the plain-text checklist file where every task lives. A task starts as '[ ]' (empty box) and becomes '[x]' (checked box) only when it's truly done. It's the disk-backed source of truth Dev-Kid measures against.">tasks.md</span> (the water level), and <span class="term" data-definition="Git is the system that records snapshots of your project over time, so you can always rewind to any past version. Each saved snapshot is a 'commit.' When talking to an AI you'd say 'commit this' to mean 'save a checkpoint.'">Git</span> (the sealed record). Step through it.</p>
+
+        <div class="chat-window" id="chat-module4">
+          <div class="chat-messages">
+
+            <div class="chat-message" data-msg="0" data-sender="executor" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">WE</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">Wave Executor</span>
+                <p>Wave 1 says it's finished. Before I open the gate — tasks.md, are all of you marked <code>[x]</code>?</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="1" data-sender="tasks" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">📋</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">tasks.md</span>
+                <p>Checking my own lines... T001 is <code>[x]</code>. But T002 still says <code>[ ]</code> — an empty box.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="2" data-sender="executor" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">WE</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">Wave Executor</span>
+                <p>Then the water level is wrong. ❌ <strong>HALT.</strong> I'm not committing. The AI <em>said</em> done but didn't <em>mark</em> done.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="3" data-sender="git" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5)">🔒</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5)">Git</span>
+                <p>Understood — no checkpoint from me. Nothing gets sealed on a half-empty wave. The gate stays shut.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="4" data-sender="executor" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">WE</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">Wave Executor</span>
+                <p>...Now T002 is fixed. Let's run the check again. tasks.md — every line?</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="5" data-sender="tasks" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">📋</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">tasks.md</span>
+                <p>T001 <code>[x]</code>, T002 <code>[x]</code>. Every box checked. Water's at the right level.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="6" data-sender="git" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5)">🔒</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5)">Git</span>
+                <p>Gate confirmed. Checkpoint committed ✓ — Wave 1 is sealed forever. You can always rewind here. Open the next chamber.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="chat-typing" id="chat-module4-typing" style="display:none">
+            <div class="chat-avatar" id="chat-module4-typing-avatar">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+
+          <div class="chat-controls">
+            <button class="btn chat-next-btn">Next Message</button>
+            <button class="btn chat-all-btn">Play All</button>
+            <button class="btn chat-reset-btn">Replay</button>
+            <span class="chat-progress"></span>
+          </div>
+        </div>
+
+        <p>The first run <span class="term" data-definition="To halt is to stop dead on purpose. The Wave Executor halts rather than guess — it would rather freeze loudly than quietly proceed on an unproven claim.">halts</span> because the proof isn't there. Only after the box is genuinely checked does Git seal the wave.</p>
+      </section>
+
+      <!-- SCREEN 4 — code translation: verify_wave_completion -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: measuring the water level</h2>
+        <p>This is the real heart of the gate from <code>cli/wave_executor.py</code>. It walks every task in the wave and looks for one tiny thing on each line: the checked box.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">def</span> <span class="code-function">verify_wave_completion</span>(self, wave_id: int, tasks: List[Dict]) -> bool:</span>
+<span class="code-line">    <span class="code-comment"># Check if each task line contains [x]</span></span>
+<span class="code-line">    <span class="code-keyword">for</span> task <span class="code-keyword">in</span> tasks:</span>
+<span class="code-line">        ...</span>
+<span class="code-line">        <span class="code-keyword">if</span> <span class="code-string">"[x]"</span> <span class="code-keyword">in</span> line:</span>
+<span class="code-line">            ...  <span class="code-comment"># task verified complete</span></span>
+<span class="code-line">    ...</span>
+<span class="code-line">verified = self.<span class="code-function">verify_wave_completion</span>(wave_id, tasks)</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Define the gate-check: given a wave and its tasks, hand back a true/false — "is this wave really done?"</p>
+              <p class="tl">The whole job is to look for one thing on each line.</p>
+              <p class="tl">Go through the tasks in this wave, one at a time.</p>
+              <p class="tl">(Find the matching line for this task in the file.)</p>
+              <p class="tl">Does that line contain "[x]" — the checked box?</p>
+              <p class="tl">If so, count this task as genuinely complete.</p>
+              <p class="tl">(Only return true if <em>every</em> task passed this check.)</p>
+              <p class="tl">Run the check on this wave and remember the verdict in "verified."</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">☑️</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — <code>[x]</code> is just a checkbox on disk</strong>
+            <p>An empty box is <code>[ ]</code>; a checked one is <code>[x]</code>. That's it. The gate isn't reading the AI's mind or its promises — it's literally scanning the text file for an "x" inside brackets. Done means the box is checked <em>in the file</em>, not in the conversation.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — the HALT reflex -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: the safety reflex</h2>
+        <p>When the measurement comes back wrong, the Executor doesn't soldier on hopefully. It prints a loud, unmistakable line and stops — this is the entire safety reflex in one statement.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-function">print</span>(<span class="code-string">f"      ❌ Sentinel HALT: {msg}"</span>)</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Shout it where a human will see it: "HALT" plus the exact reason something didn't check out. No silent shrug — the gate freezes loudly so you know to look.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>That <code>❌ Sentinel HALT</code> line is the cheapest moment in the whole system. The AI claimed victory; the file disagreed; you caught the gap before it cost you anything.</p>
+      </section>
+
+      <!-- SCREEN 6 — the full contract sequence -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The contract, end to end</h2>
+        <p>Every wave runs the same four-step deal. Either all four happen, or the gate slams shut at step one.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Verify</strong>
+              <p>Re-read tasks.md. Is every task in this wave marked <code>[x]</code>? Pass or HALT.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Update progress</strong>
+              <p>If verified, record what just finished in <code>progress.md</code> — the running log.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Commit a checkpoint</strong>
+              <p>Seal the wave's work as a git <span class="term" data-definition="A commit is a single saved snapshot in Git's history, with a label describing what changed. It's a point you can always return to. Saying 'commit a checkpoint' means 'lock in this state so we can rewind to it later.'">commit</span> — a permanent, rewindable point.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Open the next chamber</strong>
+              <p>Only now does the next wave begin. The gate moved exactly one step.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">No silent failures</strong>
+            <p>The Executor would rather stop loudly than continue on a guess. A halt isn't a bug — it's the system telling you the truth out loud the moment it diverges from the AI's claim. (Keep this idea in your pocket; it's the whole spirit of the last module on watching the machine work.)</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — why git checkpoint per wave -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why seal after <em>every</em> wave, not just at the end?</h2>
+        <p>It would seem tidier to commit once when everything's finished. But a per-wave <span class="term" data-definition="A checkpoint is a saved-and-sealed point you can safely return to. Like a save slot in a video game — if the next stretch goes wrong, you reload from here instead of starting over.">checkpoint</span> is what makes a mistake cheap to undo.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5)">
+            <div class="pattern-icon" style="background: var(--color-actor-5)">⏮️</div>
+            <h4 class="pattern-title">Rewind precisely</h4>
+            <p class="pattern-desc">If Wave 3 goes sideways, you reload from the end of Wave 2 — not from scratch. Every gate is a save slot.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">🧱</div>
+            <h4 class="pattern-title">Proven, brick by brick</h4>
+            <p class="pattern-desc">Each commit is a wave that <em>provably</em> passed. The history reads as a chain of verified facts, not hopeful claims.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🛟</div>
+            <h4 class="pattern-title">Survives a crash</h4>
+            <p class="pattern-desc">If the session dies mid-build, the last sealed wave is already on disk. You lose at most one wave, never the whole run.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Debug it yourself</h2>
+        <p>No definitions — just situations a real build throws at you. Decide what <em>you'd</em> conclude, then check.</p>
+
+        <div class="quiz-container" id="quiz-module4">
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 1</span>
+              <p>Execution stopped right after Wave 1 with a big <code>❌ Sentinel HALT</code>. The AI swears in chat that it finished every task. Where do you look to find out what's actually true?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Exactly. The gate only trusts the file. If it halted, at least one task in that wave is still `[ ]` in tasks.md — open it and find the empty box. The chat is a claim; the file is the proof."
+                 data-explanation-wrong="The chat is just the AI's claim — and the halt happened precisely because that claim didn't match reality. The Executor measures one thing: the `[x]` markers in tasks.md. That file is the only source of truth here.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Re-read the chat — the AI's summary is the most reliable record.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Open tasks.md and find the task still showing <code>[ ]</code> instead of <code>[x]</code>.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Check the git history — the latest commit will list the unfinished task.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 2</span>
+              <p>A teammate suggests skipping the per-wave commits and just doing one big commit at the very end — "less clutter in the history." Wave 5 of 8 then blows up and corrupts some files. Why was the per-wave checkpoint the better call?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-c"
+                 data-explanation-right="Right. With a sealed checkpoint after each wave, you rewind to the end of Wave 4 — four proven waves intact — and retry just Wave 5. One big commit at the end would have left you nothing to fall back to."
+                 data-explanation-wrong="Not the main reason. The real payoff is recovery: each per-wave commit is a save slot, so a failure at Wave 5 costs you only Wave 5. A single end-of-run commit would mean the whole build is unsealed and there's no safe point to rewind to.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Per-wave commits run faster than one large commit.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>It makes the commit messages shorter and easier to read.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>You can rewind to the end of Wave 4 and retry just Wave 5 — only one wave lost.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 3</span>
+              <p>You notice the Executor halts loudly and freezes instead of quietly carrying on and "fixing it later." A colleague calls that annoying. What's the design intent behind a noisy halt?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-a"
+                 data-explanation-right="Exactly — no silent failures. A loud halt the instant the file disagrees with the claim is far cheaper than a quiet half-finished wave sneaking the next one through. You catch the lie when it's still free to fix."
+                 data-explanation-wrong="Not quite. The point isn't speed or strictness for its own sake — it's that a silent failure is the expensive kind. By stopping loudly the moment proof is missing, the system surfaces the problem while it's still trivial to fix.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>To surface the problem loudly and early — a silent half-done wave is the truly expensive failure.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>To force the user to manually approve every single task before it runs.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>To make the build run slower so the AI has more time to think.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module4')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module4')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Bridge to next -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The gate checks the boxes — but who checks the <em>work</em>?</h2>
+        <p>The Checkpoint Contract proves every task is <em>marked</em> done. But marking a box doesn't prove the code behind it is actually good — an AI can check a box over sloppy work.</p>
+        <p>Next up — <strong>The Sentinel</strong>: between finishing a wave and sealing the checkpoint, an inspector steps in and actually tests what was built.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

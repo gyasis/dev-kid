@@ -1,0 +1,431 @@
+<section class="module" id="module-10" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">10</span>
+      <h1 class="module-title">Observability — No Black Boxes</h1>
+      <p class="module-subtitle">The thesis the whole course was building toward: the goal was never zero failures. It was zero <em>invisible</em> failures. A crash you can see is a lesson; a crash you can't is a mystery that costs you hours.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook + master metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The plane crashed. What did the black box say?</h2>
+        <p>The bug in Module 9 didn't hide because it was subtle. It hid because nothing along the way <em>said</em> it was happening — a crash got quietly relabeled "test failed, escalate." Nobody lied; the system just never spoke up.</p>
+        <p>That's the cardinal sin of an AI system, and it's the one thing this whole course has been circling. The fix has a name, and you should learn to demand it by that name.</p>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">🛩️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Hold this picture: the flight data recorder</strong>
+            <p>A plane that crashes teaches you <em>nothing</em> if there's no black box. But a plane wired with full <span class="term" data-definition="Telemetry is the steady stream of measurements a system records about itself while it runs — timings, costs, errors, what each step actually did. Like the dials and recorders in a cockpit. When steering an AI you'd say 'add telemetry so I can see what each step is doing.'">telemetry</span> turns every incident into a recording: you replay the last minutes, hear exactly which gauge went red, and you <em>learn</em>. The aim of safe engineering isn't a plane that never fails — it's a plane that, if it does, tells you precisely why.</p>
+          </div>
+        </div>
+
+        <p>That mindset has a one-word name: <span class="term" data-definition="Observability is the property of a system being able to show you what it's doing and why — surfacing its errors, costs, and decisions instead of hiding them behind a single pass/fail. A black box has none; a flight recorder has all of it. You'd tell an AI tool 'be observable: show your work and explain your failures.'">observability</span>. No black boxes. Every step must be visible <em>as what it actually is</em>.</p>
+      </section>
+
+      <!-- SCREEN 2 — HERO: before/after data-flow animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The hero: a path that loses the truth vs. a path that keeps it</h2>
+        <p>Here is the Module 9 failure as a data flow, twice. First the <strong>black-box version</strong> — each handoff is a sealed gray box and the real cause is gone by the end. Step through it, then watch the <strong>observable version</strong> where each arrow is forced to say what it saw.</p>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">📦</div>
+          <div class="callout-content">
+            <strong class="callout-title">The black-box anti-pattern (state it plainly)</strong>
+            <p>This is the path as it ran for months — every arrow a closed box, the truth lost at the first one:</p>
+            <div class="translation-code" style="border-radius: var(--radius-sm); margin-top: var(--space-3);">
+              <span class="translation-label">BEFORE — TRUTH LOST</span>
+              <pre><code><span class="code-line">crash/hang  &rarr;  exit 1  &rarr;  "tier exhausted"  &rarr;  escalate   <span class="code-comment">(BLACK BOX: the truth is gone)</span></span></code></pre>
+            </div>
+            <p style="margin-top: var(--space-3);">The fix is to make each arrow <em>say what it saw</em>: surface the <span class="term" data-definition="stderr and stdout are the two text streams a command writes as it runs. stdout (standard output) is its normal results; stderr (standard error) is where it prints warnings and crash messages. Capturing both is how you 'hear' a tool — surfacing the stderr tail shows you the actual error instead of just a pass/fail.">stderr</span> tail, the ⚠️ $0 warning, the independent re-run result.</p>
+          </div>
+        </div>
+
+        <p><strong>BEFORE — the black box.</strong> Click through and notice: by the last step, you have a verdict ("escalate") but no idea <em>why</em>.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"The engine runs &mdash; but it never reached the real work. It crashed (or hung waiting for a human)."},
+          {"highlight":"flow-actor-2","label":"Sealed box #1: only a bare exit code 1 comes out. The crash, the hang, the stderr &mdash; all of it stays inside.","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-3","label":"Sealed box #2: exit 1 gets relabeled &apos;all tiers exhausted&apos; &mdash; a story nobody checked.","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-4","label":"Sealed box #3: &apos;escalate.&apos; The verdict is final and the truth is gone. You have an answer with no reason behind it.","packet":true,"from":"actor-3","to":"actor-4"}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon">⚙️</div>
+              <span>Engine runs</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon">📦</div>
+              <span>exit 1</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon">📦</div>
+              <span>"tier exhausted"</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon">📦</div>
+              <span>escalate</span>
+            </div>
+          </div>
+          <div class="flow-packet" id="flow-packet"></div>
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to walk the black-box path</div>
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <p style="margin-top: var(--space-10);"><strong>AFTER — the flight recorder.</strong> Same path, same parts. The only change: every arrow now emits a visible signal. By the last step you don't just have a verdict — you have the <em>cause</em>.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-5","label":"The engine runs &mdash; same as before. But now we record what it actually did, not just whether it returned 0."},
+          {"highlight":"flow-actor-6","label":"The arrow speaks: it surfaces the stderr tail &mdash; &apos;TTY EINVAL / waiting for a human.&apos; Now you can SEE it never reached the work.","packet":true,"from":"actor-5","to":"actor-6"},
+          {"highlight":"flow-actor-7","label":"The arrow speaks again: a paid model reported $0.00 &mdash; flagged as a likely parse miss, not a free lunch.","packet":true,"from":"actor-6","to":"actor-7"},
+          {"highlight":"flow-actor-8","label":"The final arrow speaks: an independent test re-run says PASS or FAIL for real. The verdict now carries its own evidence.","packet":true,"from":"actor-7","to":"actor-8"}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-5">
+              <div class="flow-actor-icon">⚙️</div>
+              <span>Engine runs</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-6">
+              <div class="flow-actor-icon">📣</div>
+              <span>stderr tail</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-7">
+              <div class="flow-actor-icon">⚠️</div>
+              <span>$0 warning</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-8">
+              <div class="flow-actor-icon">✅</div>
+              <span>re-run result</span>
+            </div>
+          </div>
+          <div class="flow-packet" id="flow-packet-2"></div>
+          <div class="flow-step-label" id="flow-label-2">Click "Next Step" to walk the observable path</div>
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🛰️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Same machine, different wiring</strong>
+            <p>Neither version is "smarter." The observable one simply refuses to let any handoff stay silent. That single discipline — make every arrow speak — is the entire difference between a mystery and a recording.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — Code↔English: fix #6, don't trust the exit code -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Fix #6: don't believe "I passed" — go check the tests yourself</h2>
+        <p>This is the heart of observability in actual code, from <code>cli/sentinel/tier_runner.py</code>. The engine claims it passed. Instead of trusting that claim, the Sentinel runs the tests <em>again itself</em> and only believes a green light it produced with its own hands.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-comment"># #6 — confirm micro-agent's success with an independent test re-run.</span></span>
+<span class="code-line"><span class="code-keyword">if</span> final_status == <span class="code-string">"PASS"</span>:</span>
+<span class="code-line">    confirmed, confirm_tail = <span class="code-function">_run_test_command</span>(test_cmd, Path.cwd())</span>
+<span class="code-line">    <span class="code-keyword">if</span> <span class="code-keyword">not</span> confirmed:</span>
+<span class="code-line">        final_status = <span class="code-string">"FAIL"</span></span>
+<span class="code-line">        <span class="code-function">print</span>(<span class="code-string">"      &#9888;&#65039;  exited 0 but independent test re-run FAILED"</span>)</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">The comment says it plainly: "confirm the success with an independent re-run." Trust, but verify.</p>
+              <p class="tl">Only bother if the engine <em>claims</em> it passed. (If it already failed, there's nothing to double-check.)</p>
+              <p class="tl">Run the real test command again, with our own hands, in this folder. <code>confirmed</code> is the honest answer.</p>
+              <p class="tl">If our own re-run does <em>not</em> agree…</p>
+              <p class="tl">…override the engine's "PASS" with the truth: <strong>FAIL</strong>. The claim doesn't get the last word.</p>
+              <p class="tl">And — crucially — <em>say so out loud</em>: print the warning. A silent override would just be a different kind of black box.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🔁</div>
+          <div class="callout-content">
+            <strong class="callout-title">Callback to Module 4: verify, don't trust</strong>
+            <p>This is the exact same reflex as the checkpoint gate from Module 4 — it refused to open until it counted the <code>[x]</code> marks itself, instead of trusting that a wave "said" it was done. Here it's a passed test instead of a finished wave, but the principle is identical: <strong>measure the claim against reality before you act on it.</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Code↔English: fix #5, the $0 warning -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Fix #5: a $0 paid run is a red flag, not a free lunch</h2>
+        <p>You met this exact trap at the end of Module 9: a paid model reporting <code>$0</code>. The natural instinct is to celebrate. The observable instinct is to get <em>suspicious</em> — and this snippet from the same file does precisely that, out loud.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">is_paid_tier = <span class="code-function">bool</span>(artisan_model) <span class="code-keyword">and</span> <span class="code-keyword">not</span> artisan_model.<span class="code-function">startswith</span>(<span class="code-string">"ollama"</span>)</span>
+<span class="code-line"><span class="code-keyword">if</span> is_paid_tier <span class="code-keyword">and</span> tier_cost == <span class="code-number">0.0</span>:</span>
+<span class="code-line">    <span class="code-function">print</span>(<span class="code-string">"      &#9888;&#65039;  paid model reported $0.00 cost — likely a parse miss; "</span></span>
+<span class="code-line">          <span class="code-string">"cumulative budget may understate spend"</span>)</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">First, decide: is this a tier that costs real money? (Anything that <em>isn't</em> the free local <span class="term" data-definition="Ollama is a tool that runs AI models locally on your own machine, with no per-use bill. dev-kid uses it as the free first tier; if a model name starts with 'ollama' it costs nothing, so a $0 cost there is expected.">Ollama</span> model.)</p>
+              <p class="tl">If it's a paid tier <em>and yet</em> the cost came back exactly zero — that combination is the suspicious one.</p>
+              <p class="tl">So warn, loudly: a paid run that costs nothing almost certainly means the cost number was never read correctly — a "parse miss."</p>
+              <p class="tl">And spell out the consequence: if one run's cost vanished, the running budget total is quietly <em>too low</em>. Better to flag it than to silently under-count spend.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — an anomaly is data, not noise</strong>
+            <p>Observability isn't only "surface errors." It's also "be suspicious of numbers that are <em>too good</em>." A paid step reporting $0 is the cousin of a smoke detector reading zero in a burning room. The right response to an impossible reading is never to trust it — it's to investigate the instrument.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — The watchdog angle: process observability -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Watchdog: observability for things that don't print anything</h2>
+        <p>An AI agent lives in a world of text — it only knows what gets printed. But real work spawns real <span class="term" data-definition="A process is a single running program on your computer, tracked by the operating system. When dev-kid kicks off a task, the OS gives it a process. The token-based AI can't 'see' processes — it only sees text — which is exactly the gap the Watchdog fills.">processes</span>, and processes can lie in two opposite ways that a text-only agent is blind to.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">👻</div>
+            <div>
+              <strong><span class="term" data-definition="An orphan process is one still alive and running even though the task that started it has been marked finished. Like a coffee machine left brewing in an office everyone has gone home from — nobody's watching it, but it's still running (and still costing).">Orphan</span> = the process outlives its task</strong>
+              <p>The task is marked <em>done</em>, but the process it launched is still alive — burning CPU, holding memory, costing money. The text says "complete." Reality says "still running."</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">🧟</div>
+            <div>
+              <strong><span class="term" data-definition="A zombie (in this course's sense) is a task still marked as running even though the process behind it has already died. The status board says 'in progress,' but the worker has left the building. The opposite mistake from an orphan.">Zombie</span> = the task outlives its process</strong>
+              <p>The task still shows <em>running</em>, but the process behind it already died. The status board says "in progress." Reality says "nobody's home."</p>
+            </div>
+          </div>
+        </div>
+
+        <p>Both are <em>invisible</em> to a token-based agent — there's no text to read. The Rust Watchdog catches them because it watches real <span class="term" data-definition="A PID (process ID) is the unique number the operating system assigns to each running program — its name tag on the system. By checking 'does PID 12345 still exist, and is it still the same program?' the Watchdog can tell the difference between a finished task and one that's secretly still alive.">PIDs</span>, not text — it's a flight recorder for the part of the system that never speaks.</p>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">📟</div>
+          <div class="callout-content">
+            <strong class="callout-title">Same thesis, new sensor</strong>
+            <p>Surfacing stderr makes <em>text</em> failures visible. Watching PIDs makes <em>process</em> failures visible. Different instruments, one goal: leave no corner of the system where a failure can hide unobserved.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — The observability toolkit: 5 pattern cards -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The toolkit: five reflexes of an observable system</h2>
+        <p>Everything in this module reduces to five concrete habits. These are the dials and recorders of the cockpit — the things you can demand by name from any AI tool you steer.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">📣</div>
+            <h4 class="pattern-title">1. Surface stderr/stdout</h4>
+            <p class="pattern-desc">Don't swallow a tool's output — show the error tail. The actual crash message is the single most useful thing you can rescue from a failure.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">⚠️</div>
+            <h4 class="pattern-title">2. Warn on anomalies</h4>
+            <p class="pattern-desc">A paid step reporting $0, a loop with 0 iterations, an impossibly fast run — treat "too good to be true" as a defect, not a win.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5)">
+            <div class="pattern-icon" style="background: var(--color-actor-5)">🔁</div>
+            <h4 class="pattern-title">3. Independently verify</h4>
+            <p class="pattern-desc">Never trust a single self-reported "I passed." Re-run the test yourself. The cheapest insurance against a confident lie.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">📟</div>
+            <h4 class="pattern-title">4. Watch real processes</h4>
+            <p class="pattern-desc">See orphans and zombies the text world can't. Watch PIDs, not just printed status, so nothing runs (or dies) in silence.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🧾</div>
+            <h4 class="pattern-title">5. Always write the manifest</h4>
+            <p class="pattern-desc">A report on <em>every</em> run, even a crash — wrapped in <code>try/finally</code>. The flight recorder that survives the wreck.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">🧾</div>
+          <div class="callout-content">
+            <strong class="callout-title">Callback to Module 6: the manifest is always written</strong>
+            <p>Card #5 is the reflex you already met. Module 6's <code>manifest_writer.py</code> files three documents — <code>manifest.json</code>, <code>diff.patch</code>, <code>summary.md</code> — on every single run, wrapped in <code>try/finally</code> so the report gets filed <em>even when the run crashes</em>. A crash that leaves a paper trail is debuggable; a crash that leaves nothing is the black box we've spent this whole course learning to refuse.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — The aha! callout: crashes are fine if observable -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The enemy was never failure</h2>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — crashes and bugs are acceptable, even useful, <em>if they're observable</em></strong>
+            <p>The goal of all this was never zero failures — that's impossible. The goal is zero <em>invisible</em> failures. A crash you can see in a report is a lesson you learn in minutes. A crash that hides behind a single exit code is the Module 9 bug: it costs you months. The enemy isn't failure. It's <strong>invisibility</strong>.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">🤫</div>
+          <div class="callout-content">
+            <strong class="callout-title">Callback to Module 9: the silent escalation was the whole crime</strong>
+            <p>Look back at what actually broke. The engine never even started — but a non-zero <span class="term" data-definition="An exit code is the single number a command leaves behind when it finishes: 0 means success, anything else means failure. The danger is that 'anything else' lumps very different stories — a crash, a timeout, a real test failure — into one identical-looking number.">exit code</span> got silently relabeled "tier exhausted, escalate." No <span class="term" data-definition="A fallback is the backup path a program takes when its first attempt fails — escalating to a more capable (and costlier) tier here. A silent fallback is dangerous: it quietly papers over a failure instead of reporting it, so you never learn the first attempt didn't really run.">fallback</span> should ever be silent. The bug wasn't that something failed — it's that the failure was allowed to <em>pretend to be something else.</em></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Capstone quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The capstone: steer an AI like an engineer</h2>
+        <p>No definitions — just judgment. These four are the whole course distilled into instincts you can carry into any tool you'll ever drive. Read each, decide, then check.</p>
+
+        <div class="quiz-container" id="quiz-module10">
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 1</span>
+              <p>An AI agent finishes a task, says "Done — all tests pass," and exits with code <code>0</code>. You've been burned before. What's the <em>cheapest</em> way to not get burned again?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Exactly — this is fix #6. Re-run the verification yourself and believe only the green light you produced with your own hands. A self-reported &apos;passed&apos; is a claim; an independent re-run is evidence. It's the same verify-don't-trust reflex as the Module 4 checkpoint, and it costs you one extra test run to avoid hours of chasing a lie."
+                 data-explanation-wrong="Not the cheapest. Swapping models or reading the whole log are heavier moves that still trust the agent's framing of what happened. The minimal, decisive move is to run the test command again yourself — if your own re-run disagrees with the agent's &apos;PASS,&apos; the truth wins. That's fix #6 in tier_runner.py.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Trust the exit code — 0 means success, that's what it's for.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Independently re-run the verification yourself and only believe a green light you produced.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Swap in a more expensive model and hope it's more honest.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 2</span>
+              <p>A step you <em>know</em> used a paid API logs <code>Cost: $0.00</code>. The run reports success. Celebrate the free lunch, or investigate?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-c"
+                 data-explanation-right="Investigate — this is fix #5. A paid model can't cost nothing; a $0 reading almost always means the cost number was never parsed correctly (a parse miss), which means your running budget is quietly understating real spend. An impossible reading is a defect in the instrument, not a gift. Be suspicious of numbers that are too good."
+                 data-explanation-wrong="A $0 cost on a paid step should set off alarms, not confetti. It's far more likely the cost was never read correctly than that a paid model worked for free — and if one run's cost vanished, your cumulative budget is now too low. Observability means treating an impossible-good number as suspicious, exactly what fix #5 does.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Celebrate — $0 means it solved it for free.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Ignore it — the cost field is cosmetic.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Investigate — a paid run at $0 is almost certainly a parse miss, and the budget total is now understated.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 3</span>
+              <p>Two failures land on your desk. Bug A: the app crashed loudly with a clear stack trace pointing at line 42. Bug B: a task reported "success," but the feature silently does nothing and there's no trace of why. Which is the <em>more dangerous</em> failure, and what's the name for what makes it dangerous?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-a"
+                 data-explanation-right="Right. Bug B is the dangerous one because it's a BLACK-BOX bug — a failure that doesn't announce itself as a failure. Bug A is loud and points you straight to the cause; you'll fix it in minutes. Bug B hides behind a false &apos;success&apos; with no trace, exactly like the Module 9 escalation, and can cost you months. The enemy isn't the bug — it's the invisibility."
+                 data-explanation-wrong="Look again at what makes each one dangerous. A loud crash with a stack trace is almost a gift — it hands you the cause. The silent &apos;success&apos; that does nothing is the black-box bug: no trace, no alarm, no idea it's even broken. Invisibility, not severity, is what turns a small bug into a months-long mystery.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Bug B — it's a <em>black-box bug</em>: a failure invisible as a failure. Invisibility is what makes it dangerous, not severity.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Bug A — a crash always means data loss, so it's worse.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>They're equally dangerous — a bug is a bug regardless of how it shows up.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 4</span>
+              <p>You're about to set a new AI coding tool loose on your repo overnight. In one sentence of instruction, how do you make it <em>observable</em> — so that if it fails, it fails loudly and cheaply instead of silently and expensively?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Exactly — this is the master skill the whole course was for. &apos;Show your work (surface stderr/stdout), verify your own claims (re-run the tests), flag anything anomalous (a $0 paid run), and never fall back silently&apos; is the full observability toolkit expressed as an instruction. You're not asking it to be perfect — you're asking it to be honest about its imperfections, which is the only thing that makes overnight autonomy safe."
+                 data-explanation-wrong="Those instructions optimize for the wrong thing. &apos;Just don't fail&apos; or &apos;hide the errors so the log stays clean&apos; ask for the black box — they reward the tool for concealing trouble, which is precisely the Module 9 disaster. The safe instruction asks for visibility: surface errors, verify claims, warn on anomalies, no silent fallbacks. Demand observability by name.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>"Just don't fail — and keep the log clean by suppressing errors."</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>"Surface every error, verify your own claims by re-running the tests, warn on anything anomalous, and never fall back silently."</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>"Use the biggest, most expensive model so it's smart enough not to need checking."</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module10')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module10')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — The send-off -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You can read the black box now</h2>
+        <p>You started this course seeing dev-kid as a single mysterious machine. Now trace what you can do: you can <strong>name the parts</strong> — orchestrator, waves, checkpoint gate, the Sentinel and its seven checks, the tiers, the budget guard, the Ralph Loop, the Watchdog.</p>
+        <p>You can <strong>trace the flow</strong> — a linear task list becoming parallel waves, each wave sealed by a checkpoint that verifies before it commits, each task validated by a critic that re-runs the tests and always files a report.</p>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">🎓</div>
+          <div class="callout-content">
+            <strong class="callout-title">And the one skill that outlasts dev-kid itself: demand observability</strong>
+            <p>The most valuable thing you'll carry out of here isn't a diagram — it's an instinct. Whatever AI system you steer next, you now know to ask it to <em>show its work and verify its claims</em>. An AI that fails silently wastes your hours and your money. An AI you've taught to fail <em>loudly</em> fails cheaply, in minutes, with the cause attached. That's not a nice-to-have. It's the master skill of steering machines you can't fully see.</p>
+          </div>
+        </div>
+
+        <p>No black boxes. Every arrow speaks. Every claim gets checked. Every run leaves a report — even the crashes. Go build something, let it fail loudly, and read what the recorder tells you. <strong>That's how you learn faster than the failures can cost you.</strong></p>
+      </section>
+
+    </div>
+  </div>
+</section>

@@ -1,0 +1,454 @@
+<section class="module" id="module-5" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">05</span>
+      <h1 class="module-title">The Sentinel</h1>
+      <p class="module-subtitle">A bouncer at the door of every checkpoint — checking IDs before any work gets past the velvet rope.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">"Done" is a claim, not a fact</h2>
+        <p>In the last module, the Wave Executor refused to start a new wave until every task was marked done. But there's a quieter gap: between <em>the AI says a task is done</em> and <em>we save it to history</em>, who actually checks the work?</p>
+        <p>Dev-Kid slips an inspector into that gap — one whose whole job is to try and <em>disprove</em> the work before it's trusted. Meet the <span class="term" data-definition="The Integration Sentinel is Dev-Kid's per-task inspector. Right after the AI claims a task is finished, the Sentinel runs a fixed set of checks to confirm the work is real before it gets committed. Think of it as quality control standing between 'claimed done' and 'proven done.'">Integration Sentinel</span>.</p>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🛡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Hold this picture: a bouncer at the door</strong>
+            <p>Before anyone gets past the velvet rope, the bouncer checks IDs — no fakes, no troublemakers, no one over the room's limit. The Sentinel is that bouncer, and the velvet rope is the <span class="term" data-definition="A commit is a saved snapshot of your code in version-control (Git) — a permanent point in the project's history you can always go back to. When work is committed, it's officially part of the record. You'd tell the AI 'commit this change' to lock it in.">git commit</span> that locks the wave into history.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — Where the Sentinel sits -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Where the bouncer stands</h2>
+        <p>The Sentinel isn't a separate stage you run by hand — it's wedged into the pipeline you already know. The moment a task is finished, the Sentinel inspects it. Only if it approves does the wave move toward its checkpoint.</p>
+
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-step-num">1</div>
+            <p>AI finishes a task</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step" style="border:2px solid var(--color-accent); border-radius: var(--radius-md);">
+            <div class="flow-step-num" style="background: var(--color-accent)">🛡️</div>
+            <p><strong>Sentinel checks it</strong></p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">3</div>
+            <p>Checkpoint &amp; commit</p>
+          </div>
+        </div>
+
+        <p>If the bouncer turns the work away, the whole wave is <span class="term" data-definition="To halt means to stop the process immediately and refuse to go further. When the Sentinel halts a wave, no more tasks run and nothing gets committed until a human looks. It's the emergency brake, not a polite suggestion.">halted</span> — nothing gets committed until a human looks. That's the difference between "the AI claims it's done" and "this is proven done."</p>
+      </section>
+
+      <!-- SCREEN 3 — The seven checks (pattern cards) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What the bouncer actually checks</h2>
+        <p>Every time a task finishes, the Sentinel runs the <em>same fixed routine</em> — seven steps, always in this order. Each step catches a specific flavor of "looks done but isn't."</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">🔍</div>
+            <h4 class="pattern-title">1 · Placeholder scan</h4>
+            <p class="pattern-desc">Hunts for fake code — leftover <code>TODO</code>, <code>FIXME</code>, or stubbed-out functions in real production files.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🧭</div>
+            <h4 class="pattern-title">2 · Find the test command</h4>
+            <p class="pattern-desc">Auto-detects how this project runs its tests (pytest, npm test, cargo test…). No tests found? It skips ahead.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">🔁</div>
+            <h4 class="pattern-title">3 · Fix-it test loop</h4>
+            <p class="pattern-desc">Runs the tests. If they fail, a cheap local AI tries to fix it, then a smarter cloud AI if needed.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">🔌</div>
+            <h4 class="pattern-title">4 · Interface diff</h4>
+            <p class="pattern-desc">Checks whether the task changed any <span class="term" data-definition="An interface is the public 'shape' of code that other code relies on — the names of functions, what arguments they take, what they hand back. Changing an interface can silently break everything that calls it, like moving a doorknob to the other side of the door.">interface</span> — the public shape other code depends on.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5)">
+            <div class="pattern-icon" style="background: var(--color-actor-5)">📏</div>
+            <h4 class="pattern-title">5 · Change-radius check</h4>
+            <p class="pattern-desc">Did the task blow past its scope? Too many files, too many lines, a risky interface change?</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🌊</div>
+            <h4 class="pattern-title">6 · Cascade analysis</h4>
+            <p class="pattern-desc">If a change ripples outward, it flags which <em>other</em> tasks might now need attention.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">📝</div>
+            <h4 class="pattern-title">7 · Write the manifest</h4>
+            <p class="pattern-desc">Always — pass or fail — it logs exactly what happened to a <span class="term" data-definition="A manifest is a written record of what happened — like a shipping receipt that lists everything in the box. The Sentinel's manifest records the result, which files changed, how many tries it took, and what it cost. It's written every single time, even when the work fails.">manifest</span> file.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Code translation 1: the pipeline docstring -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: the bouncer's checklist</h2>
+        <p>Those seven steps aren't a diagram someone drew for this course — they're written, in order, right at the top of the file that runs them. This is the real comment from <code>cli/sentinel/runner.py</code>.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-comment"># SentinelRunner.run() orchestrates the complete pipeline:</span></span>
+<span class="code-line"><span class="code-comment">#   1. Placeholder scan (pre-test-loop)</span></span>
+<span class="code-line"><span class="code-comment">#   2. Test framework detection</span></span>
+<span class="code-line"><span class="code-comment">#   3. Tiered micro-agent test loop (Tier 1 Ollama &rarr; Tier 2 cloud)</span></span>
+<span class="code-line"><span class="code-comment">#   4. Interface diff</span></span>
+<span class="code-line"><span class="code-comment">#   5. Change radius evaluation</span></span>
+<span class="code-line"><span class="code-comment">#   6. Cascade analysis</span></span>
+<span class="code-line"><span class="code-comment">#   7. Manifest writing</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">One <span class="term" data-definition="A function is a named, reusable block of code that does one job when you call it. Here, run() is the function that performs the whole inspection — calling run() kicks off all seven checks in sequence.">function</span>, <code>run()</code>, does the entire inspection start to finish.</p>
+              <p class="tl">First, sweep for fake code <em>before</em> wasting time on tests.</p>
+              <p class="tl">Figure out how this particular project runs its tests.</p>
+              <p class="tl">Try the cheap local AI first, escalate to the pricey cloud AI only if needed.</p>
+              <p class="tl">Check whether any public interface quietly changed.</p>
+              <p class="tl">Measure how big the change got — files, lines, scope.</p>
+              <p class="tl">Flag any downstream tasks the change might have disturbed.</p>
+              <p class="tl">Finally, write the receipt — every single time, no exceptions.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>Notice the order is deliberate: the <em>cheapest</em> check (scanning text for fake code) runs first, so the Sentinel never spends money on tests for work that was obviously hollow.</p>
+      </section>
+
+      <!-- SCREEN 5 — Three verdicts -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The bouncer gives one of three answers</h2>
+        <p>After the routine, the Sentinel hands back exactly one verdict. Knowing which is which tells you instantly whether the problem is <em>bad code</em> or <em>bad setup</em>.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-success)">✅</div>
+            <div>
+              <strong>PASS — you may enter</strong>
+              <p>Every check it could run came back clean. The work is trusted, the wave can move toward its commit.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-error)">🚫</div>
+            <div>
+              <strong>FAIL / HALT — turned away</strong>
+              <p>Something real is wrong: fake code, failing tests, or a change that blew its scope. The wave stops cold until a human looks.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-text-muted)">⏭️</div>
+            <div>
+              <strong>SKIP — nothing to check</strong>
+              <p>No test command was found, so there was nothing to run. This is a setup gap, <em>not</em> a sign the code is bad.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🔎</div>
+          <div class="callout-content">
+            <strong class="callout-title">SKIP is not the same as PASS</strong>
+            <p>A SKIP means the bouncer never got to check IDs — maybe there was no ID scanner at the door. If you see SKIP, the fix is usually adding a test command, not rewriting the code.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Code translation 2: the placeholder-fail gate -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: catching fake code red-handed</h2>
+        <p>Here's a real gate from <code>cli/sentinel/runner.py</code>. The AI left placeholder code where finished code should be — and the Sentinel doesn't just note it, it pulls the emergency brake on the entire wave.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">if</span> violations <span class="code-keyword">and</span> fail_on_detect:</span>
+<span class="code-line">    <span class="code-function">print</span>(<span class="code-string">f"      &#x1F6AB; Sentinel: {len(violations)} placeholder violation(s) detected"</span>)</span>
+<span class="code-line">    result_obj.result = <span class="code-string">"FAIL"</span></span>
+<span class="code-line">    result_obj.should_halt_wave = <span class="code-keyword">True</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Did we find fake code <em>and</em> is the project set to be strict about it?</p>
+              <p class="tl">Then announce it loudly — "🚫 found N placeholder violations."</p>
+              <p class="tl">Stamp this task's verdict as <code>"FAIL"</code>.</p>
+              <p class="tl"><code>should_halt_wave = True</code> — pull the emergency brake on the <em>whole wave</em>, not just this one task.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>That last line is the teeth. A <span class="term" data-definition="A placeholder (or stub) is fake, unfinished code left in as a temporary stand-in — like a 'TODO: write this later' note or an empty function that returns nothing. It looks like real code but does no real work. The Sentinel treats it as a red flag in production files.">stub</span> in one task doesn't just fail quietly; it stops everything downstream, because shipping fake code is exactly the kind of "looks done" that the Sentinel exists to catch.</p>
+      </section>
+
+      <!-- SCREEN 7 — HERO: Group chat animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch the bouncer work the door</h2>
+        <p>Here's the whole drama as a group chat. The Wave Executor brings a finished task to the door; the Sentinel runs its checks out loud; the Test Loop reports back; and the Manifest logs it all — whatever the outcome. Step through it.</p>
+
+        <div class="chat-window" id="chat-sentinel">
+          <div class="chat-messages">
+
+            <div class="chat-message" data-msg="0" data-sender="executor" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-4)">WE</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-4)">The Wave Executor</span>
+                <p>Hey Sentinel — task T001 says it's done. Mind taking a look before I commit it?</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="1" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Sentinel</span>
+                <p>Always. Same routine every time. First: any fake code? Let me scan for TODOs and stubs…</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="2" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Sentinel</span>
+                <p>Clean. Now — Test Loop, how does this project run its tests, and do they pass?</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="3" data-sender="testloop" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">TL</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">The Test Loop</span>
+                <p>Found pytest. Running… one failed. Letting the cheap local AI take a swing at the fix… retrying… ✅ green now.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="4" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Sentinel</span>
+                <p>Good. Interfaces unchanged, scope is sane — 2 files, 40 lines. This one earns a PASS. Manifest, log it.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="5" data-sender="manifest" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">📝</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Manifest</span>
+                <p>Logged: T001 → PASS, Tier 1, 1 retry. Written to <code>.claude/sentinel/SENTINEL-T001/</code>.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="6" data-sender="executor" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-4)">WE</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-4)">The Wave Executor</span>
+                <p>Next: T002 says done too. Same check please.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="7" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Sentinel</span>
+                <p>Scanning… hold on. There's a <code># TODO: implement later</code> sitting in a production file. That's fake code.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="8" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Sentinel</span>
+                <p>🚫 FAIL. And I'm halting the whole wave — <code>should_halt_wave = True</code>. Nothing gets committed until a human looks.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="9" data-sender="manifest" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">📝</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Manifest</span>
+                <p>Logged either way: T002 → FAIL, placeholder violation. Pass or fail, I write the receipt every time.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="chat-typing" id="chat-typing" style="display:none">
+            <div class="chat-avatar" id="typing-avatar">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+
+          <div class="chat-controls">
+            <button class="btn chat-next-btn">Next Message</button>
+            <button class="btn chat-all-btn">Play All</button>
+            <button class="btn chat-reset-btn">Replay</button>
+            <span class="chat-progress"></span>
+          </div>
+        </div>
+
+        <p>One bouncer, two very different nights. T001 earned its PASS the hard way — through a failing test that got fixed. T002 never made it past the first check, and took the whole wave down with it.</p>
+      </section>
+
+      <!-- SCREEN 8 — The aha callout -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The whole point: distrust by design</h2>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — PASS is earned, not assumed</strong>
+            <p>Most tools assume the AI did its job and move on. The Sentinel assumes the opposite: it's built to <em>distrust</em> the work and actively tries to disprove it. A PASS only comes after every check fails to find a problem — which is why a PASS here actually means something.</p>
+          </div>
+        </div>
+
+        <p>This flips a normal instinct. "No news is good news" doesn't apply — the Sentinel makes news either way, and writes it down. That's how "the AI claims done" becomes "proven done."</p>
+      </section>
+
+      <!-- SCREEN 9 — The planted clue: enabled: false -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A curious detail in the config</h2>
+        <p>Here's something odd. Dev-Kid's settings live in a <span class="term" data-definition="A config (configuration) file holds the settings that control how a tool behaves — like the preferences menu in an app, but written as plain text. Dev-Kid reads dev-kid.yml to decide which features are on. You'd tell the AI 'flip that setting in the config' to change behavior.">config</span> file called <code>dev-kid.yml</code>. And out of the box, the Sentinel — this carefully-built safety system — ships <em>switched off</em>.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-property">sentinel</span>:</span>
+<span class="code-line">  <span class="code-property">enabled</span>: <span class="code-keyword">false</span></span>
+<span class="code-line">  <span class="code-property">mode</span>: <span class="code-string">auto</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">All the Sentinel's settings live under this heading.</p>
+              <p class="tl"><code>enabled: false</code> — the bouncer isn't even at the door yet. The whole inspection is turned off.</p>
+              <p class="tl"><code>mode: auto</code> — <em>when</em> it's on, it runs fully automatically without pausing for a human.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">🤔</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why ship your safety system OFF?</strong>
+            <p>It seems backwards to build an elaborate inspector and then hand it to people switched off. There's a real reason — a chicken-and-egg problem hiding in here. Keep this puzzle in your back pocket; we'll crack it open in <strong>Module 9</strong>.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 10 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Read the situation, call the verdict</h2>
+        <p>No definitions — just scenarios. Decide what the Sentinel would do (and what it tells <em>you</em>), then check.</p>
+
+        <div class="quiz-container" id="quiz-module5">
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 1</span>
+              <p>The AI finished a task, but it left a <code># TODO: implement later</code> inside a real production file. Which of the Sentinel's seven checks catches this — and what happens next?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-a"
+                 data-explanation-right="Exactly. The placeholder scan runs first and cheapest, hunting for fake code like TODO/FIXME/stubs. When it finds one in production code, it sets should_halt_wave = True — failing the task and freezing the entire wave until a human looks."
+                 data-explanation-wrong="Not quite. Tests might or might not exist, and they wouldn't necessarily catch a TODO comment. The dedicated check for leftover fake code is the placeholder scan — and it runs first, before any tests, precisely so hollow work gets caught cheaply.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The placeholder scan — it FAILs the task and halts the whole wave.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The test loop — failing tests are the only way fake code is ever caught.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Nothing catches it — comments are ignored, so it just gets committed.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 2</span>
+              <p>You check the manifest and the Sentinel returned <strong>SKIP</strong> for a task — not PASS, not FAIL. Your teammate panics that the code is broken. What does SKIP actually tell you, and where would you look first?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-c"
+                 data-explanation-right="Right. SKIP means there was nothing to run — the Sentinel couldn't find a test command for this project, so it had no way to validate. That's a setup gap, not bad code. The fix is usually adding a test command, not rewriting anything."
+                 data-explanation-wrong="Careful — that's the panic talking. SKIP is not FAIL. It means the bouncer never got to check IDs because there was no scanner at the door: no test command was detected. Reassure your teammate and look at the project's test setup, not the code itself.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>SKIP means the code failed silently — start debugging the task's logic.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>SKIP means a placeholder was found — go hunt for TODO comments.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>SKIP means no test command was found — it's a setup gap, check the test config.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 3</span>
+              <p>You just cloned a brand-new dev-kid project and notice <code>sentinel: enabled: false</code> in <code>dev-kid.yml</code>. A colleague says "that's a bug, the safety check should always be on." Based on this module, what's the most reasonable read?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Good instinct. Shipping the safety system OFF by default is deliberate and curious — there's a real reason rooted in a chicken-and-egg problem (a tool that can't safely validate itself while it's still being built). We don't resolve it here; Module 9 cracks it open. For now: noting it as intentional-but-puzzling beats assuming it's a bug."
+                 data-explanation-wrong="Probably too hasty. The module flagged enabled: false as a deliberate, curious choice — not an accident. There's a genuine reason it ships off (a chicken-and-egg situation we save for Module 9). Assuming it's a bug and flipping it blind could be the wrong move.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>It's clearly a bug — flip it to true immediately and file an issue.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>It looks intentional and curious — there's likely a real reason it ships off; worth understanding before flipping it.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The Sentinel doesn't matter, so the setting is irrelevant either way.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module5')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module5')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 11 — Bridge to next -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">We've met the bouncer — now let's see inside</h2>
+        <p>You now know <em>what</em> the Sentinel does: seven checks, three verdicts, a manifest every time, and the power to halt a wave when it smells fake work.</p>
+        <p>Next up — <strong>Inside the Sentinel</strong>: the module map behind those checks, and the clever three-axis "change radius" that decides when a task has grown too big to trust.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

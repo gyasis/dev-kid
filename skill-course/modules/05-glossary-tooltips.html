@@ -1,0 +1,319 @@
+<section class="module" id="module-5" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">05</span>
+      <h1 class="module-title">The Glossary Tooltip Engine</h1>
+      <p class="module-subtitle">Museum placards on a movable arm — how a word's definition floats out to exactly where you're looking, and never gets cropped.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook + metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Hover a dashed word — feel the trick</h2>
+        <p>Every dashed-underlined word in this entire course pops a definition right where you're reading. Try it now: hover
+          <span class="term" data-definition="The DOM (Document Object Model) is the live, tree-shaped map of everything on a web page — every heading, paragraph, and button. JavaScript reads and changes the page by walking this tree. When talking to an AI, you might say 'add a button to the DOM.'">DOM</span>,
+          <span class="term" data-definition="getBoundingClientRect is a built-in browser command that answers one question: 'where is this element on screen RIGHT NOW?' It returns the top, bottom, left, and right edges in pixels, measured from the corner of the visible window.">getBoundingClientRect</span>, or
+          <span class="term" data-definition="z-index decides which overlapping element sits on top — like the layer order in a stack of transparent sheets. A higher z-index means 'paint me last, over everything below.'">z-index</span>.</p>
+        <p>Here's the deliberate part: those definitions appear cleanly <strong>even inside a dark code block</strong> — a box that's specifically built to crop anything spilling out of it. That should be impossible. This module is the magic trick explained.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🏛️</div>
+          <div class="callout-content">
+            <strong class="callout-title">The metaphor: a museum placard on a movable arm</strong>
+            <p>Picture a placard that swings out from a <em>ceiling rail</em> to float beside whatever exhibit you lean toward. Because it hangs from the rail — not bolted inside the glass display case — the case's walls can never hide it. Our tooltips hang from the page itself, never from the word.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — What an author writes -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">All an author writes is one tag</h2>
+        <p>Writing a tooltip takes zero JavaScript. You wrap a word in a
+          <span class="term" data-definition="A span is the smallest HTML wrapper — an invisible box you put around a piece of text so you can style or tag it without changing how it looks. Think of it like a highlighter that adds a label nobody sees.">span</span>
+          and hang the definition off it as a <code>data-definition</code> attribute. The engine finds every one of these automatically when the page loads.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-operator">&lt;</span><span class="code-tag">span</span> <span class="code-attr">class</span>=<span class="code-value">"term"</span></span>
+<span class="code-line">  <span class="code-attr">data-definition</span>=<span class="code-value">"A background script that runs</span></span>
+<span class="code-line">  <span class="code-value">even when you're not looking at the page."</span><span class="code-operator">&gt;</span></span>
+<span class="code-line">service worker<span class="code-operator">&lt;/</span><span class="code-tag">span</span><span class="code-operator">&gt;</span></span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Start an invisible wrapper, and tag it as a glossary "term" so the engine knows to give it a tooltip.</p>
+              <p class="tl">Stash the definition right on the word itself — a sticky note that travels with it.</p>
+              <p class="tl">The definition can be a full sentence; it just lives quietly in the markup until someone hovers.</p>
+              <p class="tl">Put the actual word here, then close the wrapper. That's the entire job — no code to wire up.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>That's it. The author never touches positioning, never builds the bubble. A separate engine, running once on page load, turns every
+          <span class="term" data-definition="A class is a reusable label you attach to HTML elements so styling and scripts can find them all at once — like tagging a batch of photos 'vacation' so you can pull them up together.">class</span>=<code>"term"</code>
+          into a live, hovering placard.</p>
+      </section>
+
+      <!-- SCREEN 3 — The positioning engine, code-to-English -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The engine that places the placard</h2>
+        <p>When you hover, this function decides <em>where</em> the bubble goes. It's the heart of the trick — three small moves that together make the placard escape any box.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">function</span> <span class="code-function">positionTooltip</span>(term, tip) {</span>
+<span class="code-line">  <span class="code-keyword">const</span> rect = term.<span class="code-function">getBoundingClientRect</span>();</span>
+<span class="code-line">  <span class="code-keyword">const</span> tipWidth = Math.<span class="code-function">min</span>(<span class="code-number">320</span>, Math.<span class="code-function">max</span>(<span class="code-number">200</span>, window.innerWidth * <span class="code-number">0.8</span>));</span>
+<span class="code-line">  <span class="code-keyword">let</span> left = rect.left + rect.width / <span class="code-number">2</span> - tipWidth / <span class="code-number">2</span>;</span>
+<span class="code-line">  left = Math.<span class="code-function">max</span>(<span class="code-number">8</span>, Math.<span class="code-function">min</span>(left, window.innerWidth - tipWidth - <span class="code-number">8</span>));</span>
+<span class="code-line">  tip.style.left = left + <span class="code-string">'px'</span>;</span>
+<span class="code-line">  document.body.<span class="code-function">appendChild</span>(tip);          <span class="code-comment">// ← appended to BODY, not the term</span></span>
+<span class="code-line">  <span class="code-keyword">const</span> tipHeight = tip.offsetHeight;</span>
+<span class="code-line">  <span class="code-keyword">if</span> (rect.top - tipHeight - <span class="code-number">12</span> &lt; <span class="code-number">0</span>) {     <span class="code-comment">// no room above → flip below</span></span>
+<span class="code-line">    tip.style.top = (rect.bottom + <span class="code-number">8</span>) + <span class="code-string">'px'</span>;</span>
+<span class="code-line">    tip.classList.<span class="code-function">add</span>(<span class="code-string">'flip'</span>);</span>
+<span class="code-line">  } <span class="code-keyword">else</span> {</span>
+<span class="code-line">    tip.style.top = (rect.top - tipHeight - <span class="code-number">8</span>) + <span class="code-string">'px'</span>;</span>
+<span class="code-line">  }</span>
+<span class="code-line">}</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">When someone hovers a word, run this with the word and its empty bubble.</p>
+              <p class="tl">Ask the browser: where is this exact word on screen right now? Get back its edges in pixels.</p>
+              <p class="tl">Pick a bubble width that fits the screen — never wider than 320px, never thinner than 200px.</p>
+              <p class="tl">Aim the bubble's center at the word's center, so it sits directly above it.</p>
+              <p class="tl">Nudge it back inward if it would spill off the left or right edge of the window.</p>
+              <p class="tl">Lock in that horizontal position.</p>
+              <p class="tl"><strong>The key move:</strong> attach the bubble to the page body itself — NOT inside the word. This is what lets it escape any box the word is trapped in.</p>
+              <p class="tl">Now that it's on the page, measure how tall the bubble turned out.</p>
+              <p class="tl">Check: is there room above the word? If the bubble would poke off the top of the screen...</p>
+              <p class="tl">...then place it just below the word instead.</p>
+              <p class="tl">...and flag it "flipped" so its little arrow points up instead of down.</p>
+              <p class="tl">Otherwise, there's room — place it neatly above the word, the normal way.</p>
+              <p class="tl"> </p>
+              <p class="tl">Done. The placard now floats exactly where it should, mounted on the ceiling rail.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>The word you just hovered to read <span class="term" data-definition="append means to add something onto the end — here, sticking the freshly-built tooltip bubble onto the page as the last child of the body. Like clipping a new placard onto the very end of the ceiling rail.">append</span> ran this <em>exact</em> code. The placard you saw was built, measured, and positioned by these eighteen lines.</p>
+      </section>
+
+      <!-- SCREEN 4 — Why append-to-body escapes clipping -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why the placard escapes the glass case</h2>
+        <p>Code blocks in this course set
+          <span class="term" data-definition="overflow: hidden is a styling rule that tells a box 'crop anything that spills past my edges, don't let it show.' It's how scrolling panels and rounded cards keep their contents tidy — but it will also slice off any popup born inside.">overflow: hidden</span>
+          so long lines wrap neatly instead of poking out the side. That same rule is a guillotine for anything born <em>inside</em> the box. The fix is to never be born inside it.</p>
+
+        <div class="comparison-grid">
+          <div class="compare-col compare-bad">
+            <span class="compare-tag">❌ Bolted inside the case</span>
+            <p>If the bubble is added as a child of the word — and the word sits in a code block — the block's <code>overflow: hidden</code> walls slice the bubble off. You see half a definition, or nothing.</p>
+          </div>
+          <div class="compare-col compare-good">
+            <span class="compare-tag">✓ Hung from the ceiling rail</span>
+            <p>Add the bubble to <code>document.body</code> — the outermost container — and no inner box can crop it. There are no walls between it and the edge of the screen.</p>
+          </div>
+        </div>
+
+        <p>But moving the bubble out of the word creates a new problem: now it doesn't know where the word <em>was</em>. That's the second half of the trick.</p>
+
+        <div class="icon-rows">
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📏</div>
+            <div>
+              <strong><span class="term" data-definition="position: fixed pins an element to the visible window itself — at coordinates like '40px from the top, 200px from the left' — ignoring every box around it. Contrast with position: absolute, which positions relative to its nearest positioned ancestor and so stays trapped inside that box.">position: fixed</span> (not absolute)</strong>
+              <p>Pin the bubble to the window using raw screen coordinates, so no ancestor box gets a vote in where it lands.</p>
+            </div>
+          </div>
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-actor-3)">🎯</div>
+            <div>
+              <strong><code>getBoundingClientRect()</code> supplies the coordinates</strong>
+              <p>It measures the word's live position on screen, so we can place the now-detached bubble directly over it.</p>
+            </div>
+          </div>
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-actor-4)">🔝</div>
+            <div>
+              <strong><code>z-index: 10000</code> keeps it on top</strong>
+              <p>The bubble paints above the navigation bar, the code block, everything — so it's never hidden behind another layer.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — the universal escape hatch</strong>
+            <p>"Append to <code>document.body</code> + <code>position: fixed</code>" is THE fix for <em>any</em> popup, dropdown, or tooltip getting clipped by an <code>overflow: hidden</code> parent. Whenever a popup mysteriously vanishes inside a scrolling box, this is your first move — every time.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Spot the bug -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Spot the bug: the clipped tooltip</h2>
+        <p>Here's a broken tooltip engine. It builds the bubble correctly — but one line dooms it to be sliced off inside any code block. Click the line that traps the placard inside the glass case.</p>
+
+        <div class="bug-challenge">
+          <h3>Find the line that gets the tooltip clipped:</h3>
+          <div class="bug-code">
+            <div class="bug-line" data-line="1" onclick="checkBugLine(this, false)">
+              <span class="line-num">1</span>
+              <code>function showTooltip(term, tip) {</code>
+            </div>
+            <div class="bug-line" data-line="2" onclick="checkBugLine(this, false)">
+              <span class="line-num">2</span>
+              <code>  tip.style.position = 'absolute';</code>
+            </div>
+            <div class="bug-line bug-target" data-line="3" onclick="checkBugLine(this, true)">
+              <span class="line-num">3</span>
+              <code>  term.appendChild(tip);   // add the bubble INSIDE the word</code>
+            </div>
+            <div class="bug-line" data-line="4" onclick="checkBugLine(this, false)">
+              <span class="line-num">4</span>
+              <code>  tip.style.top = '-40px';</code>
+            </div>
+            <div class="bug-line" data-line="5" onclick="checkBugLine(this, false)">
+              <span class="line-num">5</span>
+              <code>  tip.classList.add('visible');</code>
+            </div>
+            <div class="bug-line" data-line="6" onclick="checkBugLine(this, false)">
+              <span class="line-num">6</span>
+              <code>}</code>
+            </div>
+          </div>
+          <div class="bug-feedback" id="bug-feedback"></div>
+        </div>
+
+        <div class="callout callout-warning">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">The combo that kills it</strong>
+            <p>Line 3 appends the bubble <em>inside</em> the word, and line 2's <code>position: absolute</code> keeps it trapped relative to that spot. If the word lives in an <code>overflow: hidden</code> box, the box crops the bubble. The fix: append to <code>document.body</code> and switch to <code>position: fixed</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — A small detail: cursor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A tiny detail that changes the feel</h2>
+        <p>When you hover a term, your mouse becomes a pointing hand — not a question mark. That choice is deliberate, and it's a one-line styling rule.</p>
+
+        <div class="comparison-grid">
+          <div class="compare-col compare-bad">
+            <span class="compare-tag">🩺 cursor: help</span>
+            <p>The question-mark cursor reads as clinical and uncertain — "you probably need help with this." It quietly signals confusion.</p>
+          </div>
+          <div class="compare-col compare-good">
+            <span class="compare-tag">👆 cursor: pointer</span>
+            <p>The pointing hand reads as "this is clickable, go ahead!" It's the same cursor as a link — inviting, confident, discoverable.</p>
+          </div>
+        </div>
+
+        <p>Tiny detail, real impact: a non-technical learner is far more likely to <em>try</em> hovering a word that looks clickable. The whole point is that nobody has to leave the page to look anything up.</p>
+      </section>
+
+      <!-- SCREEN 7 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check your debugging instinct</h2>
+        <p>Three scenarios. Each one is a real situation you'd hit building a course like this — think it through, then check.</p>
+
+        <div class="quiz-container" id="quiz-module5">
+          <div class="quiz-question-block"
+               data-correct="opt-fixed"
+               data-explanation-right="Exactly. The scrolling box uses overflow:hidden (or auto), which crops anything born inside it. Moving the tooltip to document.body and switching to position:fixed lets it float over the box entirely — measured into place with getBoundingClientRect()."
+               data-explanation-wrong="Not quite — widening the box or raising z-index won't help if the tooltip is still a child of the clipping box. The box crops its own children regardless of how 'tall' or 'on-top' they are. The real fix is to get the tooltip OUT of the box: append it to document.body and use position:fixed.">
+            <h3 class="quiz-question">Your tooltip keeps getting sliced off inside a scrolling box. What's the fix?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-zindex" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Crank the tooltip's <code>z-index</code> way up so it paints on top</span>
+              </button>
+              <button class="quiz-option" data-value="opt-fixed" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Append it to <code>document.body</code> and use <code>position: fixed</code></span>
+              </button>
+              <button class="quiz-option" data-value="opt-bigger" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Make the scrolling box taller so the tooltip fits</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-pointer"
+               data-explanation-right="Right. The pointing-hand cursor signals 'clickable, go ahead' — the same cursor as a link. A non-technical learner is far more likely to discover and try a word that feels inviting rather than clinical."
+               data-explanation-wrong="Not quite. cursor: help shows a question mark, which feels clinical and uncertain — it subtly says 'you're confused.' The terms use cursor: pointer specifically because the inviting, link-like hand encourages curious learners to actually try hovering.">
+            <h3 class="quiz-question">Why do the glossary terms use <code>cursor: pointer</code> instead of <code>cursor: help</code>?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-help" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span><code>cursor: help</code> doesn't work on mobile devices</span>
+              </button>
+              <button class="quiz-option" data-value="opt-pointer" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The pointing hand feels clickable and inviting; the question mark feels clinical</span>
+              </button>
+              <button class="quiz-option" data-value="opt-faster" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span><code>cursor: pointer</code> makes the tooltip appear faster</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-rect"
+               data-explanation-right="Exactly. Once the bubble is detached and living on document.body, it has no idea where the word is. getBoundingClientRect() measures the word's live on-screen edges so the engine can position the floating bubble directly over it — and decide whether to flip below if there's no room above."
+               data-explanation-wrong="Not quite. Once the tooltip is appended to document.body it's no longer near the word in the page structure — so it can't just 'sit next to it' automatically. The engine has to ask getBoundingClientRect() for the word's exact screen position, then place the floating bubble there by hand.">
+            <h3 class="quiz-question">Once the bubble is moved to <code>document.body</code>, how does it know where to appear?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-near" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It automatically stays next to the word because they're related</span>
+              </button>
+              <button class="quiz-option" data-value="opt-css" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>CSS handles it with no measurement needed</span>
+              </button>
+              <button class="quiz-option" data-value="opt-rect" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span><code>getBoundingClientRect()</code> measures the word's live screen position, and the bubble is placed there</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module5')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module5')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Bridge to next -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">From placards to checks</h2>
+        <p>You've now seen the engine that made <em>every</em> definition in this course possible — built in JavaScript, hung from the page body, and positioned by measuring the live screen. The medium was the message: you learned tooltips by using dozens of them.</p>
+        <div class="callout callout-info">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Next up — The Quiz Family</strong>
+            <p>The same "build it in JS, wire it by class name" pattern powers the interactive checks you just took. Next, we open up the quiz engines themselves.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

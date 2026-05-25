@@ -1,0 +1,340 @@
+<section class="module" id="module-4" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">04</span>
+      <h1 class="module-title">The Navigation &amp; Reveal Engine</h1>
+      <p class="module-subtitle">As you scroll, the top bar fills, dots light up, and content fades in on cue. No magic — just one small file watching where you are on the page.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- ============ SCREEN 1: HOOK + METAPHOR ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A guided gallery tour with spotlights</h2>
+        <p>Picture walking through a quiet museum where the lights are off until you arrive. As you step into each room, a spotlight clicks on overhead, and a little "you-are-here" dot slides along the map by the door. Nothing is lit ahead of you — that calm, on-cue reveal is exactly what this course's page does as you scroll.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🖼️</div>
+          <div class="callout-content">
+            <strong class="callout-title">The metaphor: the museum that lights up as you arrive</strong>
+            <p>The page is the gallery. The progress bar is the path you've walked so far. The nav dots are the map by the door. And the spotlight that clicks on when you enter a room is each section fading into view — never before you get there.</p>
+          </div>
+        </div>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📊</div>
+            <div>
+              <strong>The path behind you — the progress bar</strong>
+              <p>A thin line across the top that fills as you scroll down, showing how far through the tour you are.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">🟢</div>
+            <div>
+              <strong>The map by the door — the nav dots</strong>
+              <p>One dot per module. The room you're in glows; rooms you've passed stay filled.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">💡</div>
+            <div>
+              <strong>The spotlight — reveal-on-scroll</strong>
+              <p>Each section starts invisible and fades in the moment you step into view. Calm, never all-at-once.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 2: HERO — DATA FLOW ANIMATION ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch one spotlight click on</h2>
+        <p>Here's the exact chain of events when a hidden section comes into view. You scroll, a watcher notices the section crossed into the screen, it tags that section with a label, and the page's styling fades it in. Step through it.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"You scroll down the page — the only thing you actually do."},
+          {"highlight":"flow-actor-2","label":"A watcher called the IntersectionObserver notices a hidden section just crossed into the screen.","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-3","label":"The watcher tags that section by adding the label .visible to it.","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-4","label":"The styling sees the new label and fades the section in — the spotlight clicks on.","packet":true,"from":"actor-3","to":"actor-4"},
+          {"highlight":"flow-actor-2","label":"The watcher stops watching that section, so it only ever reveals once."}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon">🖱️</div>
+              <span>You scroll</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon">👁️</div>
+              <span>The watcher</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon">🏷️</div>
+              <span>Add .visible</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon">💡</div>
+              <span>Fade in</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to begin</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — the page doesn't "know" what scrolling means</strong>
+            <p>There is no magic sense of motion. The page just reacts to the browser reporting positions: "this element is now in view." That is the whole idea behind <span class="term" data-definition="Reactivity means the program watches a value and automatically responds when it changes — instead of you telling it to update by hand. Here, the page watches your position and reacts by adding a label. When talking to AI, you'd say 'make this update reactively when the value changes.'">reactivity</span> — watch a value, change a label, let the styling do the rest.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 3: CODE↔ENGLISH — THE OBSERVER ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The watcher, in real code</h2>
+        <p>This is the actual reveal engine from the course's <span class="term" data-definition="main.js is the single JavaScript file that runs the whole course page — the scrolling, the dots, the fade-ins, the tooltips. JavaScript is the language that makes a web page interactive. When talking to AI, you'd say 'put the page behavior in main.js.'">main.js</span> file. It sets up one watcher, points it at every section that should fade in, and tells it what to do the instant a section appears.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line"><span class="code-keyword">const</span> revealObserver = <span class="code-keyword">new</span> <span class="code-function">IntersectionObserver</span>(entries => {</span>
+<span class="code-line">  entries.<span class="code-function">forEach</span>(entry => {</span>
+<span class="code-line">    <span class="code-keyword">if</span> (entry.isIntersecting) {</span>
+<span class="code-line">      entry.target.classList.<span class="code-function">add</span>(<span class="code-string">'visible'</span>);</span>
+<span class="code-line">      revealObserver.<span class="code-function">unobserve</span>(entry.target);</span>
+<span class="code-line">    }</span>
+<span class="code-line">  });</span>
+<span class="code-line">}, { rootMargin: <span class="code-string">'0px 0px -8% 0px'</span>, threshold: <span class="code-number">0.08</span> });</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="code-function">$$</span>(<span class="code-string">'.animate-in'</span>).<span class="code-function">forEach</span>(el => revealObserver.<span class="code-function">observe</span>(el));</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Hire one watcher whose whole job is to notice when things enter the screen.</p>
+              <p class="tl">For each section the watcher reports on…</p>
+              <p class="tl">…check: is this section now actually <em>in view</em>?</p>
+              <p class="tl">If yes, stick a label called <code>visible</code> on it — that's the signal to fade in.</p>
+              <p class="tl"><strong>The one-time trick:</strong> tell the watcher to stop watching that section. It already revealed; no need to watch it again.</p>
+              <p class="tl">The settings: only count it as "in view" once it's a touch past the bottom edge, and at least 8% of it is showing.</p>
+              <p class="tl">Finally: find every section marked to animate, and put it under the watcher's eye.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>Three small words carry the whole idea. An <span class="term" data-definition="An observer is a watcher that fires off an action the moment something it's watching happens — like a motion-sensor light that flips on when you walk past. The IntersectionObserver watches whether an element has crossed into the visible part of the screen. When talking to AI, you'd say 'use an observer to detect when this comes into view.'">observer</span> is the watcher itself; <span class="term" data-definition="isIntersecting is a true/false answer the watcher gives: true means the element is now overlapping the visible part of the screen, false means it isn't. When talking to AI, you'd say 'reveal it when isIntersecting becomes true.'">isIntersecting</span> is its yes-or-no answer to "is this on screen now?"; and <span class="term" data-definition="To unobserve means to tell the watcher to stop tracking a specific element. Once a section has faded in, there's no reason to keep watching it — so we unobserve it to do the reveal exactly once. When talking to AI, you'd say 'unobserve it after the first reveal so it only animates once.'">unobserve</span> is how it lets go once the job is done.</p>
+      </section>
+
+      <!-- ============ SCREEN 4: THE SETTINGS — THRESHOLD & VIEWPORT ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Two dials on the watcher</h2>
+        <p>That last line had two settings in curly braces. They decide <em>exactly</em> how far into the screen a section must be before it counts as "arrived." Think of them as a sensitivity dial and an edge-margin dial.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🎚️</div>
+            <h4 class="pattern-title">threshold: 0.08</h4>
+            <p class="pattern-desc">The <span class="term" data-definition="A threshold is the trigger point — how much of an element must show before the watcher reacts. 0.08 means 8%. Below the threshold, nothing happens; the moment you cross it, the action fires. When talking to AI, you'd say 'set the threshold so it triggers when 10% is visible.'">threshold</span> is the trigger point: only fire once at least 8% of the section is showing. A peek of the top edge isn't enough — wait until it's clearly arriving.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">📐</div>
+            <h4 class="pattern-title">rootMargin: -8% bottom</h4>
+            <p class="pattern-desc">This shrinks the watched area by 8% at the bottom of the <span class="term" data-definition="The viewport is the part of the page you can actually see right now — the window onto the document, like the frame of a pair of binoculars. Scrolling moves the document behind that frame. When talking to AI, you'd say 'trigger it when the element enters the viewport.'">viewport</span>, so a section reveals a beat <em>after</em> it pokes in — making the fade feel deliberate, not jumpy.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔌</div>
+          <div class="callout-content">
+            <strong class="callout-title">Where does the actual fade live?</strong>
+            <p>Not in this code! The watcher only adds the <code>visible</code> label. The fade-in animation — going from invisible to solid — lives in the page's styling, which reacts to that label. Code changes a <span class="term" data-definition="A class (in web styling) is a named label you attach to a piece of the page. The styling rules say 'anything labelled .visible should fade in.' Adding or removing the label instantly changes how that piece looks. When talking to AI, you'd say 'toggle the .visible class to trigger the animation.'">class</span>; styling does the rest.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 5: CODE↔ENGLISH — THE NAV DOTS ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The map by the door: active vs. visited dots</h2>
+        <p>Now the nav dots. A second small function runs as you scroll and decides, for each dot, whether it should glow as "you are here" or stay filled as "already visited." It works off one number: where the middle of your screen falls on the page.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line"><span class="code-keyword">function</span> <span class="code-function">updateNavDots</span>() {</span>
+<span class="code-line">  <span class="code-keyword">const</span> scrollMid = window.scrollY + window.innerHeight / <span class="code-number">2</span>;</span>
+<span class="code-line">  modules.<span class="code-function">forEach</span>((mod, i) => {</span>
+<span class="code-line">    <span class="code-keyword">const</span> dot = navDots[i];</span>
+<span class="code-line">    <span class="code-keyword">const</span> top = mod.offsetTop, bottom = top + mod.offsetHeight;</span>
+<span class="code-line">    <span class="code-keyword">if</span> (scrollMid >= top && scrollMid &lt; bottom) { dot.classList.<span class="code-function">add</span>(<span class="code-string">'active'</span>); }</span>
+<span class="code-line">    <span class="code-keyword">else if</span> (window.scrollY + window.innerHeight > top) { dot.classList.<span class="code-function">add</span>(<span class="code-string">'visited'</span>); }</span>
+<span class="code-line">  });</span>
+<span class="code-line">}</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Each time we re-check the dots, do this:</p>
+              <p class="tl">Find the vertical middle of what you can see — your <span class="term" data-definition="Scroll position is simply how far down the page you've scrolled, measured in pixels from the top. window.scrollY is the browser's name for that number. The whole engine runs off this single value. When talking to AI, you'd say 'use the scroll position to figure out which section is active.'">scroll position</span> plus half the screen height.</p>
+              <p class="tl">Go through every module, paired with its dot…</p>
+              <p class="tl">…grab that module's dot from the map,</p>
+              <p class="tl">…and figure out where that module starts and ends on the page.</p>
+              <p class="tl"><strong>You-are-here:</strong> if the middle of your screen lands inside this module, mark its dot <code>active</code> — make it glow.</p>
+              <p class="tl"><strong>Already-seen:</strong> otherwise, if you've scrolled past this module's start, mark it <code>visited</code> — keep it filled.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">📍</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — "you are here" is just arithmetic</strong>
+            <p>There's no fancy tracking of "which module you're reading." The page simply asks: <em>does the middle of my screen fall between this module's top and bottom?</em> If yes, that's the active dot. A whole feeling of "the app knows where I am" comes from one comparison of numbers.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 6: THE THREE PARTS TOGETHER ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Three jobs, one tiny file</h2>
+        <p>Put it together and the engine does just three things as you scroll. None of them is complicated on its own — together they create the polished, "alive" feeling of a modern scrolling page.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Fill the progress bar</strong>
+              <p>Measure how far down the page you are, turn it into a percentage, and stretch the top bar to match.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Light the right nav dot</strong>
+              <p>Check where the middle of your screen falls, glow the dot for that module, and fill the dots you've passed.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Reveal sections on cue</strong>
+              <p>A watcher fades each section in the moment it enters view — once, and only once.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>There's a fourth bonus job: the arrow keys. Press the down or right arrow and the page jumps to the next module; up or left jumps back — so you can tour the gallery by keyboard, not just by scrolling.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🌐</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why you should care: "scrollytelling" is everywhere</strong>
+            <p>Those news features and product pages where things slide and reveal as you scroll? Same idea — scroll position becomes label changes. Once you see it's that simple, you can ask an AI for it precisely: <em>"reveal each section on scroll with an IntersectionObserver."</em></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 7: QUIZ ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think it through</h2>
+        <p>No definitions to recite — just trace the engine and pick what a thoughtful builder would conclude.</p>
+
+        <div class="quiz-container" id="quiz-module4">
+
+          <div class="quiz-question-block"
+               data-correct="opt-c"
+               data-explanation-right="Exactly. unobserve tells the watcher to stop tracking that section. Without it, the section could re-fire its reveal every time it scrolled back into view — so unobserve is precisely what makes the reveal a one-time event."
+               data-explanation-wrong="Look for the line that makes the watcher let go of a section after it appears. Adding .visible triggers the fade; the line that stops it from ever firing again is the one that removes the section from the watcher's eye.">
+            <h3 class="quiz-question">A section should fade in only the FIRST time you scroll to it — never again. Which line guarantees that?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span><code>if (entry.isIntersecting)</code> — the check for being on screen.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span><code>classList.add('visible')</code> — the line that adds the label.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span><code>revealObserver.unobserve(entry.target)</code> — stop watching after the first reveal.</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-b"
+               data-explanation-right="Right. The dot turns active when the vertical middle of your screen falls between that module's top and bottom edges. It's a pure position comparison — no special 'which module am I reading' tracker needed."
+               data-explanation-wrong="Re-read the nav-dot function. It doesn't time how long you linger or count your scrolls — it does one thing: checks whether the middle of your visible screen lands inside a module's range.">
+            <h3 class="quiz-question">What actually makes a nav dot turn teal (active)?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The page tracks how many seconds you spend in each module.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The middle of your screen falls between that module's top and bottom.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>You clicked the dot to mark it active manually.</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-a"
+               data-explanation-right="Yes. The watcher only ever adds the .visible label — the fade itself is a styling rule reacting to that label. If sections appear but never fade, the styling (or the .visible rule) is the thing to check, not the watcher."
+               data-explanation-wrong="Trace the split: the JavaScript adds a label, the styling does the visual fade. If the label is getting added but nothing animates, the watcher is doing its job — so the broken half is the styling rule that's supposed to react to the label.">
+            <h3 class="quiz-question">A user reports sections appear instantly with no fade-in animation. Based on the split you learned, where do you look FIRST?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The styling rule that's supposed to fade in anything labelled <code>.visible</code>.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The progress bar — it must be blocking the animation.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The arrow-key navigation — it's interfering with scrolling.</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module4')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module4')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 8: BRIDGE TO NEXT ============ -->
+      <section class="screen animate-in">
+        <div class="callout callout-info">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: Glossary Tooltips</strong>
+            <p>You've met the watcher and the map. Next we open the cleverest small engine in the whole file — the dashed-underline tooltips you've been hovering this entire module — and see the one trick that keeps them from getting clipped.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

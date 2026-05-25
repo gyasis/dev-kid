@@ -1,0 +1,304 @@
+<section class="module" id="module-1" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">01</span>
+      <h1 class="module-title">What This Skill Does</h1>
+      <p class="module-subtitle">How a crate of raw code becomes a guided, clickable gallery &mdash; and the twist hiding in plain sight.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook + the recursion -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You just walked through the workshop&rsquo;s own product</h2>
+        <p>A moment ago you scrolled through an interactive course. Animations, quizzes, plain-English code &mdash; the whole thing.</p>
+        <p>Here&rsquo;s the twist: <strong>this page was built by the exact same machine the course is about.</strong> You&rsquo;re standing inside the factory, looking at a thing the factory made.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#128161;</div>
+          <div class="callout-content">
+            <strong class="callout-title">The &ldquo;aha!&rdquo; that frames everything</strong>
+            <p>The course you take is itself a worked example of the thing it teaches. It&rsquo;s recursion you can click through &mdash; like a documentary about filmmaking, shot by the camera crew it describes.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — The metaphor: museum exhibit designer -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think of a museum exhibit designer</h2>
+        <p>Imagine someone hands you a crate of raw artifacts &mdash; pottery shards, old maps, a journal &mdash; and says &ldquo;explain this.&rdquo;</p>
+        <p>You could dump the crate on a table. Or you could build a <strong>gallery</strong>: placards that explain each piece, dioramas showing how it all fits, and &ldquo;try-it&rdquo; stations where visitors press a button and watch something happen.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">&#128230;</div>
+            <div>
+              <strong>The crate of artifacts</strong>
+              <p>A <span class="term" data-definition="A codebase is the full collection of files that make up a software project &mdash; all the code, settings, and documents that, together, make the program work. When talking to AI, you&apos;d say &lsquo;analyze this codebase&rsquo; to mean &lsquo;read the whole project.&rsquo;">codebase</span> &mdash; every file in a software project, raw and unexplained.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">&#127963;&#65039;</div>
+            <div>
+              <strong>The exhibit designer</strong>
+              <p><strong>The Skill</strong> &mdash; reads the crate, plans the gallery, and builds every placard and station.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">&#127760;</div>
+            <div>
+              <strong>The finished gallery</strong>
+              <p>An interactive course that opens in any browser &mdash; no tour guide, no setup, just open the door and walk in.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The hero: data flow animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch a repo turn into a course</h2>
+        <p>The designer doesn&rsquo;t build the whole gallery in one breath. The work moves through <strong>four phases</strong>, like artifacts traveling from the loading dock to the public floor.</p>
+        <p>Press <em>Next Step</em> and follow a project as it becomes the page you&rsquo;re reading right now.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"Phase 1 &mdash; Codebase Analysis. The Skill reads every file, traces how data moves, and finds the cast of characters."},
+          {"highlight":"flow-actor-2","label":"Phase 2 &mdash; Curriculum Design. It plans 4 to 10 modules and picks a build path: simple or complex.","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-3","label":"Phase 2.5 &mdash; Module Briefs. For complex projects it writes one work-order per module: The Brief.","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-4","label":"Phase 3 &mdash; Build the Course. The Writing Agents each take a brief and write one module of HTML.","packet":true,"from":"actor-3","to":"actor-4"},
+          {"highlight":"flow-actor-5","label":"Phase 4 &mdash; Assemble &amp; Open. build.sh stitches the modules into a single index.html you can open.","packet":true,"from":"actor-4","to":"actor-5"},
+          {"highlight":"flow-actor-5","label":"Done &mdash; the finished course opens in a browser. (Like the one you&apos;re reading now.)"}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon" style="background: var(--color-actor-2)">&#128269;</div>
+              <span>Codebase &amp; Analysis</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon" style="background: var(--color-actor-1)">&#128221;</div>
+              <span>Curriculum</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3)">&#128203;</div>
+              <span>Briefs</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon" style="background: var(--color-actor-4)">&#9997;&#65039;</div>
+              <span>Writing Agents</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-5">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5)">&#128279;</div>
+              <span>build.sh &rarr; index.html</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click &ldquo;Next Step&rdquo; to begin the tour</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — The four phases as named placards -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The four phases, named</h2>
+        <p>Every gallery follows the same blueprint, written down in the skill&rsquo;s instructions. Here are the phases by their real names &mdash; the same words the skill uses internally.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Codebase Analysis</strong>
+              <p>Read files, trace flows, find the &ldquo;cast&rdquo; &mdash; who are the main characters in this project?</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Curriculum Design</strong>
+              <p>Decide on 4&ndash;10 modules and pick a simple or complex build path.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">&frac12;</div>
+            <div class="step-body">
+              <strong>Phase 2.5 &mdash; Module Briefs</strong>
+              <p>Write one brief per module &mdash; but only on the complex path. (We&rsquo;ll meet The Brief later.)</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Build the Course</strong>
+              <p>Write the module HTML &mdash; one at a time, or many in parallel.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Assemble &amp; Open</strong>
+              <p>build.sh runs and produces index.html &mdash; the finished, openable course.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Code↔English: the output directory -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What comes out the other end</h2>
+        <p>The skill doesn&rsquo;t hand you one giant file. It produces a tidy <span class="term" data-definition="A directory is a folder on your computer that holds files (and other folders) &mdash; exactly like a physical folder holds papers. &lsquo;Output directory&rsquo; just means &lsquo;the folder where the results get saved.&rsquo;">directory</span> &mdash; a labeled storage room where each item has its place.</p>
+        <p>Read the room layout on the left; the plain-English placards are on the right.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">course-name/</span>
+<span class="code-line">  styles.css       <span class="code-comment">&larr; copied verbatim (never regenerated)</span></span>
+<span class="code-line">  main.js          <span class="code-comment">&larr; copied verbatim (the interactivity engine)</span></span>
+<span class="code-line">  _base.html       <span class="code-comment">&larr; shell: title, accent, nav dots</span></span>
+<span class="code-line">  modules/01-*.html &hellip; <span class="code-comment">&larr; the only files written fresh</span></span>
+<span class="code-line">  index.html       <span class="code-comment">&larr; assembled by build.sh</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">A folder named after the course &mdash; the whole gallery lives in here.</p>
+              <p class="tl">The stylesheet (colors, spacing, fonts) is <strong>copied as-is</strong>, never re-invented. One trusted look, every time.</p>
+              <p class="tl">The <span class="term" data-definition="In a web page, JavaScript is the code that makes things move and respond &mdash; clicks, animations, quizzes. To &lsquo;render&rsquo; means the browser draws it on screen. main.js is the engine that powers all the interactive bits.">interactivity engine</span> is also copied as-is &mdash; the quizzes and animations you&rsquo;ve been clicking run on this one file.</p>
+              <p class="tl">A reusable shell &mdash; this is the <span class="term" data-definition="Boilerplate is the standard, repeated setup code that&apos;s nearly identical across projects &mdash; like the &lsquo;Dear ___, Sincerely ___&rsquo; frame of a letter. You fill in the unique parts; the frame stays the same.">boilerplate</span> page frame that holds the title, accent color, and nav dots.</p>
+              <p class="tl">The module files &mdash; <strong>the only thing written fresh</strong> for your project. Everything unique lives here.</p>
+              <p class="tl">The finished page. build.sh assembles the shell + modules into this single, openable file.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">&#128279;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why &ldquo;self-contained&rdquo; matters</strong>
+            <p>The course is <span class="term" data-definition="Self-contained means everything it needs is bundled inside &mdash; no internet server, no install, no extra software. You double-click the file and it just opens, like a PDF. When talking to AI, you&apos;d say &lsquo;make it self-contained&rsquo; to mean &lsquo;a single thing I can open anywhere.&rsquo;">self-contained</span>: you double-click index.html and it opens like a document. No server to start, nothing to install &mdash; which is exactly why the styles and engine are <em>copied</em> rather than generated. A trusted engine, reused, beats a fresh one that might break.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Why you should care -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why peek inside the factory?</h2>
+        <p>Once you understand the machine, you can point it at <em>any</em> project &mdash; your own, or a repo you found online &mdash; and know exactly which knobs you can turn.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">&#128208;</div>
+            <h4 class="pattern-title">Depth</h4>
+            <p class="pattern-desc">How deep each placard goes &mdash; a quick overview, or a careful trace through the machinery.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">&#128290;</div>
+            <h4 class="pattern-title">Module Count</h4>
+            <p class="pattern-desc">How many rooms in the gallery &mdash; the skill picks 4 to 10, sized to the project.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">&#127918;</div>
+            <h4 class="pattern-title">Interactive Elements</h4>
+            <p class="pattern-desc">Which &ldquo;try-it&rdquo; stations appear &mdash; quizzes, flow animations, code translations, and more.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think it through</h2>
+        <p>No memorizing &mdash; each question hands you a new situation and asks what the machine would do.</p>
+
+        <div class="quiz-container" id="quiz-module1">
+
+          <div class="quiz-question-block"
+               data-correct="opt-analysis"
+               data-explanation-right="Exactly. Before a single line of HTML gets written, The Skill runs Phase 1 &mdash; Codebase Analysis &mdash; reading files and tracing how data flows. You can&apos;t design a gallery before you&apos;ve unpacked the crate."
+               data-explanation-wrong="Not quite. Writing modules and running build.sh both come later. Like a museum designer, the very first move is to unpack and study the crate &mdash; that&apos;s Phase 1, Codebase Analysis.">
+            <h3 class="quiz-question">You point the skill at a GitHub repo it has never seen. What is the FIRST thing it does before writing any HTML?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-build" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Runs build.sh to assemble index.html</span>
+              </button>
+              <button class="quiz-option" data-value="opt-analysis" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Reads the project and traces how its code works (analysis)</span>
+              </button>
+              <button class="quiz-option" data-value="opt-write" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Immediately starts writing the first module&rsquo;s HTML</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-folder"
+               data-explanation-right="Right. A folder keeps the reusable parts (styles.css, main.js, the shell) separate from the freshly-written modules &mdash; so the trusted engine is copied, not regenerated, and stays self-contained. We unpack the layout of that folder in the next module."
+               data-explanation-wrong="Think about reuse. If everything were jammed into one file, the styles and interactivity engine would have to be re-created every time. A folder lets those be copied verbatim and kept apart from the fresh module files &mdash; more on this next module.">
+            <h3 class="quiz-question">Why does the skill output a whole folder instead of one giant HTML file?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-folder" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>So reusable parts can be copied as-is and kept separate from freshly-written modules</span>
+              </button>
+              <button class="quiz-option" data-value="opt-bigger" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because a folder can hold more text than a single file</span>
+              </button>
+              <button class="quiz-option" data-value="opt-server" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>So it needs a web server running to open it</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-recursion"
+               data-explanation-right="Yes &mdash; that&apos;s the meta angle running through this whole course. This page was produced by the same four-phase machine it&apos;s describing. Studying the page IS studying the skill."
+               data-explanation-wrong="Re-read the opening callout. The point isn&apos;t that courses are decorative or random &mdash; it&apos;s that this very page is a product of the machine you&apos;re learning about. The course is a worked example of itself.">
+            <h3 class="quiz-question">A friend asks, &ldquo;Wait, who built this course I&rsquo;m looking at?&rdquo; What&rsquo;s the honest answer that captures the twist?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-recursion" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The same skill it teaches &mdash; it&rsquo;s a worked example of itself</span>
+              </button>
+              <button class="quiz-option" data-value="opt-hand" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It was hand-written from scratch, unrelated to the skill</span>
+              </button>
+              <button class="quiz-option" data-value="opt-random" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A different, unrelated course generator made it</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module1')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module1')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Bridge to next module -->
+      <section class="screen animate-in">
+        <div class="callout callout-info">
+          <div class="callout-icon">&#10145;&#65039;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: The Directory &amp; build.sh</strong>
+            <p>You&rsquo;ve seen the folder the skill produces. Next we step inside it &mdash; how each piece is structured, and how build.sh stitches the shell and modules into the single page you open.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

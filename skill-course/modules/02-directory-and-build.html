@@ -1,0 +1,330 @@
+<section class="module" id="module-2" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">02</span>
+      <h1 class="module-title">The Directory &amp; <code>build.sh</code></h1>
+      <p class="module-subtitle">A course is a folder, not a file — and that single choice is why these courses come out consistent <em>and</em> cheap to generate.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The flat-pack metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think flat-pack furniture</h2>
+        <p>When you buy a flat-pack bookshelf, the hard parts arrive pre-made in the box — the panels are already cut, the screws already threaded. You don't re-mill the wood; you just bolt the panels together by following the instruction sheet.</p>
+        <p>A codebase-to-course directory works exactly the same way. The pre-made panels are the engine; the instruction sheet is one tiny
+          <span class="term" data-definition="A shell script is a plain-text file full of commands that the computer runs top-to-bottom, as if you'd typed each line into the terminal yourself. Here it's the 'instruction sheet' — it just bolts the pre-made parts together.">shell script</span>
+          that assembles them.</p>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">📦</div>
+          <div class="callout-content">
+            <strong class="callout-title">The whole idea in one line</strong>
+            <p>The panels (CSS + JavaScript) never change between courses. Only the content panels — the lessons — get cut fresh. You arrange pre-made parts; you never re-make them.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — Visual file tree (the hero) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What's actually in the box</h2>
+        <p>Here is the course directory. Notice the three jobs each file has: <strong>pre-made</strong> (copied unchanged), <strong>customized</strong> (lightly adjusted per course), and <strong>written fresh</strong> (the actual lessons).</p>
+
+        <div class="file-tree animate-in">
+          <div class="ft-folder open">
+            <span class="ft-name">skill-course/</span>
+            <span class="ft-desc">the course folder — everything lives here</span>
+            <div class="ft-children">
+              <div class="ft-file">
+                <span class="ft-name">styles.css</span>
+                <span class="ft-desc">🔒 PRE-MADE · all the looks, copied unchanged every time</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">main.js</span>
+                <span class="ft-desc">🔒 PRE-MADE · all the interactivity, copied unchanged every time</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">_base.html</span>
+                <span class="ft-desc">🔧 CUSTOMIZED · the shell — title, accent color, top navigation</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">modules/</span>
+                <span class="ft-desc">✍️ WRITTEN FRESH · one file per lesson — this is the only part the AI authors</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">_footer.html</span>
+                <span class="ft-desc">🔒 PRE-MADE · closes the page, copied unchanged</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">build.sh</span>
+                <span class="ft-desc">🔒 PRE-MADE · the instruction sheet that bolts it all together</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="icon-rows animate-in">
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-actor-2)">🔒</div>
+            <div>
+              <strong>Pre-made (verbatim)</strong>
+              <p>Copied byte-for-byte. The AI is told to <span class="term" data-definition="Verbatim means 'word for word, exactly as-is' — nothing added, removed, or reworded. The AI copies these files exactly, never rewriting them.">verbatim</span> these files — never to rewrite them. styles.css, main.js, _footer.html, build.sh.</p>
+            </div>
+          </div>
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-actor-4)">🔧</div>
+            <div>
+              <strong>Customized once</strong>
+              <p>_base.html — only the course title and accent color get swapped per course.</p>
+            </div>
+          </div>
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-actor-1)">✍️</div>
+            <div>
+              <strong>Written fresh</strong>
+              <p>Everything inside <code>modules/</code> — the lessons. This is the <em>only</em> creative work the AI does.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — build.sh translation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The entire assembler — yes, really</h2>
+        <p>This is the complete instruction sheet. Four lines. It doesn't build anything itself — it just glues the pre-made panels and the fresh lessons into one finished page.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-comment">#!/bin/bash</span></span>
+<span class="code-line"><span class="code-keyword">set</span> -e</span>
+<span class="code-line"><span class="code-function">cat</span> _base.html modules/*.html _footer.html &gt; index.html</span>
+<span class="code-line"><span class="code-function">echo</span> <span class="code-string">"Built index.html — open it in your browser."</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">"This is a Bash script" — the line that tells the computer how to run it.</p>
+              <p class="tl">"If anything goes wrong, stop immediately" — don't push a half-built page.</p>
+              <p class="tl">Paste the shell, then every lesson, then the footer — end to end — into one finished file.</p>
+              <p class="tl">Print a friendly "done!" message so you know it worked.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>The middle line is the whole magic trick. Let's unpack the three words that do all the work.</p>
+
+        <div class="badge-list animate-in">
+          <div class="badge-item">
+            <code class="badge-code">cat</code>
+            <span class="badge-desc">A built-in command that pastes files end-to-end. To <span class="term" data-definition="To concatenate means to join things end-to-end into one — like taping several sheets of paper into a single long scroll. 'cat' is short for 'concatenate'.">concatenate</span> means 'join into one'. (<span class="term" data-definition="cat is a tiny built-in command. Despite the name, it has nothing to do with animals — it 'concatenates': it prints the contents of files one after another. Pointed at several files, it pastes them together into one stream.">cat</span> is short for con<em>cat</em>enate.)</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">modules/*.html</code>
+            <span class="badge-desc">A <span class="term" data-definition="A glob is a wildcard pattern. The asterisk (*) means 'match any name here', so modules/*.html means 'every .html file in the modules folder'. The shell expands it into the actual file list, sorted alphabetically.">glob</span> — the <code>*</code> means 'every <code>.html</code> file in modules/'. It expands <strong>sorted</strong>, so <code>01-</code>…<code>10-</code> land in order.</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">&gt; index.html</code>
+            <span class="badge-desc">Take everything that was pasted together and write it into a new file called <code>index.html</code> — the page you actually open.</span>
+          </div>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🔢</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why the numbers in front matter</strong>
+            <p>Files are named <code>01-…</code>, <code>02-…</code>, <code>10-…</code>. The glob sorts alphabetically, so the number prefix is what guarantees lessons assemble in the right order — no list of files to maintain by hand.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Layer toggle: build up the page -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch <code>cat</code> build the page</h2>
+        <p>The assembler stacks files in order: the shell first, then the lessons, then the footer. Tap each tab to add the next layer — exactly what <code>cat</code> does, top to bottom.</p>
+
+        <div class="layer-demo animate-in">
+          <div class="layer-tabs">
+            <button class="layer-tab active" onclick="showLayer('layer-base', this); document.getElementById('layer2-desc').textContent='_base.html alone: the shell with the top navigation, but the main area is empty — no lessons yet.'">_base.html</button>
+            <button class="layer-tab" onclick="showLayer('layer-modules', this); document.getElementById('layer2-desc').textContent='+ modules/*.html: every lesson fragment is pasted into the main area, in numbered order.'">+ modules</button>
+            <button class="layer-tab" onclick="showLayer('layer-full', this); document.getElementById('layer2-desc').textContent='+ _footer.html: the page is sealed shut. This is the finished index.html you open in a browser.'">+ _footer</button>
+          </div>
+          <div class="layer-viewport">
+            <div class="layer" id="layer-base" style="display:block; padding: var(--space-6); background: var(--color-surface)">
+              <div style="border:2px dashed var(--color-accent-muted); border-radius:var(--radius-sm); padding:var(--space-3); margin-bottom:var(--space-4); font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-accent)">▩ nav · title · progress bar (from _base.html)</div>
+              <div style="border:2px dashed var(--color-border); border-radius:var(--radius-sm); padding:var(--space-8); text-align:center; color:var(--color-text-muted); font-family:var(--font-mono); font-size:var(--text-sm)">&lt;main&gt; … empty … &lt;/main&gt;</div>
+            </div>
+            <div class="layer" id="layer-modules" style="display:none; padding: var(--space-6); background: var(--color-surface)">
+              <div style="border:2px dashed var(--color-accent-muted); border-radius:var(--radius-sm); padding:var(--space-3); margin-bottom:var(--space-4); font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-accent)">▩ nav · title · progress bar (from _base.html)</div>
+              <div style="display:flex; flex-direction:column; gap:var(--space-2)">
+                <div style="background:var(--color-accent-light); border-radius:var(--radius-sm); padding:var(--space-3); font-family:var(--font-mono); font-size:var(--text-xs)">📄 01 — What This Skill Does</div>
+                <div style="background:var(--color-accent-light); border-radius:var(--radius-sm); padding:var(--space-3); font-family:var(--font-mono); font-size:var(--text-xs)">📄 02 — Directory &amp; build.sh</div>
+                <div style="background:var(--color-accent-light); border-radius:var(--radius-sm); padding:var(--space-3); font-family:var(--font-mono); font-size:var(--text-xs)">📄 … 03 … 10 (every modules/*.html, in order)</div>
+              </div>
+            </div>
+            <div class="layer" id="layer-full" style="display:none; padding: var(--space-6); background: var(--color-surface)">
+              <div style="border:2px dashed var(--color-accent-muted); border-radius:var(--radius-sm); padding:var(--space-3); margin-bottom:var(--space-4); font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-accent)">▩ nav · title · progress bar (from _base.html)</div>
+              <div style="display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-4)">
+                <div style="background:var(--color-accent-light); border-radius:var(--radius-sm); padding:var(--space-3); font-family:var(--font-mono); font-size:var(--text-xs)">📄 01 … 10 (every modules/*.html, in order)</div>
+              </div>
+              <div style="border-top:2px solid var(--color-accent); padding-top:var(--space-3); text-align:center; color:var(--color-text-secondary); font-family:var(--font-mono); font-size:var(--text-xs)">▩ &lt;/main&gt; · &lt;/body&gt; · &lt;/html&gt; (from _footer.html) — page sealed</div>
+            </div>
+          </div>
+          <p class="layer-description" id="layer2-desc">_base.html alone: the shell with the top navigation, but the main area is empty — no lessons yet.</p>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — The module fragment -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What an agent actually writes</h2>
+        <p>Each lesson the AI produces is a <span class="term" data-definition="A fragment is a piece of HTML that isn't a complete web page on its own — it has no &lt;html&gt;, &lt;head&gt;, or &lt;body&gt; tags. It's meant to be pasted inside a bigger page, like a single panel that bolts into the frame.">fragment</span> — a single
+          <code>&lt;section&gt;</code> with no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, or <code>&lt;body&gt;</code> tags around it. Those tags already live in <code>_base.html</code> and <code>_footer.html</code>.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-tag">&lt;section</span> <span class="code-attr">class</span>=<span class="code-value">"module"</span> <span class="code-attr">id</span>=<span class="code-value">"module-2"</span><span class="code-tag">&gt;</span></span>
+<span class="code-line">  ... screens, visuals, quizzes ...</span>
+<span class="code-line"><span class="code-tag">&lt;/section&gt;</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Open one self-contained lesson panel and give it a unique id so navigation can jump to it.</p>
+              <p class="tl">Fill it with the actual teaching: explanations, diagrams, the quiz.</p>
+              <p class="tl">Close the panel. That's it — no page wrapper, because the page wrapper lives elsewhere.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why a full HTML page here would break everything</strong>
+            <p>If a module included <code>&lt;html&gt;</code> tags, <code>cat</code> would paste ten full pages into one file — a nonsense document with ten <code>&lt;head&gt;</code>s. Fragments are <em>required</em> precisely because they get concatenated.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — The aha! -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The pattern you just learned has a name</h2>
+        <p>Fixed engine, swappable content. The styling and interactivity are built once and reused; only the lessons change. This is the same idea behind website themes, app plugins, and document templates.</p>
+
+        <div class="pattern-cards animate-in stagger-children">
+          <div class="pattern-card" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🎨</div>
+            <h4 class="pattern-title">Themes</h4>
+            <p class="pattern-desc">Your blog's posts stay the same; you swap the theme to change the whole look. Fixed content, swappable engine — the same trick in reverse.</p>
+          </div>
+          <div class="pattern-card" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">🔌</div>
+            <h4 class="pattern-title">Plugins</h4>
+            <p class="pattern-desc">The app's core never changes; you drop in new plugins for new abilities. Fixed engine, swappable parts.</p>
+          </div>
+          <div class="pattern-card" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">📄</div>
+            <h4 class="pattern-title">Templates</h4>
+            <p class="pattern-desc">An invoice template is fixed; you only fill in this customer's numbers. Fixed shell, swappable content.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — Fixed engine, swappable content</strong>
+            <p>Because the AI never regenerates the engine, every course looks consistent, costs fewer tokens, and inherits fewer bugs. Recognizing this pattern helps you design AI pipelines that don't waste effort re-writing boilerplate every run.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check your understanding</h2>
+        <p>No definitions to recite — these ask you to <em>apply</em> the fixed-engine, swappable-content idea to new situations.</p>
+
+        <div class="quiz-container" id="quiz-module2">
+
+          <div class="quiz-question-block"
+               data-correct="opt-tokens"
+               data-explanation-right="Exactly. The engine is identical for every course, so re-writing it each run would burn tokens, invite new bugs, and risk visual drift between courses. Copying it verbatim gives consistency for free."
+               data-explanation-wrong="Think about what changes between two different courses. The styling and interactivity don't — so asking the AI to re-write them each time spends tokens and risks new bugs for zero benefit.">
+            <h3 class="quiz-question">Why is <code>main.js</code> copied verbatim instead of letting the AI write it fresh for each course?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-faster-runtime" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Copied files run faster in the browser than generated ones</span>
+              </button>
+              <button class="quiz-option" data-value="opt-tokens" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The engine never changes between courses, so re-writing it wastes tokens and risks new bugs and inconsistency</span>
+              </button>
+              <button class="quiz-option" data-value="opt-legal" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The AI isn't allowed to write JavaScript</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-concat"
+               data-explanation-right="Right. build.sh runs cat to paste all the files end-to-end into one index.html. If each module were a full page, you'd get ten complete documents stacked together — ten head sections, ten body tags — which is invalid. Fragments are required because they're concatenated."
+               data-explanation-wrong="Look back at what build.sh does with cat. It pastes files end-to-end into a single index.html. If each module brought its own full page wrapper, you'd end up with ten complete pages glued into one invalid document.">
+            <h3 class="quiz-question">Module files have no <code>&lt;html&gt;</code> or <code>&lt;body&gt;</code> tag. Why is that <em>required</em>, not just tidy?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-concat" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>They're concatenated into one page — full-page wrappers would produce ten stacked documents, which is invalid HTML</span>
+              </button>
+              <button class="quiz-option" data-value="opt-smaller" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Leaving them out just makes the files smaller</span>
+              </button>
+              <button class="quiz-option" data-value="opt-style" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>HTML tags would conflict with the CSS in styles.css</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-rename"
+               data-explanation-right="Exactly. The glob modules/*.html expands in sorted order, so the number prefix is what controls sequence. Renaming the files to reorder the prefixes — then re-running build.sh — reassembles index.html in the new order. No code change needed."
+               data-explanation-wrong="Remember how cat picks up the modules: modules/*.html expands alphabetically, so order is decided entirely by the filename prefixes. You don't edit build.sh — you rename the files so the numbers sort the way you want, then rebuild.">
+            <h3 class="quiz-question">You want lesson 5 to appear before lesson 3 in the finished course. What's the simplest fix?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-editbuild" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Edit build.sh to list the files in the order you want</span>
+              </button>
+              <button class="quiz-option" data-value="opt-rename" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Rename the files so their number prefixes sort in the new order, then re-run build.sh</span>
+              </button>
+              <button class="quiz-option" data-value="opt-css" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Add a CSS rule that reorders the sections on screen</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module2')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module2')">Try Again</button>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Coming up next</strong>
+            <p>You've seen <em>where</em> the lessons live and <em>how</em> they're assembled. Next: <strong>Briefs &amp; Parallel Agents</strong> — how those <code>modules/*.html</code> fragments actually get written, several at once.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

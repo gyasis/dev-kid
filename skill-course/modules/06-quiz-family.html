@@ -1,0 +1,294 @@
+<section class="module" id="module-6" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">06</span>
+      <h1 class="module-title">The Quiz Family</h1>
+      <p class="module-subtitle">How a 10-line quiz grades itself — and the giant idea hiding inside it</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The buzzer panel metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Picture a game-show buzzer panel</h2>
+        <p>You lock in a choice and slam the buzzer. The panel instantly lights <strong>green</strong> or <strong>red</strong> and shows you why — no host, no waiting, no calling a judge backstage.</p>
+        <p>Here's the secret: the answer key was wired into the panel <em>before the show started</em>. The "grading" is just the panel checking your lit-up button against the answer it already knew.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔔</div>
+          <div class="callout-content">
+            <strong class="callout-title">The reveal</strong>
+            <p>Every quiz in this course knows its own answer and its own explanations — before you ever click. The grading is one line of code comparing two pieces of text.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — The answer key lives in the markup -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The answer key lives in the panel itself</h2>
+        <p>In our code, the panel is a chunk of
+          <span class="term" data-definition="HTML is the language that describes the structure of a web page — what's a heading, what's a button, what's a paragraph. It's the panel's wiring, written as plain text.">HTML</span>.
+          The right answer and both explanations are baked into it as
+          <span class="term" data-definition="An attribute is an extra label written inside an HTML tag that gives it information — like a sticky note attached to a button saying 'this one is the correct answer.'">attributes</span>.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+<pre><code><span class="code-line"><span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=<span class="code-value">"quiz-question-block"</span></span>
+<span class="code-line">     <span class="code-attr">data-correct</span>=<span class="code-value">"option-b"</span></span>
+<span class="code-line">     <span class="code-attr">data-explanation-right</span>=<span class="code-value">"Exactly — because X is responsible for Y."</span></span>
+<span class="code-line">     <span class="code-attr">data-explanation-wrong</span>=<span class="code-value">"Not quite. Think about where Y lives..."</span><span class="code-tag">&gt;</span></span>
+<span class="code-line">  <span class="code-tag">&lt;button</span> <span class="code-attr">class</span>=<span class="code-value">"quiz-option"</span> <span class="code-attr">data-value</span>=<span class="code-value">"option-b"</span> <span class="code-attr">onclick</span>=<span class="code-value">"selectOption(this)"</span><span class="code-tag">&gt;</span></span>
+<span class="code-line">    <span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=<span class="code-value">"quiz-option-radio"</span><span class="code-tag">&gt;&lt;/div&gt;&lt;span&gt;</span>Answer B<span class="code-tag">&lt;/span&gt;</span></span>
+<span class="code-line">  <span class="code-tag">&lt;/button&gt;</span></span>
+<span class="code-line">  <span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=<span class="code-value">"quiz-feedback"</span><span class="code-tag">&gt;&lt;/div&gt;</span></span>
+<span class="code-line"><span class="code-tag">&lt;/div&gt;</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Start one quiz question — this whole block is one buzzer panel.</p>
+              <p class="tl">The correct button is the one labeled "option-b." That's the answer key, written right into the panel.</p>
+              <p class="tl">If you're right, show this praise — the author pre-wrote it.</p>
+              <p class="tl">If you're wrong, show this gentle nudge — also pre-written.</p>
+              <p class="tl">A button you can press. Its label "option-b" is what gets checked against the answer key.</p>
+              <p class="tl">The text and a little circle that fills in when you pick it.</p>
+              <p class="tl">(closes the button)</p>
+              <p class="tl">An empty slot where the green/red feedback will appear after you check.</p>
+              <p class="tl">(closes the panel)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">🗝️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Notice what's NOT here</strong>
+            <p>There is no grading logic in this panel. No "if/then." It only <em>describes</em> the truth: here's the answer, here's what to say. The thinking happens elsewhere.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The grader is one comparison -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The entire "grader" is one comparison</h2>
+        <p>When you press the check button, one shared piece of
+          <span class="term" data-definition="A function is a named, reusable chunk of instructions you can run on demand — like a recipe card. Here, the recipe is 'compare the pressed button to the answer key and light it green or red.'">function</span>
+          runs. It reads the button you lit, compares it to the answer key, and reveals the matching explanation. That's the whole machine.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+<pre><code><span class="code-line"><span class="code-keyword">if</span> (selected.<span class="code-property">dataset</span>.<span class="code-property">value</span> <span class="code-operator">===</span> correct) {</span>
+<span class="code-line">  selected.<span class="code-property">classList</span>.<span class="code-function">add</span>(<span class="code-string">'correct'</span>);</span>
+<span class="code-line">  feedback.<span class="code-property">innerHTML</span> <span class="code-operator">=</span> <span class="code-string">'&lt;strong&gt;Exactly!&lt;/strong&gt; '</span> <span class="code-operator">+</span> rightExp;</span>
+<span class="code-line">} <span class="code-keyword">else</span> {</span>
+<span class="code-line">  selected.<span class="code-property">classList</span>.<span class="code-function">add</span>(<span class="code-string">'incorrect'</span>);</span>
+<span class="code-line">  <span class="code-keyword">const</span> correctBtn = <span class="code-function">$</span>(<span class="code-string">`.quiz-option[data-value="${correct}"]`</span>, q);</span>
+<span class="code-line">  <span class="code-keyword">if</span> (correctBtn) correctBtn.<span class="code-property">classList</span>.<span class="code-function">add</span>(<span class="code-string">'correct'</span>);</span>
+<span class="code-line">  feedback.<span class="code-property">innerHTML</span> <span class="code-operator">=</span> <span class="code-string">'&lt;strong&gt;Not quite.&lt;/strong&gt; '</span> <span class="code-operator">+</span> wrongExp;</span>
+<span class="code-line">}</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">IF the label of the button you pressed <strong>exactly matches</strong> the answer key…</p>
+              <p class="tl">…paint your button green ("correct").</p>
+              <p class="tl">…and show the author's pre-written praise.</p>
+              <p class="tl">Otherwise (you missed)…</p>
+              <p class="tl">…paint your button red ("incorrect").</p>
+              <p class="tl">…go find the button that <em>was</em> the answer…</p>
+              <p class="tl">…and light it green so you can see the right choice.</p>
+              <p class="tl">…then show the author's gentle nudge.</p>
+              <p class="tl">Done — that's the entire grading brain.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">=</div>
+            <div>
+              <strong><span class="term" data-definition="In code, three equals signs (===) means 'is this EXACTLY the same?' — same text, same type, no fuzziness. This is a string comparison: it checks two pieces of text letter-for-letter.">===</span> is the whole judge</strong>
+              <p>It asks one yes/no question: does the pressed button's label exactly equal the answer key? No partial credit, no opinion.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">📋</div>
+            <div>
+              <strong><span class="term" data-definition="dataset is how JavaScript reads the data-* labels you wrote in the HTML. dataset.value pulls the value out of the data-value attribute — it's the code reaching back to read the sticky note on the button.">dataset</span>.value reads the button's label</strong>
+              <p>It reaches into the HTML and pulls out the <code>data-value</code> sticky note you attached to the button.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">✍️</div>
+            <div>
+              <strong>The explanations were written by a human</strong>
+              <p><code>rightExp</code> and <code>wrongExp</code> aren't generated by AI — the course author typed them in advance and stored them in the panel.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Meet the family (drag and drop) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Match each sticky note to its job</h2>
+        <p>The buzzer panel runs on three labels. Drag each one onto the job it actually does — this is exactly how the panel knows what to check and what to say.</p>
+
+        <div class="dnd-container" id="dnd-quiz-attributes">
+          <div class="dnd-chips">
+            <div class="dnd-chip" draggable="true" data-answer="correct"><code>data-correct</code></div>
+            <div class="dnd-chip" draggable="true" data-answer="value"><code>data-value</code></div>
+            <div class="dnd-chip" draggable="true" data-answer="wrong"><code>data-explanation-wrong</code></div>
+          </div>
+          <div class="dnd-zones">
+            <div class="dnd-zone" data-correct="correct">
+              <p class="dnd-zone-label">The answer key — which button is the right one.</p>
+              <div class="dnd-zone-target">Drop here</div>
+            </div>
+            <div class="dnd-zone" data-correct="value">
+              <p class="dnd-zone-label">A button's name tag — what the grader compares against the answer key.</p>
+              <div class="dnd-zone-target">Drop here</div>
+            </div>
+            <div class="dnd-zone" data-correct="wrong">
+              <p class="dnd-zone-label">The gentle nudge shown when you pick the wrong button.</p>
+              <div class="dnd-zone-target">Drop here</div>
+            </div>
+          </div>
+          <button class="quiz-check-btn" onclick="checkDnD('dnd-quiz-attributes')">Check Matches</button>
+          <button class="quiz-reset-btn" onclick="resetDnD('dnd-quiz-attributes')">Reset</button>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">👨‍👩‍👧</div>
+          <div class="callout-content">
+            <strong class="callout-title">Same family, different panels</strong>
+            <p>Drag-and-drop and "spot the bug" work identically — the truth lives in the markup (here it's <code>data-answer</code> and <code>data-correct</code>), and one shared engine acts on it.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — The big idea: declarative -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The big idea: describe the WHAT, not the HOW</h2>
+        <p>This style has a name engineers use constantly:
+          <span class="term" data-definition="Declarative means you describe WHAT you want, and let a generic engine figure out HOW to do it. The quiz HTML declares 'the answer is B' — it never tells the computer the step-by-step of grading. When talking to an AI agent, you'd say 'make this quiz declarative — put the answer in the markup.'">declarative</span>.
+          The data <em>declares</em> the truth; one generic engine reads that truth and acts on it.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🔔</div>
+            <h4 class="pattern-title">Our quizzes</h4>
+            <p class="pattern-desc">The HTML declares "answer = B." One <code>checkQuiz</code> engine grades every quiz on the page.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">⚙️</div>
+            <h4 class="pattern-title">Config files</h4>
+            <p class="pattern-desc">You declare "the port is 8080." One program reads it and wires everything up. You never write the wiring.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">🎨</div>
+            <h4 class="pattern-title">CSS &amp; SQL</h4>
+            <p class="pattern-desc">"Make headings blue." "Give me users in Texas." You state the goal — the engine handles every step.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — why this matters to you</strong>
+            <p>Declarative design is one of the biggest ideas in modern software. Once you spot it, you'll see it everywhere — and you can tell an AI agent "keep this declarative" to get clean, reusable code.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Live meta-quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Now use a buzzer panel to test what you learned</h2>
+        <p>This quiz is one of the very panels we just dissected. As you click and check, the
+          <span class="term" data-definition="A data-attribute is a custom label on an HTML element that starts with 'data-'. It stores information for the code to read later — like data-correct holding the answer key. It's how the markup carries truth the engine can act on.">data-attributes</span>
+          you read about are doing the grading. Meta.</p>
+
+        <div class="quiz-container" id="quiz-module6">
+          <div class="quiz-question-block"
+               data-correct="opt-html"
+               data-explanation-right="Exactly — the answer key lives in the markup, in the data-correct attribute. The grading code never hard-codes which quiz has which answer; it reads the truth from the HTML."
+               data-explanation-wrong="Not quite. The grading code is generic and shared — it has no idea what any quiz's answer is. The answer is declared right in the HTML, in data-correct, so the same engine can grade any quiz.">
+            <h3 class="quiz-question">Where does a quiz store its correct answer?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-js" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Hard-coded inside the grading function in main.js</span>
+              </button>
+              <button class="quiz-option" data-value="opt-html" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>In the HTML markup, in the <code>data-correct</code> attribute</span>
+              </button>
+              <button class="quiz-option" data-value="opt-server" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>On a server that gets contacted when you click "check"</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-value"
+               data-explanation-right="Right. The ONLY thing the engine needs is a data-value name tag so it can compare that tag against data-correct. No new code, no registration — the generic grader handles it the moment the markup exists."
+               data-explanation-wrong="Think back to the grader: it only does one thing — compare the pressed button's data-value to data-correct. A new option just needs its own data-value label. Everything else is already wired and shared.">
+            <h3 class="quiz-question">You add a 4th option to a question. What's the ONLY thing the engine needs to grade it?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-value" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A <code>data-value</code> name tag on the new button</span>
+              </button>
+              <button class="quiz-option" data-value="opt-newfn" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A brand-new grading function written just for that option</span>
+              </button>
+              <button class="quiz-option" data-value="opt-rebuild" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The whole quiz rebuilt and re-registered with the page</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-declarative"
+               data-explanation-right="Exactly. This is the declarative pattern: the data declares the truth, and one generic engine acts on it. You'll recognize the same shape in config files, CSS, and SQL — and you can ask an AI agent to 'keep it declarative.'"
+               data-explanation-wrong="Look at the shared trait: the quiz, a config file, and a CSS rule all DESCRIBE what they want and let one engine carry it out. That's the declarative pattern — describe the what, let the engine do the how.">
+            <h3 class="quiz-question">The quiz, a config file, and a CSS rule all share one design idea. Which one?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-declarative" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>They're declarative — they describe the WHAT and let a generic engine do the HOW</span>
+              </button>
+              <button class="quiz-option" data-value="opt-fast" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>They all run as fast as possible by skipping checks</span>
+              </button>
+              <button class="quiz-option" data-value="opt-secret" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>They all hide their logic on a remote server for security</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module6')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module6')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — Bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Where this leads</h2>
+        <p>You've now seen how the quiz family grades itself with nothing but a pre-wired answer key and one tiny comparison — pure declarative design.</p>
+        <p>Next up: <strong>The Group Chat Engine</strong> — where components stop sitting quietly in the markup and start <em>talking to each other</em>, one message at a time.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

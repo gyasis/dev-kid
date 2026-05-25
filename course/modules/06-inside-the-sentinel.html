@@ -1,0 +1,367 @@
+<section class="module" id="module-6" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">06</span>
+      <h1 class="module-title">Inside the Sentinel</h1>
+      <p class="module-subtitle">The critic isn't one blob — it's a folder of small specialists, each running one line on a fixed inspection clipboard.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — Opening hook + metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Open the folder and meet the specialists</h2>
+        <p>Last module the Sentinel was the critic at the door. Open it up and you find it isn't a single inspector at all — it's a small inspection team.</p>
+        <p>Picture a building inspection with a <strong>fixed clipboard</strong>: electrical, plumbing, structural — each line is a different specialist, but they all sign the same report. The Sentinel works the same way.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">📋</div>
+          <div class="callout-content">
+            <strong class="callout-title">A folder, not a function</strong>
+            <p>Each check lives in its own
+              <span class="term" data-definition="A module is a single file of code that does one focused job. A package (or folder of modules) groups related ones together. When talking to an AI you might say 'the change-radius check lives in its own module' to point it at one precise file.">module</span>
+              inside <code>cli/sentinel/</code>. Knowing which specialist signed off — or refused to — tells you exactly what to fix.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — HERO: Interactive architecture diagram of cli/sentinel/ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The inspection team — click any specialist</h2>
+        <p>This is the real <code>cli/sentinel/</code> folder. Click any file below to hear its one job on the clipboard.</p>
+
+        <div class="arch-diagram">
+          <div class="arch-zone arch-zone-browser">
+            <h4 class="arch-zone-label">cli/sentinel/ — the inspection team</h4>
+
+            <div class="arch-component" data-desc="runner.py is the lead inspector. It walks the clipboard top to bottom — placeholder scan, find the test command, run the fix-it loop, diff the interfaces, check the change radius, analyze cascade — and makes sure a report gets filed at the end." onclick="showArchDesc(this)">
+              <div class="arch-icon">🧑‍✈️</div>
+              <span>runner.py — orchestrates the pipeline</span>
+            </div>
+
+            <div class="arch-component" data-desc="placeholder_scanner.py is the no-fakery specialist. It hunts for TODO, FIXME, and stub_/mock_ code that's pretending to be finished — and it deliberately ignores anything inside tests/ folders, where fakes are allowed." onclick="showArchDesc(this)">
+              <div class="arch-icon">🕵️</div>
+              <span>placeholder_scanner.py — TODO/FIXME/stub detector</span>
+            </div>
+
+            <div class="arch-component" data-desc="interface_diff.py is the contract checker. It compares the public API surface — the function names and shapes other code depends on — before and after the change. It speaks Python, TypeScript/JS, and Rust." onclick="showArchDesc(this)">
+              <div class="arch-icon">📐</div>
+              <span>interface_diff.py — public API surface diff</span>
+            </div>
+
+            <div class="arch-component" data-desc="cascade_analyzer.py is the scope inspector. It runs the three-axis change-radius budget — too many files, too many lines, OR any interface change trips it — and warns about knock-on effects on other tasks." onclick="showArchDesc(this)">
+              <div class="arch-icon">📏</div>
+              <span>cascade_analyzer.py — 3-axis change-radius + cascade warnings</span>
+            </div>
+
+            <div class="arch-component" data-desc="manifest_writer.py is the clerk who files the paperwork. Every single run it writes three files: manifest.json (the structured record), diff.patch (what actually changed), and summary.md (a human-readable note for the next task)." onclick="showArchDesc(this)">
+              <div class="arch-icon">🗂️</div>
+              <span>manifest_writer.py — writes manifest.json + diff.patch + summary.md</span>
+            </div>
+
+            <div class="arch-component" data-desc="tier_runner.py is the fix-it loop. When a test fails, it hands the broken code to a cheap local AI first, then to a pricier cloud AI if needed, looping until tests pass or the budget runs out. That's the whole next module." onclick="showArchDesc(this)">
+              <div class="arch-icon">🔁</div>
+              <span>tier_runner.py — the test-fix loop (next module)</span>
+            </div>
+          </div>
+
+          <div class="arch-description" id="arch-desc">Click any specialist to hear their one job on the clipboard.</div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The same folder as a file tree (grounding) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The exact folder, straight from the repo</h2>
+        <p>Here's the same team as it appears on disk — the actual layout you'd see if you opened the project. One line per specialist, one job each.</p>
+
+        <div class="file-tree">
+          <div class="ft-folder open">
+            <span class="ft-name">cli/sentinel/</span>
+            <span class="ft-desc">the per-task inspection team</span>
+            <div class="ft-children">
+              <div class="ft-file">
+                <span class="ft-name">runner.py</span>
+                <span class="ft-desc">orchestrates the pipeline (lead inspector)</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">placeholder_scanner.py</span>
+                <span class="ft-desc">TODO/FIXME/stub detector (no-fakery specialist)</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">interface_diff.py</span>
+                <span class="ft-desc">public API surface diff (Python/TS/Rust)</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">cascade_analyzer.py</span>
+                <span class="ft-desc">3-axis change-radius + cascade warnings</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">manifest_writer.py</span>
+                <span class="ft-desc">writes manifest.json + diff.patch + summary.md</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">tier_runner.py</span>
+                <span class="ft-desc">the test-fix loop (next module)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🧩</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why split one critic into six files?</strong>
+            <p>When a specific check misbehaves, you can point the AI at one file — "the change-radius math in <code>cascade_analyzer.py</code> is too strict" — instead of debugging the whole inspection at once. Small files, surgical fixes.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — The cleverest specialist: the three-axis budget -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The cleverest check: a three-axis budget</h2>
+        <p>The scope inspector is the smartest of the bunch. It doesn't ask one question — it asks <strong>three</strong>, and tripping <em>any</em> of them flags the task as "too big to wave through."</p>
+
+        <div class="badge-list stagger-children">
+          <div class="badge-item animate-in">
+            <code class="badge-code">files</code>
+            <span class="badge-desc">Did the task touch more files than allowed? (more than 3)</span>
+          </div>
+          <div class="badge-item animate-in">
+            <code class="badge-code">lines</code>
+            <span class="badge-desc">Did it change more lines than allowed? (more than 150)</span>
+          </div>
+          <div class="badge-item animate-in">
+            <code class="badge-code">interface</code>
+            <span class="badge-desc">Did it change a public
+              <span class="term" data-definition="An interface (or API surface) is the set of named, public functions and shapes that other code relies on to talk to this code — like the buttons and dials on the outside of a machine. Change them and everything plugged in might break.">interface</span>
+              other code depends on? (not allowed at all)</span>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Three trip-wires, not one</strong>
+            <p>A small, tidy change (1 file, 4 lines) can still trip the inspector — if those 4 lines rewrote a public interface. Size isn't the only thing that makes a change risky.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Code↔English: the three-axis budget snippet (VERBATIM) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The budget check, in real code</h2>
+        <p>Here's the exact snippet from <code>cascade_analyzer.py</code> that runs the three checks. Notice that <code>violations</code> is a <em>list</em> — you can trip more than one trip-wire at once.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line">violations: <span class="code-keyword">list</span>[<span class="code-keyword">str</span>] = []</span>
+<span class="code-line"><span class="code-keyword">if</span> files_count &gt; self._max_files:</span>
+<span class="code-line">    violations.<span class="code-function">append</span>(<span class="code-string">"files"</span>)</span>
+<span class="code-line"><span class="code-keyword">if</span> lines_total &gt; self._max_lines:</span>
+<span class="code-line">    violations.<span class="code-function">append</span>(<span class="code-string">"lines"</span>)</span>
+<span class="code-line"><span class="code-keyword">if</span> interface_changes_count &gt; <span class="code-number">0</span> <span class="code-keyword">and</span> <span class="code-keyword">not</span> self._allow_interface:</span>
+<span class="code-line">    violations.<span class="code-function">append</span>(<span class="code-string">"interface"</span>)</span>
+<span class="code-line">budget_exceeded = <span class="code-function">bool</span>(violations)</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Start with an empty
+                <span class="term" data-definition="A list is an ordered collection that can hold zero, one, or many items. Here it collects the names of every trip-wire that got crossed — so the inspector can report all of them, not just the first.">list</span>
+                to collect which trip-wires got crossed.</p>
+              <p class="tl">If the task touched too many files, add <code>"files"</code> to the list.</p>
+              <p class="tl">If it changed too many lines, add <code>"lines"</code> to the list.</p>
+              <p class="tl">If it changed a public interface (and that's not allowed), add <code>"interface"</code> to the list.</p>
+              <p class="tl">The
+                <span class="term" data-definition="A budget here is a spending limit on how much a single task is allowed to change before it's flagged for review — like a daily allowance. Go over on any axis and the inspector pauses you.">budget</span>
+                is "exceeded" if the list has <em>anything</em> in it — even one item.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🎯</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why a list, not a yes/no?</strong>
+            <p>Because the report should say <em>which</em> axis tripped. "You changed 9 files <em>and</em> touched an interface" tells you far more than a bare "too big." The list is the diagnosis.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — The budget you spend against: dev-kid.yml (VERBATIM) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The allowance, written in plain config</h2>
+        <p>Those limits aren't hard-coded — they live in <code>dev-kid.yml</code>, the project's settings file. This is the actual allowance the inspector spends against.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line"><span class="code-property">change_radius</span>:</span>
+<span class="code-line">  <span class="code-property">max_files</span>: <span class="code-number">3</span></span>
+<span class="code-line">  <span class="code-property">max_lines</span>: <span class="code-number">150</span></span>
+<span class="code-line">  <span class="code-property">allow_interface_changes</span>: <span class="code-keyword">false</span></span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This is the change-radius section of the
+                <span class="term" data-definition="A config file (here, dev-kid.yml in YAML format) is a plain-text settings sheet you can edit by hand to change how a tool behaves — no programming needed. Think of it as the dials on the inspector's clipboard.">config file</span>.</p>
+              <p class="tl">Allow at most <strong>3 files</strong> changed before flagging.</p>
+              <p class="tl">Allow at most <strong>150 lines</strong> changed before flagging.</p>
+              <p class="tl">Do <strong>not</strong> allow public interface changes at all — flag the task if it touches one.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔧</div>
+          <div class="callout-content">
+            <strong class="callout-title">You can change the dials</strong>
+            <p>Working on a big, sprawling refactor on purpose? Bump <code>max_files</code> and <code>max_lines</code>, or flip <code>allow_interface_changes</code> to <code>true</code> for that branch. The inspector enforces <em>your</em> allowance, not a fixed one.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — The "aha" callout: manifest always written (observability seed) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The report always gets filed</h2>
+        <p>Here's the design choice that makes the whole Sentinel trustworthy: the clerk files the paperwork <strong>every single run</strong> — pass, fail, or even crash.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">📄</div>
+            <div class="step-body">
+              <strong>manifest.json</strong>
+              <p>The structured record — result, which tier ran, cost, files touched.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">🩹</div>
+            <div class="step-body">
+              <strong>diff.patch</strong>
+              <p>Exactly what changed on disk — a
+                <span class="term" data-definition="A diff (and the patch file that holds it) is a line-by-line list of what changed between the before and after of some code — the additions and deletions. It's how engineers see precisely what a change did.">diff / patch</span>
+                of the before and after (empty file if nothing changed).</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">📝</div>
+            <div class="step-body">
+              <strong>summary.md</strong>
+              <p>A human-readable note, handed to the next task so it knows what just happened.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">"Always write the report" — even on a crash</strong>
+            <p>The
+              <span class="term" data-definition="A manifest is a single file that records everything about a run in one place — what happened, what was produced, the result. Like the signed inspection slip left taped to a building's panel after the inspector leaves.">manifest</span>
+              write is wrapped in a <code>try/finally</code> — programmer-speak for "do this no matter what, even if everything else blows up." So there's <strong>always a paper trail</strong>, never a silent failure. This idea — observability — is the finale of the whole course.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check yourself: read the inspection report</h2>
+        <p>Three situations from a real Sentinel run. Use what you learned about the three axes and the always-filed report — no memorizing file names.</p>
+
+        <div class="quiz-container" id="quiz-module6">
+
+          <div class="quiz-question-block"
+               data-correct="option-interface"
+               data-explanation-right="Exactly. 1 file and 4 lines are both well under the limits (3 files, 150 lines) — so it can't be the file or line axis. The only trip-wire left is the interface axis: those 4 lines rewrote a public interface other code depends on. Size isn't the only thing that makes a change risky."
+               data-explanation-wrong="Not quite. 1 file is under the 3-file limit and 4 lines is far under the 150-line limit — neither of those could have tripped. The three-axis budget has a THIRD wire: a tiny change can still rewrite a public interface, and that's flagged no matter how small it is.">
+            <h3 class="quiz-question">The Sentinel blocked a task that changed just <strong>1 file and 4 lines</strong>. The file and line limits are 3 and 150. Which axis must have tripped?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-files" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The <code>files</code> axis — too many files changed</span>
+              </button>
+              <button class="quiz-option" data-value="option-lines" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The <code>lines</code> axis — too many lines changed</span>
+              </button>
+              <button class="quiz-option" data-value="option-interface" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The <code>interface</code> axis — it changed a public interface</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-papertrail"
+               data-explanation-right="Right. The manifest is written in a try/finally, so the report is filed even when the run errors out. That's a deliberate observability choice: a crash you can SEE in a report is debuggable; a crash that leaves no trace is a mystery. Always-on paperwork means you're never guessing what happened."
+               data-explanation-wrong="Not quite. The point of writing the report even on a crash isn't to hide the error or to retry — it's the opposite. It guarantees a paper trail so a human (or an AI) can later open the manifest and SEE exactly how far the run got before it broke. Visibility, not concealment.">
+            <h3 class="quiz-question">A manifest.json exists for a run that <strong>errored out and crashed</strong>. Why is "always write the report, even on failure" a deliberate design choice?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-papertrail" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>So there's always a paper trail to debug from — visibility into what happened, even on a crash</span>
+              </button>
+              <button class="quiz-option" data-value="option-retry" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>So the Sentinel can automatically retry the failed run from scratch</span>
+              </button>
+              <button class="quiz-option" data-value="option-hide" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>So the crash is hidden from the user and the wave looks clean</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-yml"
+               data-explanation-right="Exactly. The limits live in dev-kid.yml under change_radius — they're config, not hard-coded. For a deliberate big refactor you'd bump max_files / max_lines (or flip allow_interface_changes), telling the inspector to enforce a looser allowance for that work."
+               data-explanation-wrong="Not quite. You don't need to touch the Python check itself — the numbers it compares against come from the config file, dev-kid.yml. Editing the change_radius section there is the intended way to raise the allowance for a deliberately large change.">
+            <h3 class="quiz-question">You're doing a deliberately large refactor that touches 12 files, and the Sentinel keeps blocking it. Where do you go to raise the allowance?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-yml" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The <code>change_radius</code> section of <code>dev-kid.yml</code> — bump <code>max_files</code> / <code>max_lines</code></span>
+              </button>
+              <button class="quiz-option" data-value="option-rewrite" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Rewrite the comparison code inside <code>cascade_analyzer.py</code> by hand</span>
+              </button>
+              <button class="quiz-option" data-value="option-delete" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Delete <code>manifest_writer.py</code> so no report gets filed</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module6')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module6')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Wrap / bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You've toured the inspection team</h2>
+        <p>Six specialists, one clipboard, a three-axis budget, and a report filed every time. You now know exactly which axis to read when the Sentinel blocks you.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: The Ralph Loop</strong>
+            <p>We zoom into <code>tier_runner.py</code> — the test-fix loop at step 3. When a test fails, who actually repairs the code, and how does the loop know when to stop spending money? That's the engine inside the engine.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

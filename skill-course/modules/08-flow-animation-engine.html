@@ -1,0 +1,356 @@
+<section class="module" id="module-8" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">08</span>
+      <h1 class="module-title">The Flow Animation Engine</h1>
+      <p class="module-subtitle">How a tiny "route" baked into one attribute drives every box-lights-up, dot-flies-between-them diagram</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — Subway line map metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think of a subway line map</h2>
+        <p>The route is <em>printed on the wall</em> — a fixed list of stations in order. As the train arrives, each station lights up, and a little dot glides along the track to the next stop.</p>
+        <p>The map never moves. The map is just a list. All the lighting-up and gliding is done by one little engine that reads the list and walks it, station by station.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🚇</div>
+          <div class="callout-content">
+            <strong class="callout-title">The reveal</strong>
+            <p>Every animated flow diagram in this course is a subway map: a list of stops written as data, plus one engine that lights each stop and slides a dot between them.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — LIVE flow animation hero -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Ride the line yourself</h2>
+        <p>Below is a real, working flow — the same kind used throughout this course. Press <strong>Next Step</strong> to ride the skill&apos;s own pipeline: a codebase goes in, and a finished course comes out, one stop at a time.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"You point the skill at a codebase &mdash; the starting station"},
+          {"highlight":"flow-actor-2","label":"The skill reads the code and figures out what&apos;s worth teaching","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-3","label":"It writes one brief per module &mdash; a plan for each lesson","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-4","label":"Parallel agents turn each brief into a finished module&apos;s HTML","packet":true,"from":"actor-3","to":"actor-4"},
+          {"highlight":"flow-actor-5","label":"Everything is stitched into one self-contained course &mdash; the last stop","packet":true,"from":"actor-4","to":"actor-5"}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon" style="background: var(--color-actor-1)">📦</div>
+              <span>Codebase</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon" style="background: var(--color-actor-2)">🔍</div>
+              <span>Analyze</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3)">📝</div>
+              <span>Briefs</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon" style="background: var(--color-actor-4)">🤖</div>
+              <span>Agents</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-5">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5)">🎓</div>
+              <span>Course</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to begin</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">📜</div>
+          <div class="callout-content">
+            <strong class="callout-title">What you just rode</strong>
+            <p>That whole animation is driven by a single list of five stops, written as text inside one HTML attribute. Change the list, and the show changes — the engine never does.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The route lives in one attribute -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The route is a list, written as text</h2>
+        <p>The stops live in one attribute called
+          <span class="term" data-definition="An attribute is an extra label written inside an HTML tag that gives it information — like a sticky note on a box. Here, data-steps is a sticky note holding the entire route as text.">data-steps</span>.
+          Its value is written in
+          <span class="term" data-definition="JSON is a simple, text-based way to write structured data — lists and labeled values — that both humans and computers can read. Here it's used to spell out each station as 'highlight this box, show this label.'">JSON</span>:
+          a list where each stop says which box to light up and what caption to show.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+<pre><code><span class="code-line"><span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=<span class="code-value">"flow-animation"</span> <span class="code-attr">data-steps</span>=<span class="code-value">'[</span></span>
+<span class="code-line">  {<span class="code-property">"highlight"</span>:<span class="code-string">"flow-actor-1"</span>,<span class="code-property">"label"</span>:<span class="code-string">"User clicks the button"</span>},</span>
+<span class="code-line">  {<span class="code-property">"highlight"</span>:<span class="code-string">"flow-actor-2"</span>,<span class="code-property">"label"</span>:<span class="code-string">"Backend calls the DB"</span>,<span class="code-property">"packet"</span>:<span class="code-keyword">true</span>,<span class="code-property">"from"</span>:<span class="code-string">"actor-2"</span>,<span class="code-property">"to"</span>:<span class="code-string">"actor-3"</span>}</span>
+<span class="code-line"><span class="code-value">]'</span><span class="code-tag">&gt;</span></span>
+<span class="code-line">  <span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=<span class="code-value">"flow-actor"</span> <span class="code-attr">id</span>=<span class="code-value">"flow-actor-1"</span><span class="code-tag">&gt;</span>...<span class="code-tag">&lt;/div&gt;</span></span>
+<span class="code-line">  <span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=<span class="code-value">"flow-packet"</span> <span class="code-attr">id</span>=<span class="code-value">"flow-packet"</span><span class="code-tag">&gt;&lt;/div&gt;</span></span>
+<span class="code-line"><span class="code-tag">&lt;/div&gt;</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Start one flow diagram. The whole subway route is written right here, as text, in <code>data-steps</code>.</p>
+              <p class="tl">Stop 1: light up the box named "flow-actor-1" and show this caption. No dot flies yet.</p>
+              <p class="tl">Stop 2: light up "flow-actor-2", show this caption — and fly a dot from box "actor-2" to box "actor-3."</p>
+              <p class="tl">End of the route list.</p>
+              <p class="tl">Here's the first box itself — it carries a name tag (<code>id</code>) so the route can find it.</p>
+              <p class="tl">And here's the dot — the single glowing thing that glides between stations.</p>
+              <p class="tl">(closes the diagram)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">🗺️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Notice the shape</strong>
+            <p>There&apos;s no instructions <em>about how to animate</em> here — only a list of stops. The route describes the WHAT; the engine on the next screen handles the HOW.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Code↔English: next() -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The conductor: one step at a time</h2>
+        <p>When you press Next Step, one small
+          <span class="term" data-definition="A function is a named, reusable chunk of instructions you run on demand — like a recipe card. Here the recipe is 'advance to the next station: dim everything, light the new stop, maybe fly the dot.'">function</span>
+          called <code>next()</code> runs. It reads the current stop from the list and acts it out — then bumps a counter so the <em>following</em> press grabs the next stop.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+<pre><code><span class="code-line"><span class="code-keyword">function</span> <span class="code-function">next</span>() {</span>
+<span class="code-line">  <span class="code-keyword">const</span> s = stepsData[step];</span>
+<span class="code-line">  <span class="code-function">$$</span>(<span class="code-string">'.flow-actor'</span>, containerEl).<span class="code-function">forEach</span>(a =&gt; a.<span class="code-property">classList</span>.<span class="code-function">remove</span>(<span class="code-string">'active'</span>));</span>
+<span class="code-line">  <span class="code-keyword">if</span> (s.<span class="code-property">highlight</span>) {</span>
+<span class="code-line">    <span class="code-keyword">const</span> hEl = <span class="code-function">$</span>(<span class="code-string">'#'</span> + s.<span class="code-property">highlight</span>, containerEl) || <span class="code-function">$</span>(<span class="code-string">'#flow-'</span> + s.<span class="code-property">highlight</span>);</span>
+<span class="code-line">    <span class="code-keyword">if</span> (hEl) hEl.<span class="code-property">classList</span>.<span class="code-function">add</span>(<span class="code-string">'active'</span>);           <span class="code-comment">// &larr; scoped to THIS flow</span></span>
+<span class="code-line">  }</span>
+<span class="code-line">  <span class="code-keyword">if</span> (s.<span class="code-property">packet</span> &amp;&amp; s.<span class="code-property">from</span> &amp;&amp; s.<span class="code-property">to</span>) <span class="code-function">animatePacket</span>(<span class="code-string">'flow-'</span> + s.<span class="code-property">from</span>, <span class="code-string">'flow-'</span> + s.<span class="code-property">to</span>);</span>
+<span class="code-line">  step++;</span>
+<span class="code-line">}</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Here&apos;s the conductor — run it once to advance one station.</p>
+              <p class="tl">Grab the current stop from the route list (which one we&apos;re on is tracked by <code>step</code>).</p>
+              <p class="tl">First, dim <em>every</em> box in this diagram — turn off the previous station&apos;s light.</p>
+              <p class="tl">If this stop names a box to highlight…</p>
+              <p class="tl">…find that box <strong>inside this diagram only</strong>, then fall back to a page-wide search if needed.</p>
+              <p class="tl">…and light it up. The comment says it plainly: look <em>scoped to this flow</em>, not the whole page.</p>
+              <p class="tl">(closes the highlight step)</p>
+              <p class="tl">If this stop also wants a dot to fly, slide it from the "from" box to the "to" box.</p>
+              <p class="tl">Bump the counter so the next press reads the next stop.</p>
+              <p class="tl">Done — that&apos;s one station, fully acted out.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📋</div>
+            <div>
+              <strong><code>stepsData</code> is the printed route</strong>
+              <p>It&apos;s the list of stops the code read out of <code>data-steps</code> once, at the start, using <span class="term" data-definition="JSON.parse takes text written in JSON and turns it into a real list the code can step through. If the text is even slightly malformed — one stray quote — it throws an error and the list comes out empty.">JSON.parse</span>. The engine just walks it.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">🔦</div>
+            <div>
+              <strong>"highlight" means light up a box</strong>
+              <p>The stop names a box by its <span class="term" data-definition="An id is a unique name tag on one HTML element — like a seat number. Only one element on the page should carry a given id, so the code can find exactly the right box.">id</span>. The engine adds an "active" glow to that box and removes it from the others.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">🎯</div>
+            <div>
+              <strong><code>$('#id', containerEl)</code> = find it <em>inside</em> this diagram</strong>
+              <p>This is a <span class="term" data-definition="A scoped lookup searches for an element only inside a specific container — like asking 'is there a box labeled X in THIS subway map?' A global lookup searches the entire page and grabs the first match anywhere, which can be the wrong one.">scoped lookup</span>: it searches only this animation&apos;s boxes, not the whole page — so two diagrams can reuse the same box names safely.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — The two famous gotchas -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Two silent traps every flow author hits</h2>
+        <p>Because the route is just text in an attribute, two tiny mistakes can break the whole animation — with <em>no error popup the reader ever sees</em>. Learn to suspect the data, not the engine.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-error)">
+            <div class="pattern-icon" style="background: var(--color-error)">❜</div>
+            <h4 class="pattern-title">The apostrophe trap</h4>
+            <p class="pattern-desc">The whole route sits between single quotes: <code>data-steps='[...]'</code>. A stray apostrophe in a label — like <em>the user&apos;s request</em> — is read as the closing quote. The route ends early, <span class="term" data-definition="JSON.parse turns the route text into a usable list. When the text is cut short or malformed, it can't make sense of it and gives back an empty list — so the animation has nothing to walk and just sits there.">JSON.parse</span> fails, and the animation just sits there. Fix: write <code>&amp;apos;</code> instead.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-error)">
+            <div class="pattern-icon" style="background: var(--color-error)">👯</div>
+            <h4 class="pattern-title">The duplicate-id trap</h4>
+            <p class="pattern-desc">Put two flows on one page that both use <code>flow-actor-1</code>, and a page-wide search grabs the <em>first</em> one. The dot — positioned with <span class="term" data-definition="getBoundingClientRect measures where an element sits on screen — its exact top, left, width, and height. The dot uses these numbers to know where to start and where to land. Measure the wrong box and the dot lands in the wrong place.">getBoundingClientRect</span> — flies to the wrong diagram, sometimes off-screen. Fix: scope the lookup to the container.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-warning">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why these are sneaky</strong>
+            <p>Both break <em>silently</em>. There&apos;s no crash, no red banner on the page — the animation simply does nothing, or the dot drifts away. The first place to look is always the data inside <code>data-steps</code>, not the engine.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Spot the bug (display-only broken data-steps) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Spot the bug: which line breaks the route?</h2>
+        <p>Here&apos;s a <code>data-steps</code> route that <em>looks</em> fine but never plays. Click the line where the apostrophe ends the attribute too early and silently kills the whole list.</p>
+
+        <div class="bug-challenge">
+          <h3>Find the line that breaks the JSON:</h3>
+          <div class="bug-code">
+            <div class="bug-line" data-line="1" onclick="checkBugLine(this, false)">
+              <span class="line-num">1</span>
+              <code>&lt;div class="flow-animation" data-steps='[</code>
+            </div>
+            <div class="bug-line" data-line="2" onclick="checkBugLine(this, false)">
+              <span class="line-num">2</span>
+              <code>  {"highlight":"flow-actor-1","label":"User opens the page"},</code>
+            </div>
+            <div class="bug-line bug-target" data-line="3" onclick="checkBugLine(this, true)">
+              <span class="line-num">3</span>
+              <code>  {"highlight":"flow-actor-2","label":"Read the user's request"},</code>
+            </div>
+            <div class="bug-line" data-line="4" onclick="checkBugLine(this, false)">
+              <span class="line-num">4</span>
+              <code>  {"highlight":"flow-actor-3","label":"Send the reply"}</code>
+            </div>
+            <div class="bug-line" data-line="5" onclick="checkBugLine(this, false)">
+              <span class="line-num">5</span>
+              <code>]'&gt;</code>
+            </div>
+          </div>
+          <div class="bug-feedback" id="bug-feedback"></div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔎</div>
+          <div class="callout-content">
+            <strong class="callout-title">The fix in one move</strong>
+            <p>Change <code>the user's request</code> to <code>the user&amp;apos;s request</code>. The <code>&amp;apos;</code> is a safe stand-in for an apostrophe that the attribute&apos;s closing quote won&apos;t mistake for itself — exactly what the live animation at the top of this module does.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — Aha callout: data-driven animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Change the route, change the show</h2>
+        <p>The engine you read never knew about codebases, briefs, or agents. It only walks a list. Swap in a different list and you get a completely different animation — without touching a single line of the engine.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — data-driven animation</strong>
+            <p>This is the same big idea behind the quizzes: the <em>data</em> declares what happens, and one generic engine acts on it. Engineers call this <span class="term" data-definition="Data-driven means the behavior is controlled by data you can edit, not by rewriting the program. To change a data-driven animation, you edit the route list — not the engine. When talking to an AI agent, you'd say 'make this data-driven so I can change the steps without touching the code.'">data-driven</span> — and when you spot it, you can tell an AI agent "keep this data-driven" to get clean, reusable code.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Debugging quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Debug it like an engineer</h2>
+        <p>You now know where flow animations break. Use that to diagnose three real symptoms — each one points at the data, not the engine.</p>
+
+        <div class="quiz-container" id="quiz-module8">
+          <div class="quiz-question-block"
+               data-correct="opt-apostrophe"
+               data-explanation-right="Exactly. A stray apostrophe inside a label is read as the closing quote of data-steps. The route gets cut short, JSON.parse can't make sense of it, and the list comes back empty — so the animation has nothing to walk. First thing to scan: apostrophes in labels."
+               data-explanation-wrong="Think about what a JSON error means: the route text couldn't be turned into a list. The classic cause is a single apostrophe inside a label closing the data-steps attribute early. That's the very first thing to suspect, before touching the engine.">
+            <h3 class="quiz-question">Your flow animation does nothing, and the browser&apos;s console shows a JSON error. What do you suspect first?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-apostrophe" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>An apostrophe inside a label closed the <code>data-steps</code> attribute early</span>
+              </button>
+              <button class="quiz-option" data-value="opt-engine" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The animation engine in main.js is broken and needs rewriting</span>
+              </button>
+              <button class="quiz-option" data-value="opt-css" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The boxes are styled the wrong color in the CSS</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-dupe"
+               data-explanation-right="Right. Both flows reused the same box ids (flow-actor-1, etc.). When the dot's start/end is found with a page-wide search, it grabs the FIRST matching box anywhere — which lives in the other diagram — so the dot flies off to the wrong place. The fix is scoping the lookup to the container."
+               data-explanation-wrong="Reconsider: two flows on one page, and the second's dot misbehaves. The tell-tale cause is duplicate ids — both diagrams named their boxes the same. A global lookup then grabs the first match, in the wrong diagram, and the dot flies there.">
+            <h3 class="quiz-question">A page has two flow animations. The second one&apos;s dot flies off-screen toward the wrong boxes. Why?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-dupe" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Both flows reuse the same box ids, and a page-wide lookup grabbed the first match</span>
+              </button>
+              <button class="quiz-option" data-value="opt-slow" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The dot animation is simply too slow and needs a faster speed</span>
+              </button>
+              <button class="quiz-option" data-value="opt-json" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The second flow&apos;s JSON has too many steps for the engine to handle</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-data"
+               data-explanation-right="Exactly — this is the whole point of data-driven design. The engine walks whatever route it's given. To add a stop, you edit the data-steps list; you never touch the engine. That's what makes it reusable across every diagram in the course."
+               data-explanation-wrong="Remember the subway map: the engine just walks the printed route. To add a station you edit the route list (data-steps), not the conductor. Rewriting the engine would be like rebuilding the train to add one stop.">
+            <h3 class="quiz-question">You want to add a new stop to a working flow animation. What&apos;s the right move?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-data" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Add one more object to the <code>data-steps</code> list — leave the engine alone</span>
+              </button>
+              <button class="quiz-option" data-value="opt-rewrite" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Rewrite the <code>next()</code> function to know about the new stop</span>
+              </button>
+              <button class="quiz-option" data-value="opt-new" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Build a second animation engine just for the extra stop</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module8')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module8')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Where this leads</h2>
+        <p>You&apos;ve seen the flow engine up close: a route written as data, one conductor that walks it, and the two silent traps — the apostrophe and the duplicate id — that teach you to suspect the data first.</p>
+        <p>Next up: <strong>The Visual Family</strong> — the mostly-CSS structured elements (cards, trees, badges) that need no engine at all to teach a glance-able idea.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

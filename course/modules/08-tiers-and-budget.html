@@ -1,0 +1,356 @@
+<section class="module" id="module-8" style="background: var(--color-bg)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">08</span>
+      <h1 class="module-title">The Tier Ladder &amp; the Money Guard</h1>
+      <p class="module-subtitle">Try the free responder first. Escalate to the expensive specialist only when stuck. And keep a running tab that can slam the brakes.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — Opening hook + metaphor (ER triage) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Triage in an emergency room</h2>
+        <p>When you walk into an ER, you don't see the brain surgeon first. You see a triage nurse — cheap, fast, free to your wallet — and only get escalated to the expensive specialist if the case is still unresolved.</p>
+        <p>The Ralph Loop's fix-it engine works exactly this way: it tries a <strong>free local responder</strong> first, climbs to a paid specialist only when stuck, and a hospital administrator watches the bill the whole time.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">🏥</div>
+          <div class="callout-content">
+            <strong class="callout-title">Cheap-first, escalate-on-need, hard cap</strong>
+            <p>AI calls cost money. Dev-Kid's answer is three instincts at once: start with the cheapest responder, only call the expensive one if the case is still open, and keep a running tab that can shut the whole ward.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — HERO: flow animation, task climbing the ladder, budget filling -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch a hard fix climb the ladder</h2>
+        <p>A test is still red. Follow the broken case as it climbs the
+          <span class="term" data-definition="Escalation means handing a problem up to a more capable (and more expensive) responder when the cheaper one couldn&apos;t solve it — like a triage nurse calling in a specialist. To an AI you&apos;d say &apos;escalate to a stronger model only if the cheap one fails.&apos;">escalation</span>
+          ladder. Each paid rung adds to the running tab — and when one rung would overflow the budget, it gets skipped with a 🛑.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"A test is still RED. The free local responder takes the case first — costs nothing."},
+          {"highlight":"flow-actor-1","label":"Local model tries, but the test stays red. Case unresolved.","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-2","label":"Escalate to the cheap-and-fast cloud model. The running tab ticks up a little."},
+          {"highlight":"flow-actor-2","label":"Still red. The administrator checks: would the next rung overflow the budget?","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-3","label":"The strong cloud model is the priciest rung. Budget allows it this time — case escalates."},
+          {"highlight":"flow-actor-3","label":"Imagine the budget were nearly spent: the administrator would skip this rung with a stop sign, no matter how good the model.","packet":true,"from":"actor-3","to":"actor-4"},
+          {"highlight":"flow-actor-4","label":"Last resort: hand the case to a human (a Claude Code session). The handoff tier costs $0 — a person picks it up."}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5)">🩹</div>
+              <span>Local model<br>(free)</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon" style="background: var(--color-actor-4)">⚡</div>
+              <span>Cloud — fast<br>(cheap)</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon" style="background: var(--color-actor-1)">🧠</div>
+              <span>Cloud — strong<br>(paid)</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3)">🧑‍⚕️</div>
+              <span>Human handoff<br>($0)</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click &quot;Next Step&quot; to send the broken case up the ladder</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🪜</div>
+          <div class="callout-content">
+            <strong class="callout-title">The ladder always goes cheap → expensive</strong>
+            <p>The order is the whole point. A
+              <span class="term" data-definition="A local model is an AI that runs on your own machine (here via Ollama) instead of a company&apos;s servers. It&apos;s free per call and private, but usually less capable than a big cloud model. A cloud model runs on a provider&apos;s servers and charges per call.">local model</span>
+              that costs nothing is always tried before a
+              <span class="term" data-definition="A cloud model is an AI hosted on a provider&apos;s servers (Groq, Anthropic, etc.) that you pay for per request. It&apos;s usually stronger than a local model, which is why it sits higher on the ladder.">cloud model</span>
+              you pay for.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The ladder as real config: ralph-tiers.json (VERBATIM) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The ladder, written as plain config</h2>
+        <p>That ladder isn't hard-coded — it lives in <code>ralph-tiers.json</code>. Each entry is one rung, listed cheapest first. The last rung isn't a model at all; it's a human.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line">{ <span class="code-property">"tiers"</span>: [</span>
+<span class="code-line">  { <span class="code-property">"name"</span>: <span class="code-string">"all-local"</span>,  <span class="code-property">"models"</span>: { <span class="code-property">"artisan"</span>: <span class="code-string">"ollama/qwen3-coder:30b"</span>, <span class="code-property">"critic"</span>: <span class="code-string">"ollama/deepseek-r1:32b"</span> } },</span>
+<span class="code-line">  { <span class="code-property">"name"</span>: <span class="code-string">"groq-fast-free"</span>, <span class="code-property">"models"</span>: { <span class="code-property">"artisan"</span>: <span class="code-string">"groq/llama-3.3-70b-versatile"</span> } },</span>
+<span class="code-line">  { <span class="code-property">"name"</span>: <span class="code-string">"claude-code-handoff"</span>, <span class="code-property">"type"</span>: <span class="code-string">"handoff"</span>, <span class="code-property">"requires_marker"</span>: <span class="code-string">"allow-handoff"</span> }</span>
+<span class="code-line">] }</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">A list of rungs, ordered cheapest to most expensive.</p>
+              <p class="tl"><strong>Rung 1 — all-local:</strong> two models running on your own machine. Free, so it always goes first.</p>
+              <p class="tl"><strong>Rung 2 — groq-fast-free:</strong> a fast cloud model. Cheap, used only if the local one couldn&apos;t fix it.</p>
+              <p class="tl"><strong>Rung 3 — handoff:</strong> not a model at all. The
+                <span class="term" data-definition="A handoff is when the automated system gives up trying to solve a problem itself and passes it to a human (here, a Claude Code session) to finish. It costs $0 in API calls because a person does the work. To an AI you&apos;d say &apos;hand this off to me if you can&apos;t pass the test.&apos;">handoff</span>
+                tier hands the case to a human, and only if a safety marker (<code>allow-handoff</code>) is set.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔧</div>
+          <div class="callout-content">
+            <strong class="callout-title">Where this ladder gets plugged in</strong>
+            <p>Remember <code>--tier-config</code> from the last module? That's the
+              <span class="term" data-definition="A flag is an option you add to a command to change its behavior — like adding &apos;--json&apos; to get structured output. To an AI you&apos;d say &apos;run it with the tier-config flag pointing at my ladder file.&apos;">flag</span>
+              on the <code>ma-loop</code> command that points at this exact <code>ralph-tiers.json</code> file — it's what switches the loop into N-tier escalation mode. (We'll see why that binary name matters in the next module.)</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — The administrator: cumulative budget across ALL tasks -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">One running tab for the whole ward</h2>
+        <p>Here's the twist that makes the money guard powerful: it doesn't track cost per task. It tracks <strong>cumulative</strong> cost across <em>every</em> task in a run — one shared tab for the entire shift.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-error)">⚠️</div>
+            <div>
+              <strong>Per-task cap (the trap)</strong>
+              <p>A $5 limit <em>per task</em> across 65 tasks = up to $325. The bill runs away while every single task looks "within budget."</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-success)">✅</div>
+            <div>
+              <strong>Cumulative cap (the guard)</strong>
+              <p>One tab summed across all 65 tasks. When the <em>total</em> nears the limit, the brakes come on — no matter which task spends it.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why "cumulative" is the load-bearing word</strong>
+            <p>The danger isn't one greedy task — it's a <em>thousand reasonable ones</em>. Summing the spend across all of them is the only way to catch a bill that creeps up quietly.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Code↔English: would_exceed / record (VERBATIM from brief) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The money guard, in real code</h2>
+        <p>This is the heart of <code>budget_tracker.py</code>. Two questions and one action: <em>would this overflow?</em>, <em>are we already over?</em>, and <em>add this spend to the tab.</em></p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line"><span class="code-keyword">def</span> <span class="code-function">would_exceed</span>(self, projected_cost: <span class="code-keyword">float</span>) -&gt; <span class="code-keyword">bool</span>:</span>
+<span class="code-line">    <span class="code-comment">"""True if recording projected_cost would push cumulative past the global cap."""</span></span>
+<span class="code-line">    <span class="code-keyword">return</span> (self._cumulative_cost + projected_cost) &gt; self.budget_usd</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="code-keyword">def</span> <span class="code-function">is_exhausted</span>(self) -&gt; <span class="code-keyword">bool</span>:</span>
+<span class="code-line">    <span class="code-keyword">return</span> self._cumulative_cost &gt;= self.budget_usd</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="code-keyword">def</span> <span class="code-function">record</span>(self, cost_usd, duration_sec, task_id=<span class="code-keyword">None</span>) -&gt; <span class="code-keyword">None</span>:</span>
+<span class="code-line">    self._cumulative_cost += <span class="code-function">float</span>(cost_usd)</span>
+<span class="code-line">    ...</span>
+<span class="code-line">    self._persist()   <span class="code-comment"># survives crashes / resumes</span></span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl"><strong>would_exceed</strong> — a "what if?" question, asked <em>before</em> spending.</p>
+              <p class="tl">Take what we've already spent, add the cost of the next rung, and check: would that go over the
+                <span class="term" data-definition="A cap (here, budget_usd) is a hard ceiling on total spending. Once the running total would cross it, the guard refuses to spend more. To an AI you&apos;d say &apos;set a hard cap of $10 across the whole run.&apos;">cap</span>?
+                If yes, don't take that rung.</p>
+              <p class="tl"><strong>is_exhausted</strong> — a simpler check: have we already hit or passed the cap? If so, stop entirely.</p>
+              <p class="tl"><strong>record</strong> — run after a real spend: add the cost to the
+                <span class="term" data-definition="Cumulative means &apos;running total&apos; — every spend gets added on top of the last, across ALL tasks, not reset between them. The opposite of per-task. It&apos;s why one shared tab can catch a bill that no single task would.">cumulative</span>
+                tab.</p>
+              <p class="tl">Then
+                <span class="term" data-definition="To persist data is to write it to disk so it survives the program closing, crashing, or being resumed later — like saving a file instead of keeping it only in memory. Here it means the spent total is remembered even if the run is interrupted.">persist</span>
+                it — write the tab to disk so a resumed run remembers what it already spent.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">💾</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why write the tab to disk?</strong>
+            <p>If the spend lived only in memory, stopping and restarting the run would reset it to $0 — a budget-reset loophole. Persisting to disk means "I already spent $8" follows the run across crashes and resumes. The cap is real, not a fresh start each time.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — The early-warning siren (VERBATIM) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The early-warning siren</h2>
+        <p>Before the hard stop, there's a softer signal. When spending crosses a warning threshold, the tracker speaks up — so you see the bill rising <em>before</em> it slams the brakes.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line"><span class="code-keyword">return</span> (f<span class="code-string">"⚠️  CUMULATIVE BUDGET WARNING: ${self._cumulative_cost:.2f} of "</span></span>
+<span class="code-line">        f<span class="code-string">"${self.budget_usd:.2f} spent across {self._task_count} sentinel(s)"</span>)</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Build a warning message a human can read at a glance.</p>
+              <p class="tl">It shows how much has been spent <strong>of</strong> the total cap — e.g. "$8.40 of $10.00."</p>
+              <p class="tl">And how many
+                <span class="term" data-definition="A sentinel here is one run of the per-task inspection from earlier modules. &apos;Across 65 sentinels&apos; means the cost was summed over 65 separate task checks — that&apos;s the cumulative tab in action.">sentinel(s)</span>
+                — task checks — that spend was spread across. The count makes "where did the money go?" answerable.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-warning">
+          <div class="callout-icon">🚨</div>
+          <div class="callout-content">
+            <strong class="callout-title">Warn early, halt late</strong>
+            <p>The siren fires at a percentage of the cap (say 80%), giving you a chance to react. The hard stop only comes when the next spend would actually overflow. Two layers: a heads-up, then a wall.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — The "aha" callout: economy-first as a design value -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Economy-first is a design value, not an afterthought</h2>
+        <p>This whole module is one idea made concrete. The system would rather <em>miss</em> a fix than hand you a surprise bill — and that priority is wired into the code, not bolted on later.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">"Recall gaps are acceptable; runaway bills are not."</strong>
+            <p>A free local model that occasionally can't solve a case is fine — you escalate or hand it off. But a bill that quietly climbs to $325 while every task "looks fine" is a disaster. The cheap-first ladder and the cumulative cap exist to make that trade-off the default.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🗣️</div>
+          <div class="callout-content">
+            <strong class="callout-title">You can now ask for this by name</strong>
+            <p>When you steer any AI system, this is the instinct you want: "try the cheap model first, escalate only if it fails, and set a hard cumulative cap." That sentence is economy-first — and now you know exactly what it buys you.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check yourself: read the money guard</h2>
+        <p>Three situations from a real run. Use what you learned about the ladder, the cumulative tab, and the handoff tier — no memorizing.</p>
+
+        <div class="quiz-container" id="quiz-module8">
+
+          <div class="quiz-question-block"
+               data-correct="option-cumulative"
+               data-explanation-right="Exactly. A $5 per-task cap across 65 tasks could allow 65 × $5 = $325 total, while every individual task stays 'within budget.' Tracking cumulatively — one tab summed across all tasks — is the only way to catch a bill that creeps up across many reasonable-looking spends."
+               data-explanation-wrong="Not quite. The danger isn&apos;t one greedy task — it&apos;s the SUM of many. A $5 per-task limit across 65 tasks still permits up to $325 total. Only a cumulative cap (one tab across all tasks) catches that quiet creep, because it watches the total, not each task in isolation.">
+            <h3 class="quiz-question">A run has <strong>65 tasks</strong>. Why track budget <strong>cumulatively</strong> across all of them instead of a separate cap per task?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-pertask" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A per-task cap is safer — it keeps each task small and predictable</span>
+              </button>
+              <button class="quiz-option" data-value="option-cumulative" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Per-task caps let the total run away (65 × $5 = $325); only a summed tab catches the real bill</span>
+              </button>
+              <button class="quiz-option" data-value="option-speed" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Cumulative tracking makes the tasks run faster</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-free"
+               data-explanation-right="Right. The budget guard exists to stop spending money — and the local tier costs $0. There&apos;s no bill to overflow, so skipping it would only make the system weaker for no savings. The free rung is always worth trying first."
+               data-explanation-wrong="Not quite. The whole job of the budget guard is to prevent SPENDING. The free local tier costs nothing, so it can never push the cumulative tab past the cap. Skipping it would throw away a free attempt and gain you zero dollars — the opposite of economy-first.">
+            <h3 class="quiz-question">The free local tier should <strong>never</strong> be skipped by the budget guard. Why?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-fast" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because the local model is always the most accurate</span>
+              </button>
+              <button class="quiz-option" data-value="option-free" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because it costs $0 — there&apos;s no spend to overflow, so trying it is always free</span>
+              </button>
+              <button class="quiz-option" data-value="option-required" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Because the cloud models won&apos;t run unless the local one runs first</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-human"
+               data-explanation-right="Exactly. The handoff tier isn&apos;t a model — it hands the hard case to a human (a Claude Code session) to finish. Because a person does the work, it costs $0 in API calls. It&apos;s the last rung: when no automated model could pass the test, escalate to a human instead of burning more budget."
+               data-explanation-wrong="Not quite. The handoff tier sits at the TOP of the ladder, but it isn&apos;t the strongest or priciest model — it&apos;s not a model at all. It hands the unsolved case to a human (a Claude Code session) for $0, as a last resort when no automated tier could make the test pass.">
+            <h3 class="quiz-question">The top rung of <code>ralph-tiers.json</code> is <code>claude-code-handoff</code> with <code>"type": "handoff"</code>. What is the handoff tier <em>for</em>?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-strongest" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It&apos;s the strongest, most expensive AI model, used when nothing else works</span>
+              </button>
+              <button class="quiz-option" data-value="option-human" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It hands the hard case to a human (a Claude Code session) to finish — for $0</span>
+              </button>
+              <button class="quiz-option" data-value="option-retry" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It automatically retries every lower tier a second time</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module8')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module8')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Wrap / bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You've seen the ladder and the guard</h2>
+        <p>A cheap-to-expensive escalation ladder, a human handoff at the top, and one cumulative tab that can slam the brakes. All of this machinery is now wired up and humming.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: The Integration Bug</strong>
+            <p>The centerpiece. Everything you've learned — waves, the Sentinel, the Ralph Loop, this tier ladder — all of it correctly built and perfectly configured. And wired to the <em>wrong binary</em>. Watch what happens when the machine runs flawlessly on the wrong thing.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

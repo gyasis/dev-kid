@@ -1,0 +1,373 @@
+<section class="module" id="module-1" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">01</span>
+      <h1 class="module-title">What Dev-Kid Does</h1>
+      <p class="module-subtitle">The 30,000-foot map: how a plain to-do list becomes a safe, parallel, self-checking build that your AI actually executes.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The trick you already pulled off</h2>
+        <p>You wrote a plain checklist in a file called
+          <span class="term" data-definition="tasks.md is just a plain text file (the .md means Markdown — a simple way to write formatted text). You list what you want done, one line per task. No code, no special tools — just a list.">tasks.md</span>,
+          typed <code>dev-kid orchestrate</code>, then <code>dev-kid execute</code>.</p>
+        <p>And somehow your <span class="term" data-definition="An AI coding agent is a program (like Claude Code) that can read your files, write code, and run commands on your behalf — an assistant that does the typing, not just suggests it.">AI coding agent</span> built the whole thing in coordinated batches without stepping on its own toes. This module shows you the machine behind that.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🗺️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why start here?</strong>
+            <p>Once you know the four stations your list passes through, you can tell the AI <em>exactly</em> where a problem lives — "the plan is wrong" vs "execution stalled" vs "a check failed." That precision is the whole point.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — The metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think of a general contractor</h2>
+        <p>You hand a contractor a messy renovation wish-list. They don't pick up a hammer themselves — they turn your list into a <strong>scheduled crew plan</strong>: who works at the same time, who has to wait on whom, and which jobs would collide if done together.</p>
+        <p>Then a building inspector signs off on each phase before the next one starts — so a hidden mistake can't quietly travel into the rest of the job.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">📝</div>
+            <div>
+              <strong>Your wish-list</strong>
+              <p>"Redo the kitchen, fix the bathroom, repaint the hall" — written however you think of it.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📋</div>
+            <div>
+              <strong>The contractor's schedule</strong>
+              <p>Reshapes the wish-list into batches: plumber + painter can work together; the tiler must wait for the plumber.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">👷</div>
+            <div>
+              <strong>The foreman + inspector</strong>
+              <p>Dispatches each batch, then halts until the inspector signs off — no phase starts on top of a broken one.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">The "aha!"</strong>
+            <p>Dev-Kid <em>doesn't write your code</em> — it <strong>choreographs the AI that writes the code</strong>. It's the contractor and the inspector, never the hammer.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The hero data-flow animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The four stations (watch your list travel)</h2>
+        <p>Everything in Dev-Kid is one pipeline. Press <strong>Next Step</strong> and watch a single checklist move from your hands all the way to the working crew.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"You write a plain checklist of tasks in tasks.md — no code, just what you want done."},
+          {"highlight":"flow-actor-1","label":"You run dev-kid orchestrate. Your list heads to The Orchestrator, the planner.","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-2","label":"The Orchestrator reshapes the flat list into a batched schedule — what can run together, what must wait."},
+          {"highlight":"flow-actor-2","label":"It writes that schedule into a file: execution_plan.json. This is the blueprint.","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-3","label":"execution_plan.json just sits on disk holding the plan — a recipe waiting for a cook."},
+          {"highlight":"flow-actor-3","label":"You run dev-kid execute. The Wave Executor — the foreman — reads the blueprint.","packet":true,"from":"actor-3","to":"actor-4"},
+          {"highlight":"flow-actor-4","label":"The Wave Executor dispatches one batch of work to the AI, then halts and checks before the next batch. Build complete."}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon">📝</div>
+              <span>tasks.md</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon">🧠</div>
+              <span>The Orchestrator</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon">📄</div>
+              <span>execution_plan.json</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon">👷</div>
+              <span>The Wave Executor</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to begin</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <p>In short:
+          <span class="term" data-definition="tasks.md is the plain checklist you write — the only file you have to author by hand.">your list</span> →
+          <span class="term" data-definition="The Orchestrator is the planner. It reads your flat list and figures out which tasks can run side-by-side and which must wait their turn.">the planner</span> →
+          <span class="term" data-definition="execution_plan.json is the schedule the planner produces — a structured file (JSON) that lists the batches in order. JSON is just a tidy, machine-readable way of writing nested data: labels and values inside curly braces.">the schedule</span> →
+          <span class="term" data-definition="The Wave Executor is the foreman. It reads the schedule and dispatches each batch of work to the AI, pausing for a check between batches.">the foreman</span>.</p>
+      </section>
+
+      <!-- SCREEN 4 — The pipeline at a glance -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The same map, written down</h2>
+        <p>The whole system is this one line. Each arrow is a hand-off; the bottom row is the plain-English name for each station.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">tasks.md  →  orchestrator.py  →  execution_plan.json  →  wave_executor.py</span>
+<span class="code-line"><span class="code-comment">(your list)   (the planner)       (the schedule)          (the foreman)</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl"><strong>tasks.md</strong> — the checklist you wrote. The only file you author by hand.</p>
+              <p class="tl"><strong>orchestrator.py</strong> — the planner. A
+                <span class="term" data-definition="A Python module is a single file of Python code (the .py extension) that does one job. Dev-Kid is built from several of these, each handling a separate stage.">Python module</span>
+                that turns your flat list into a batched schedule.</p>
+              <p class="tl"><strong>execution_plan.json</strong> — the schedule it produced, saved to disk as a structured file.</p>
+              <p class="tl"><strong>wave_executor.py</strong> — the foreman. It reads the schedule and runs the work, batch by batch.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔌</div>
+          <div class="callout-content">
+            <strong class="callout-title">Who pushes the buttons?</strong>
+            <p>The commands you type (<code>orchestrate</code>, <code>execute</code>) hit a small
+              <span class="term" data-definition="A CLI (Command-Line Interface) is a text-based way to run a program — you type a command instead of clicking buttons. 'dev-kid orchestrate' is a CLI command.">CLI</span>
+              that simply hands your request to the right Python module. It's a switchboard, not the brains.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — what a task line looks like (code↔english) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What one line of your list looks like</h2>
+        <p>Here are two real lines from a <code>tasks.md</code>. Every detail on the line is a signal the system reads — let's decode it.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">- [ ] T001: Implement the auth module affecting `src/auth.py`</span>
+<span class="code-line">- [ ] T002: Add login UI affecting `src/ui/login.tsx`</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl"><strong>- [ ]</strong> — an empty checkbox. The space means "not done yet." When the AI finishes, it changes it to <strong>[x]</strong>.</p>
+              <p class="tl"><strong>T001</strong> — the task's ID, like a job number on a work order. The planner uses it to track who depends on whom.</p>
+              <p class="tl">The plain description tells the AI <em>what</em> to build.</p>
+              <p class="tl">The
+                <span class="term" data-definition="A backtick is the slanted quote ` (found above Tab on most keyboards). Wrapping a file path in backticks marks it as a real file path so the system can spot it reliably.">backtick</span>
+                path <code>`src/auth.py`</code> tells the system <em>which file</em> the task touches — its most important clue. (Why? That's the next module.)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">🎯</div>
+          <div class="callout-content">
+            <strong class="callout-title">The file path is the magic ingredient</strong>
+            <p>Because T001 touches <code>src/auth.py</code> and T002 touches a different file, the planner knows they <strong>can't collide</strong> — so they're safe to run at the same time. That single insight is what makes parallel building safe.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — the schedule the planner produces -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The schedule the planner hands off</h2>
+        <p>After <code>orchestrate</code> runs, the planner saves the batched schedule to disk. You rarely read this file yourself — the foreman does — but here's its shape.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">{ <span class="code-property">"execution_plan"</span>: { <span class="code-property">"phase_id"</span>: <span class="code-string">"..."</span>, <span class="code-property">"waves"</span>: [</span>
+<span class="code-line">  { <span class="code-property">"wave_id"</span>: <span class="code-number">1</span>, <span class="code-property">"strategy"</span>: <span class="code-string">"PARALLEL_SWARM"</span>, <span class="code-property">"tasks"</span>: [...], <span class="code-property">"checkpoint_after"</span>: {...} }</span>
+<span class="code-line">] } }</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This is one
+                <span class="term" data-definition="To parse means to read text and pull out its meaning — like skimming a recipe and pulling out the ingredient list. The foreman parses this file to learn the batch order.">parsed</span>
+                schedule. Everything lives under one heading: the execution plan.</p>
+              <p class="tl">A <strong>wave</strong> is one batch of work. Wave 1 here is a
+                <span class="term" data-definition="PARALLEL_SWARM means all the tasks in this batch are safe to run at the same time, because none of them touch the same file.">"PARALLEL_SWARM"</span>
+                — run all its tasks at once.</p>
+              <p class="tl"><strong>tasks</strong> lists the job numbers (T001, T002…) that belong to this batch.</p>
+              <p class="tl"><strong>checkpoint_after</strong> is the inspector's sign-off — the gate that must pass before the next wave begins.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>So the planner's job, in one sentence: take your flat list and group it into <strong>waves</strong> that are safe to run together — each ending in an inspection gate.</p>
+      </section>
+
+      <!-- SCREEN 7 — the CLI is just a switchboard -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The command you type is just a switchboard</h2>
+        <p>When you run a Dev-Kid command, a small
+          <span class="term" data-definition="Bash is the language most command-line scripts are written in on Mac and Linux. A Bash script is a list of commands the computer runs in order.">Bash</span>
+          script does one thing: it forwards your request to the correct Python module. Here are the two hand-offs that matter for this module.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">python3 <span class="code-string">"$DEV_KID_ROOT/cli/orchestrator.py"</span> <span class="code-string">"${py_args[@]}"</span></span>
+<span class="code-line"><span class="code-comment">...</span></span>
+<span class="code-line">python3 <span class="code-string">"$DEV_KID_ROOT/cli/wave_executor.py"</span> <span class="code-string">"${remaining_args[@]}"</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">When you type <code>orchestrate</code>, the switchboard runs the <strong>planner</strong> (orchestrator.py) and passes along your options.</p>
+              <p class="tl">The <code>...</code> is just other commands in between, skipped here for clarity.</p>
+              <p class="tl">When you type <code>execute</code>, the switchboard runs the <strong>foreman</strong> (wave_executor.py) instead.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🧭</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why this helps you talk to your AI</strong>
+            <p>Now you can point precisely: if the <em>plan</em> looks wrong, that's the planner. If a build <em>stalls mid-run</em>, that's the foreman. Naming the station saves both of you a guessing game.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check your map-reading</h2>
+        <p>No definitions to memorize — just point to the right station for each situation.</p>
+
+        <div class="quiz-container" id="quiz-module1">
+
+          <div class="quiz-question-block"
+               data-correct="opt-orchestrator"
+               data-explanation-right="Exactly. The Orchestrator's whole job is to spot tasks that touch the same file and put them in different waves so they can't run at once. If two same-file tasks ran together, the plan failed to sequence them — the execution and the inspector were just following a bad blueprint."
+               data-explanation-wrong="Think one step earlier. The foreman only runs the batches it's handed, and the inspector checks after each batch. But deciding which tasks are SAFE to run together is the planner's job — and here it grouped two file-colliding tasks into one wave.">
+            <div class="scenario-block">
+              <div class="scenario-context">
+                <span class="scenario-label">Scenario</span>
+                <p>The AI built everything, but two tasks that both edit <code>src/auth.py</code> ran at the same time and clobbered each other's changes. Which station failed to do its job?</p>
+              </div>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-orchestrator" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The Orchestrator — its plan put two same-file tasks in the same wave</span>
+                </button>
+                <button class="quiz-option" data-value="opt-executor" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The Wave Executor — it ran the tasks too fast</span>
+                </button>
+                <button class="quiz-option" data-value="opt-tasksmd" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>tasks.md — you wrote too many tasks</span>
+                </button>
+              </div>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-backtick"
+               data-explanation-right="Right. The backtick file path is the signal the planner reads to know which file each task touches — and that's how it decides what can run in parallel. Leave it out and the planner is flying blind about collisions."
+               data-explanation-wrong="Not the main risk here. The system can cope with a vague description or a missing job number better than it can cope with not knowing which file you're touching — that file path is what keeps parallel work from colliding.">
+            <div class="scenario-block">
+              <div class="scenario-context">
+                <span class="scenario-label">Scenario</span>
+                <p>You're writing a new line in <code>tasks.md</code> and you're tempted to skip the <code>`src/file.py`</code> at the end. What's the biggest thing you'd lose?</p>
+              </div>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-backtick" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The planner can no longer tell which tasks would collide, so safe parallel batching breaks</span>
+                </button>
+                <button class="quiz-option" data-value="opt-color" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The task description would print in the wrong color</span>
+                </button>
+                <button class="quiz-option" data-value="opt-nothing" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Nothing — the file path is just a comment for humans</span>
+                </button>
+              </div>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-doesnt-write"
+               data-explanation-right="Exactly — that's the core idea. Dev-Kid plans, dispatches, and inspects; the AI coding agent does the actual coding. Knowing this stops you from asking Dev-Kid to 'fix the bug' — you'd ask it to re-plan or re-run, and ask the AI to fix the code."
+               data-explanation-wrong="Close, but flip it. Dev-Kid is the contractor and inspector — it never picks up the hammer. The AI coding agent is the one writing the actual code; Dev-Kid choreographs it.">
+            <div class="scenario-block">
+              <div class="scenario-context">
+                <span class="scenario-label">Scenario</span>
+                <p>A friend says "so Dev-Kid is the thing that writes my code, right?" What's the most accurate correction?</p>
+              </div>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-doesnt-write" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>No — Dev-Kid plans and inspects the work; the AI coding agent writes the code</span>
+                </button>
+                <button class="quiz-option" data-value="opt-writes" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Yes — Dev-Kid is an AI that types out all your code for you</span>
+                </button>
+                <button class="quiz-option" data-value="opt-editor" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Sort of — it's a text editor with autocomplete</span>
+                </button>
+              </div>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module1')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module1')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — wrap / connection forward -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You now have the map</h2>
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Four stations, one pipeline</strong>
+              <p>tasks.md → The Orchestrator → execution_plan.json → The Wave Executor.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Dev-Kid choreographs, the AI codes</strong>
+              <p>It plans, dispatches in batches, and inspects — it never writes the code itself.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Up next: Meet the Cast</strong>
+              <p>We'll give every component a name and a personality — the Orchestrator, the Wave Executor, the Sentinel inspector, the Watchdog night guard, and more.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

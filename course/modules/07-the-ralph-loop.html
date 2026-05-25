@@ -1,0 +1,457 @@
+<section class="module" id="module-7" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">07</span>
+      <h1 class="module-title">The Ralph Loop</h1>
+      <p class="module-subtitle">The engine that actually writes the fix — a persistent apprentice locksmith who keeps filing the key until the lock turns.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — Opening hook + metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Step 3 had a name all along</h2>
+        <p>Back in the Sentinel, step 3 quietly said "run a test-fix loop." That loop has a name — the <strong>Ralph Loop</strong> — and it <em>is</em> the apprentice the system hires to do the actual repair work.</p>
+        <p>Picture a <strong>persistent apprentice locksmith</strong>. You don't hand them a finished key. You hand them the lock — and you say "keep filing until it turns."</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">🔑</div>
+          <div class="callout-content">
+            <strong class="callout-title">You describe success as a lock, not a key</strong>
+            <p>The apprentice tries a key, tests it in the lock, learns from the way it sticks, and files again. They only call in a master locksmith if they get truly stuck. This is the single most powerful idea in the whole system.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — The three roles as characters -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Three hands, one workbench</h2>
+        <p>The apprentice isn't one person rushing — it's three roles taking turns at the bench. Each does one job, then passes the work along.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📚</div>
+            <div>
+              <strong>The Librarian</strong>
+              <p>Gathers the context and research <em>before</em> any filing starts — reads the surrounding code so the fix isn't a blind guess.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">🔨</div>
+            <div>
+              <strong>The Artisan</strong>
+              <p>Writes the actual code change — does the filing on the key itself.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">🧐</div>
+            <div>
+              <strong>The Critic</strong>
+              <p>Reviews the change before it goes anywhere near the lock — "does this look safe to test?"</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-5)">🧪</div>
+            <div>
+              <strong>The Test</strong>
+              <p>Tries the key in the lock. Red means "still stuck"; green means "it turned" — and that's the only voice that can end the loop.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🎭</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why split the work into roles?</strong>
+            <p>An <span class="term" data-definition="An agent is an AI that doesn't just answer once — it takes actions, sees the result, and decides what to do next, in a loop. When talking to an AI you might say 'run this as an agent until the tests pass' rather than 'write me the code once.'">agent</span>
+              that researches, writes, AND reviews all in one breath tends to fool itself. Splitting it into an
+              <span class="term" data-definition="An agent role is one focused job inside a larger AI loop — research, write, or review. Each role only does its one thing, which keeps the work honest. You'd steer an AI by naming the role: 'the reviewer step is too lenient.'">agent role</span>
+              for each step keeps each one honest.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — HERO: Group chat animation (Librarian → Artisan → Critic → Test, looping until green) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch the apprentice file the key</h2>
+        <p>Here's a full loop as a group chat. The Test says "still red." The Librarian fetches context, the Artisan files a new key, the Critic clears it, the Test tries again — round after round, until green. Step through it.</p>
+
+        <div class="chat-window" id="chat-ralph-loop">
+          <div class="chat-messages">
+
+            <div class="chat-message" data-msg="0" data-sender="test" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5)">🧪</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5)">The Test</span>
+                <p>Iteration 1: still 🔴 red. The key doesn't turn — <code>test_login</code> is failing.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="1" data-sender="librarian" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">📚</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">The Librarian</span>
+                <p>On it. Here's the relevant context — the login function, the helper it calls, and the exact error the test printed.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="2" data-sender="artisan" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🔨</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Artisan</span>
+                <p>Filing a new key — patch v2. I think the token wasn't being passed through. Trying it.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="3" data-sender="critic" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">🧐</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Critic</span>
+                <p>Looks safe — no other functions touched, no secrets in the diff. Ship it to the lock.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="4" data-sender="test" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5)">🧪</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5)">The Test</span>
+                <p>Iteration 2: still 🔴 red — but a <em>different</em> error now. Progress. The key's closer.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="5" data-sender="librarian" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">📚</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">The Librarian</span>
+                <p>New error means new context. Here's the line it choked on this time, plus the test's expected value.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="6" data-sender="artisan" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🔨</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">The Artisan</span>
+                <p>Patch v3 — fixing the off-by-one in the expiry check. Filing one more notch off the key.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="7" data-sender="critic" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">🧐</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Critic</span>
+                <p>Clean, focused, one line. Looks safe — ship to test.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="8" data-sender="test" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5)">🧪</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5)">The Test</span>
+                <p>Iteration 3: 🟢 <strong>green!</strong> The key turned. All tests pass.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="9" data-sender="loop" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-text-secondary)">🔁</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-text-secondary)">The Loop</span>
+                <p>Green means stop. Loop exits — 3 iterations, well under budget. Hand the working fix back to the Sentinel.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="chat-typing" id="chat-ralph-loop-typing" style="display:none">
+            <div class="chat-avatar" id="chat-ralph-loop-typing-avatar">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+
+          <div class="chat-controls">
+            <button class="btn chat-next-btn">Next Message</button>
+            <button class="btn chat-all-btn">Play All</button>
+            <button class="btn chat-reset-btn">Replay</button>
+            <span class="chat-progress"></span>
+          </div>
+        </div>
+
+        <p>Notice the rhythm: Librarian → Artisan → Critic → Test, then back to the top if it's still red. The same three hands take another turn. The loop only breaks when the Test goes green.</p>
+      </section>
+
+      <!-- SCREEN 4 — The loop, as a flow diagram -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The cycle, in one picture</h2>
+        <p>Strip away the chatter and the Ralph Loop is a simple circle: research, write, review, test — and if the test is red, go around again.</p>
+
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-step-num">1</div>
+            <p>Librarian gathers context</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">2</div>
+            <p>Artisan writes the change</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">3</div>
+            <p>Critic reviews it</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">4</div>
+            <p>Test runs</p>
+          </div>
+          <div class="flow-arrow">↺</div>
+          <div class="flow-step">
+            <div class="flow-step-num">🟢</div>
+            <p>Green? Exit. Red? Loop back to 1.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">The test is the prompt</strong>
+            <p>Here's the "aha!": the Ralph Loop turns <em>verification</em> — a passing test — into the <em>spec</em>. You don't write the instructions for the fix. You write the test that proves the fix worked, and the loop reverse-engineers code that satisfies it.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — CRITICAL: ma-loop, not micro-agent -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">One tool, two faces — and this is the right one</h2>
+        <p>Remember the two faces planted earlier? The same package ships <strong>two different commands</strong>. The Ralph Loop is the second one — and using the wrong face is the entire bug waiting in Module 9.</p>
+
+        <div class="pattern-cards">
+          <div class="pattern-card" style="border-top: 3px solid var(--color-text-muted)">
+            <div class="pattern-icon" style="background: var(--color-text-muted)">📝</div>
+            <h4 class="pattern-title"><code>micro-agent</code></h4>
+            <p class="pattern-desc">The one-shot generator. Writes a file once and stops. <strong>Not</strong> the looping engine — no apprentice, no retries.</p>
+          </div>
+          <div class="pattern-card" style="border-top: 3px solid var(--color-accent)">
+            <div class="pattern-icon" style="background: var(--color-accent)">🔁</div>
+            <h4 class="pattern-title"><code>ma-loop</code></h4>
+            <p class="pattern-desc"><strong>This is the Ralph Loop.</strong> The persistent apprentice that runs Librarian → Artisan → Critic → Test in a cycle until the lock turns.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-warning">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Burn this in: the binary is <code>ma-loop</code></strong>
+            <p>The engine that <em>writes the fix</em> is invoked as <code>ma-loop</code> — not <code>micro-agent</code>. They live in the same package but do completely different things. Calling <code>micro-agent</code> when you meant <code>ma-loop</code> gets you a one-shot guess instead of a tested fix. Hold onto this — it's the crux of Module 9.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — Code↔English: the ma-loop run options (VERBATIM) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The apprentice's instruction card, in real code</h2>
+        <p>This is the actual <code>ma-loop run</code> command definition from <code>src/cli/ralph-loop.ts</code>. Every option here is a dial on the apprentice — what to fix, how to know it's done, and when to give up.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line">program</span>
+<span class="code-line">  .<span class="code-function">command</span>(<span class="code-string">'run'</span>)</span>
+<span class="code-line">  .<span class="code-function">description</span>(<span class="code-string">'Run Ralph Loop iterations for a file or objective'</span>)</span>
+<span class="code-line">  .<span class="code-function">argument</span>(<span class="code-string">'&lt;target&gt;'</span>, <span class="code-string">'Target file or objective to achieve'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'-o, --objective &lt;text&gt;'</span>, <span class="code-string">'Explicit objective'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'-t, --test &lt;command&gt;'</span>, <span class="code-string">'Test command to run (e.g., "npm test")'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'-i, --max-iterations &lt;n&gt;'</span>, <span class="code-string">'Maximum iterations'</span>, <span class="code-string">'30'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'-b, --max-budget &lt;n&gt;'</span>, <span class="code-string">'Maximum cost in USD'</span>, <span class="code-string">'2.00'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'--simple [n]'</span>, <span class="code-string">'Run simple mode (Artisan+Tests) for N iters before escalating'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'--full'</span>, <span class="code-string">'Skip simple mode — Librarian→Artisan→Critic→Tests from iteration 1'</span>)</span>
+<span class="code-line">  .<span class="code-function">option</span>(<span class="code-string">'--tier-config &lt;path&gt;'</span>, <span class="code-string">'JSON tier config — enables N-tier escalation mode'</span>)</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This defines the <code>run</code> sub-command of <code>ma-loop</code> — the apprentice's instruction card.</p>
+              <p class="tl">A one-line description: run the loop for a file or a goal.</p>
+              <p class="tl"><code>&lt;target&gt;</code> is what to work on — a specific file <em>or</em> a goal written in plain words.</p>
+              <p class="tl"><code>--objective</code> lets you spell out the goal explicitly if the target alone isn't clear.</p>
+              <p class="tl"><code>--test</code> is the most important dial: the
+                <span class="term" data-definition="A test command is the exact line you'd type to run a project's tests, like 'npm test' or 'pytest'. The loop runs it after every attempt to check if the fix worked — it's how the apprentice knows the lock turned.">test command</span>
+                — how the apprentice knows the lock has turned.</p>
+              <p class="tl"><code>--max-iterations</code> caps how many times it can loop — default <strong>30</strong> rounds at the workbench.</p>
+              <p class="tl"><code>--max-budget</code> caps the money it can spend — default <strong>$2.00</strong> before it must stop.</p>
+              <p class="tl"><code>--simple</code> starts cheap: just Artisan + Test for a few rounds, then bring in the full crew.</p>
+              <p class="tl"><code>--full</code> does the opposite: all four roles from round one, no warm-up.</p>
+              <p class="tl"><code>--tier-config</code> points at a settings file that lets it climb a ladder of stronger AIs — that's the whole next module.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — The two ways the loop stops -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Two ways the apprentice stops filing</h2>
+        <p>A persistent apprentice still has to know when to put down the file. The Ralph Loop has exactly two exits — one happy, one protective.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in" style="border-left-color: var(--color-success)">
+            <div class="step-num" style="background: var(--color-success)">🟢</div>
+            <div class="step-body">
+              <strong>The lock turned — success</strong>
+              <p>The test command passes. The fix is real and proven. Loop exits immediately, fix in hand.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in" style="border-left-color: var(--color-error)">
+            <div class="step-num" style="background: var(--color-error)">🛑</div>
+            <div class="step-body">
+              <strong>The allowance ran out — stop-loss</strong>
+              <p>It hit <code>--max-iterations</code> (too many tries) <em>or</em> <code>--max-budget</code> (too much money). The apprentice downs tools so it can't grind forever.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🪙</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why two limits, not one?</strong>
+            <p>Each loop costs both time and money. An
+              <span class="term" data-definition="An iteration is one full trip around the loop — one attempt at the fix, then a test to check it. 'It solved it in 3 iterations' means three tries. You'd tell an AI 'give it more iterations' to let it keep trying.">iteration</span>
+              cap stops it spinning forever; a
+              <span class="term" data-definition="A budget here is a hard spending limit in real dollars — the most the loop is allowed to cost before it must quit. Like handing the apprentice a fixed cash float for the job.">budget</span>
+              cap stops it quietly running up a bill. Hit either, and it stops.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Start cheap, escalate only if stuck -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Start cheap, call the master only if stuck</h2>
+        <p>The apprentice doesn't phone the master locksmith for every wobbly key. <code>--simple</code> mode runs the cheap path first — just Artisan + Test — and only brings in the full crew (and, next module, pricier AIs) if a few rounds don't crack it.</p>
+
+        <div class="badge-list stagger-children">
+          <div class="badge-item animate-in">
+            <code class="badge-code">--simple [n]</code>
+            <span class="badge-desc">Try the cheap path for N rounds first, then escalate to the full crew if still red.</span>
+          </div>
+          <div class="badge-item animate-in">
+            <code class="badge-code">--full</code>
+            <span class="badge-desc">Skip the warm-up — all four roles from round one. Use when you expect a hard fix.</span>
+          </div>
+          <div class="badge-item animate-in">
+            <code class="badge-code">--tier-config</code>
+            <span class="badge-desc">Hand it a ladder of models so it can climb to a stronger AI — the next module's whole story.</span>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💰</div>
+          <div class="callout-content">
+            <strong class="callout-title">Cheap-first is the thrifty default</strong>
+            <p>Most failing tests are simple mistakes. Starting cheap fixes the easy ones for almost nothing, and reserves the expensive crew — and expensive models — for the rare lock that genuinely won't budge. This
+              <span class="term" data-definition="Escalation is the move from a cheaper, weaker tool to a stronger, pricier one only when the cheap one can't solve the problem. Like calling in a senior expert after the junior gives up. You'd say 'escalate to the bigger model only if it stalls.'">escalation</span>
+              ladder is exactly what Module 8 is about.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Check yourself: think like the apprentice</h2>
+        <p>Three situations. Use what you learned about how the loop stops, why the test is the spec, and why it starts cheap — no memorizing flag names.</p>
+
+        <div class="quiz-container" id="quiz-module7">
+
+          <div class="quiz-question-block"
+               data-correct="option-both"
+               data-explanation-right="Exactly. The loop has two exits: the happy one (the test passes — the lock turned) and the protective one (it burned through --max-iterations OR --max-budget). Either condition ends the loop. Without the second exit, a stubborn bug could loop forever and run up an unlimited bill."
+               data-explanation-wrong="Not quite. A passing test is one way the loop stops — but it's not the only way. If the fix never works, the loop still has to stop somewhere: it quits when it hits the iteration cap OR the dollar budget. Two exits, one happy and one protective.">
+            <h3 class="quiz-question">You start a Ralph Loop on a bug that turns out to be genuinely unfixable. What makes the loop eventually <strong>stop</strong>?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-pass" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Only a passing test — otherwise it runs forever</span>
+              </button>
+              <button class="quiz-option" data-value="option-both" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The test passes, OR it hits the iteration cap or the dollar budget</span>
+              </button>
+              <button class="quiz-option" data-value="option-critic" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Critic decides the change looks good enough</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-verifiable"
+               data-explanation-right="Right. 'Make this test pass' gives the loop an objective, automatic measure of done — it can try, check, and try again without a human. 'Write this code' is a vague target the AI can declare 'finished' while still being wrong. The test turns verification into the spec, so the loop can grind toward a provably-correct result."
+               data-explanation-wrong="Not quite. It isn't that tests make the AI write better code on the first try — it's that a test gives the loop a clear, automatic way to KNOW it succeeded. 'Write this code' has no built-in finish line; 'make this test pass' does. That finish line is what lets the apprentice keep filing until the lock actually turns.">
+            <h3 class="quiz-question">Why is framing work as <em>"make this test pass"</em> more reliable than <em>"write this code for me"</em> when handing it to the Ralph Loop?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-verifiable" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A test gives the loop an automatic, objective definition of "done" it can keep checking against</span>
+              </button>
+              <button class="quiz-option" data-value="option-faster" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Tests make the AI write correct code on the very first attempt</span>
+              </button>
+              <button class="quiz-option" data-value="option-cheaper" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Tests are always cheaper to run than generating code</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-cheapfirst"
+               data-explanation-right="Exactly. Most failing tests are simple slips that the cheap path fixes for almost nothing. Starting cheap with --simple handles those at minimal cost and only escalates to the full crew (and pricier models) for the rare hard lock. It's a thrift strategy: spend the expensive effort only where it's actually needed."
+               data-explanation-wrong="Not quite. The point of running simple mode first isn't that the cheap path is smarter — it's the opposite. Most bugs are easy, so you fix them cheaply, and you save the expensive full crew for the few that genuinely resist. Starting cheap is about not overpaying for the common, easy case.">
+            <h3 class="quiz-question">Simple mode runs a few cheap rounds before escalating to the full crew. Why start cheap instead of bringing everyone in from round one?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-cheapfirst" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Most bugs are easy — fix those cheaply and reserve the expensive crew for the rare hard ones</span>
+              </button>
+              <button class="quiz-option" data-value="option-smarter" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The cheap path is actually smarter than the full crew</span>
+              </button>
+              <button class="quiz-option" data-value="option-required" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The full crew can't run until simple mode has finished first</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module7')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module7')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 10 — Wrap / bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You've met the engine</h2>
+        <p>The Ralph Loop — invoked as <code>ma-loop</code>, never <code>micro-agent</code> — is a persistent apprentice that cycles Librarian → Artisan → Critic → Test until a test goes green or its allowance runs out. The test is the spec.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: Tiers &amp; the Money Guard</strong>
+            <p>We pull on the <code>--tier-config</code> thread. When the cheap local AI can't crack the lock, how does the loop climb to a stronger, pricier model — and what stops it from burning the whole budget on the way up? That's the
+              <span class="term" data-definition="A tier is one rung on a ladder of AI models, ordered from cheap-and-weak to expensive-and-strong. The loop starts on a low tier and climbs only if it gets stuck. You'd say 'set the first tier to the local model.'">tier</span>
+              ladder and the money guard.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

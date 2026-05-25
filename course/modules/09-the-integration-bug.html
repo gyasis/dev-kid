@@ -1,0 +1,498 @@
+<section class="module" id="module-9" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">09</span>
+      <h1 class="module-title">The Integration Bug</h1>
+      <p class="module-subtitle">Everything you've learned hangs on one line of wiring — and that wiring dials the wrong number. The engine has never actually started.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The engine that never turned over</h2>
+        <p>You've met the Sentinel, the seven checks, the tiers, the budget guard, the Ralph Loop. All of it real, all of it built. And all of it hangs on one line of wiring — a line that calls the wrong door.</p>
+        <p>The Sentinel's engine has <em>never actually started</em>. Every task it ever "validated" failed the same silent way. This module is about <em>why</em> — and it's the single most common way real AI-coding systems break.</p>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">📇</div>
+          <div class="callout-content">
+            <strong class="callout-title">Hold this picture: dialing the wrong number off a business card</strong>
+            <p>The card lists two numbers — "Sales" and "24/7 Support." You need an after-hours fix, so you dial… <em>Sales</em>. It's closed. You get an automated menu that waits forever for a human who never picks up. The number was perfectly <em>valid</em> — it just wasn't the one that does the job you needed.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — Two doors on one card -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Two numbers on the card</h2>
+        <p>Remember from Module 7 that micro-agent is the engine. What we glossed over: micro-agent ships <em>two</em> <span class="term" data-definition="An entry point (or binary) is a named command you can run from your terminal — the 'front door' into a program. One installed tool can publish several entry points, each starting the program in a different mode. You'd tell an AI 'which entry point does this command use?' to find out what actually runs.">entry points</span>. Two phone numbers, printed on the same business card.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📄</div>
+            <div>
+              <strong><code>micro-agent</code> &mdash; the "Sales" line</strong>
+              <p>A single-file generator. It <em>requires a file path</em>. Give it none, and it assumes a human is sitting there and opens an interactive prompt.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">🔁</div>
+            <div>
+              <strong><code>ma-loop</code> &mdash; the "24/7 Support" line</strong>
+              <p>The actual Ralph Loop — Librarian → Artisan → Critic, with <code>--tier-config</code> for the model ladder. This is the one that does the after-hours fixing.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>Here are both numbers, exactly as the card prints them — the <span class="term" data-definition="A bin map (short for 'binary map') is a small section of a JavaScript project's package.json that lists every command the package installs and which file each one runs. It's the printed business card: command name on the left, the file it dials on the right.">bin map</span> in micro-agent's <code>package.json</code>.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line">{ <span class="code-property">"bin"</span>: {</span>
+<span class="code-line">  <span class="code-property">"micro-agent"</span>: <span class="code-string">"./dist/cli.mjs"</span>,       <span class="code-comment">// single-file generator (what Sentinel calls)</span></span>
+<span class="code-line">  <span class="code-property">"ma-loop"</span>:     <span class="code-string">"./dist/ralph-loop.mjs"</span> <span class="code-comment">// the Ralph Loop with --tier-config (what it NEEDS)</span></span>
+<span class="code-line">}}</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This little table is the business card. Each line is one command you can type.</p>
+              <p class="tl">Dial <code>micro-agent</code> and you reach the single-file generator. This is the number the Sentinel dials.</p>
+              <p class="tl">Dial <code>ma-loop</code> and you reach the real fixing loop — the one with the tier ladder. This is the number it <em>should</em> have dialed.</p>
+              <p class="tl">Two doors, one card. Pick the wrong one and you never reach the work.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — The fork in the road (code translation) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: the fork in the road</h2>
+        <p>Here's the exact line where the wrong number rings through to the wrong department. This is real, from micro-agent's <code>src/cli.ts</code> — the very first thing it checks when you dial <code>micro-agent</code>.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">if</span> (!argv._.filePath || !argv.flags.test) {</span>
+<span class="code-line">  <span class="code-keyword">const</span> isValidproject = <span class="code-keyword">await</span> <span class="code-function">isValidProject</span>();</span>
+<span class="code-line">  <span class="code-keyword">if</span> (!isValidproject) {</span>
+<span class="code-line">    <span class="code-keyword">await</span> <span class="code-function">invalidProjectWarningMessage</span>();</span>
+<span class="code-line">  } <span class="code-keyword">else</span> {</span>
+<span class="code-line">    <span class="code-keyword">await</span> <span class="code-function">interactiveMode</span>(runOptions);   <span class="code-comment">// &larr; asks a human; no human here</span></span>
+<span class="code-line">  }</span>
+<span class="code-line">  <span class="code-keyword">return</span>;                                <span class="code-comment">// &larr; runAll() (the real work) NEVER called</span></span>
+<span class="code-line">}</span>
+<span class="code-line"><span class="code-keyword">await</span> <span class="code-function">runAll</span>(runOptions);</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl"><code>!argv._.filePath</code> means "no file path was given." The Sentinel never gives one — it speaks in flags, not file paths.</p>
+              <p class="tl">So this branch fires. It checks whether the folder looks like a real project.</p>
+              <p class="tl">If it doesn't, print a warning and stop.</p>
+              <p class="tl">If it does — drop into <code>interactiveMode</code>: draw a prompt and <em>wait for a human to type</em>. (There is no human.)</p>
+              <p class="tl"><code>return</code> — and here's the dagger. The function exits <em>right here</em>.</p>
+              <p class="tl"><code>runAll()</code> on the last line — the call that does the actual work — is one line too late. It is <em>never</em> reached.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🚪</div>
+          <div class="callout-content">
+            <strong class="callout-title">The whole bug is that one <code>return</code></strong>
+            <p>A <span class="term" data-definition="In code, return means 'stop this task and hand control back to whoever called it.' A return statement is a hard exit — anything written after it in the same block simply never runs. Here it exits before the real work, like hanging up the phone before you're transferred to Support.">return</span> hangs up the phone before the call can be transferred to the department that does the fixing. The line below it never runs.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — HERO: Group chat animation (the broken conversation) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch the call go to the wrong department</h2>
+        <p>Here is the whole failure as a group chat — a <em>broken</em> conversation. The Sentinel dials, micro-agent answers from the wrong desk, everyone waits, and then a timeout gets quietly mislabeled as a test failure. Step through it slowly.</p>
+
+        <div class="chat-window" id="chat-integration-bug">
+          <div class="chat-messages">
+
+            <div class="chat-message" data-msg="0" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Sentinel</span>
+                <p>Run the fix loop for me! Here you go: <code>--prompt</code>, <code>--test</code>, <code>--max-runs</code>. Go fix it.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="1" data-sender="microagent" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">📄</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">micro-agent</span>
+                <p>Hi! …but you didn't give me a <em>file path</em>. With no file to generate, I assume a human wants to chat. Entering interactive mode 🤖❓</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="2" data-sender="microagent" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">📄</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">micro-agent</span>
+                <p>┌ 🦾 Micro Agent ◆ What would you like me to build? <em>(waiting for a human to type…)</em></p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="3" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Sentinel</span>
+                <p>…hello? …still waiting on the loop result… (there's no human here to answer that prompt)</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="4" data-sender="sentinel" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">🛡️</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">The Sentinel</span>
+                <p>No answer. It exited non-zero. Must be a <em>test failure</em> — escalate to the next tier. 🚫</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="5" data-sender="maloop" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🔁</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">ma-loop (off-stage)</span>
+                <p>…I'm right here. The Ralph Loop. The one who could've actually done the fix. Nobody ever dialed my number.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="chat-typing" id="chat-integration-bug-typing" style="display:none">
+            <div class="chat-avatar" id="chat-integration-bug-typing-avatar">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+
+          <div class="chat-controls">
+            <button class="btn chat-next-btn">Next Message</button>
+            <button class="btn chat-all-btn">Play All</button>
+            <button class="btn chat-reset-btn">Replay</button>
+            <span class="chat-progress"></span>
+          </div>
+        </div>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">📞</div>
+          <div class="callout-content">
+            <strong class="callout-title">ma-loop — the one who could've done it — was never called</strong>
+            <p>Nothing in this conversation is "broken" in the way you'd expect. Both parts work. They simply don't <em>agree on how to talk</em>. The Sentinel speaks in flags; <code>micro-agent</code> was waiting to hear a file path. The whole fix loop hung up on a line that was never reached.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Reproduction evidence (terminal card, three runs) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The evidence: three calls, three dead ends</h2>
+        <p>This isn't a theory — it's reproducible. Here are three real attempts to dial <code>micro-agent</code> the way the Sentinel does. Watch how every single one ends in a non-zero <span class="term" data-definition="An exit code is the single number a command leaves behind when it finishes: 0 means success, anything else means some kind of failure. The trouble is that 'anything else' lumps very different failures together — a crash, a timeout, and a real test failure can all look identical from the outside.">exit code</span>.</p>
+
+        <div class="translation-code animate-in" style="border-radius: var(--radius-md); box-shadow: var(--shadow-md); margin: var(--space-8) 0;">
+          <span class="translation-label">TERMINAL — REPRODUCTION</span>
+          <pre><code><span class="code-line"><span class="code-comment"># A) bare dir, no file path:</span></span>
+<span class="code-line"><span class="code-tag">&#10006; TTY initialization failed: uv_tty_init returned EINVAL</span>   &rarr; exit 1</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="code-comment"># B) valid project, no file path:</span></span>
+<span class="code-line"><span class="code-function">interactiveMode</span>() &rarr; <span class="code-tag">&#10006; TTY EINVAL</span>                            &rarr; exit 1</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="code-comment"># C) real call wrapped in `script -qfc` (fake terminal):</span></span>
+<span class="code-line">&#9484;  &#129466; Micro Agent  &#9670; ...  (interactive prompt, waiting for a human)</span>
+<span class="code-line">                                                            &rarr; <span class="code-tag">HANGS</span> &rarr; exit 124 (timeout)</span></code></pre>
+        </div>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-error)">A</div>
+            <div>
+              <strong>No file path, plain folder → instant crash</strong>
+              <p>It tries to draw an interactive prompt, but there's no real keyboard attached — so it crashes on <span class="term" data-definition="A TTY is a real interactive terminal — a keyboard-and-screen session a human is actually sitting at. Programs check for one before drawing a prompt. When a tool runs automatically (no human, no TTY), trying to draw a prompt fails outright.">TTY</span> setup. Exit 1.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-error)">B</div>
+            <div>
+              <strong>Real project, still no file path → same crash</strong>
+              <p>Even when the folder looks valid, it heads into <span class="term" data-definition="Interactive mode is when a program stops and waits for a person to type answers, like a chatbot prompt in your terminal. It's the wrong mode for automation — there's no person there to respond, so it either crashes or waits forever.">interactive mode</span> and dies the same way. Exit 1.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-text-muted)">C</div>
+            <div>
+              <strong>Faked a terminal to dodge the crash → it hangs instead</strong>
+              <p>Wrapping it in a fake terminal stops the crash — so now it <em>succeeds</em> at drawing the prompt and waits… forever… for a human. Exit 124 (timeout). Worse, not better.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">🔁</div>
+          <div class="callout-content">
+            <strong class="callout-title">"It always fails the same silent way" — that's the tell</strong>
+            <p>Three different setups, one identical shape of failure: never the work, always the wiring. When every attempt dies the same uninformative way, stop debugging the <em>logic</em> and start suspecting the <em>contract</em> — the unspoken agreement about how two parts talk.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — The secondary mismatch (output-parse table) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">And even if it <em>did</em> run — they don't speak the same language</h2>
+        <p>Suppose we fixed the dialing problem and <code>ma-loop</code> actually ran. There's a <em>second</em> contract mismatch lying in wait: the Sentinel reads the loop's results with a <span class="term" data-definition="A regex (regular expression) is a pattern used to find or pull specific text out of a bigger blob of text — like a search that matches an exact shape, e.g. 'the word Iterations: followed by a number.' If the text doesn't match the expected shape exactly, the regex finds nothing.">regex</span> that expects an exact wording — and micro-agent prints a <em>different</em> wording.</p>
+
+        <div class="translation-code animate-in" style="border-radius: var(--radius-md); box-shadow: var(--shadow-md); margin: var(--space-8) 0;">
+          <span class="translation-label">OUTPUT &harr; WHAT THE SENTINEL'S REGEX WANTS</span>
+          <pre><code><span class="code-line">micro-agent prints:           Sentinel's regex wants:</span>
+<span class="code-line">  <span class="code-string">"Completed in 3 iteration(s)"</span>  &rarr;  <span class="code-string">"Iterations: 3"</span>   <span class="code-tag">&#10007; no match &rarr; 0</span></span>
+<span class="code-line">  <span class="code-string">"Total cost: $0.47"</span>            &rarr;  <span class="code-string">"Cost: $0.47"</span>      <span class="code-number">&#10003; (lucky substring)</span></span>
+<span class="code-line">  <span class="code-string">"Duration: 2.5 minutes"</span>        &rarr;  <span class="code-string">"Duration: 2.5s"</span>   <span class="code-tag">&#10007; wrong unit &rarr; 0</span></span></code></pre>
+        </div>
+
+        <p>Two of three numbers come back as <code>0</code> — not because the work was free or instant, but because the words didn't line up. A paid run that reports <code>$0</code> isn't a free lunch; it's a <em>parse miss</em>. (Hold that thought — it's the heart of Module 10.)</p>
+      </section>
+
+      <!-- SCREEN 7 — Spot the bug challenge -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Spot the bug: which call is wrong?</h2>
+        <p>Below is how the Sentinel invokes the engine, next to how the engine is actually meant to be called. Click the line that's the mistake — the call that dials the wrong number.</p>
+
+        <div class="bug-challenge">
+          <h3>Find the broken call:</h3>
+          <div class="bug-code">
+            <div class="bug-line" data-line="1" onclick="checkBugLine(this, false)">
+              <span class="line-num">1</span>
+              <code># How micro-agent is meant to be called (single file):</code>
+            </div>
+            <div class="bug-line" data-line="2" onclick="checkBugLine(this, false)">
+              <span class="line-num">2</span>
+              <code>micro-agent [flags] &lt;file path&gt;        # needs a file path</code>
+            </div>
+            <div class="bug-line" data-line="3" onclick="checkBugLine(this, false)">
+              <span class="line-num">3</span>
+              <code># How the loop is meant to be called:</code>
+            </div>
+            <div class="bug-line" data-line="4" onclick="checkBugLine(this, false)">
+              <span class="line-num">4</span>
+              <code>ma-loop run &lt;target&gt; --tier-config tiers.json   # the Ralph Loop</code>
+            </div>
+            <div class="bug-line" data-line="5" onclick="checkBugLine(this, false)">
+              <span class="line-num">5</span>
+              <code># How the SENTINEL actually calls it:</code>
+            </div>
+            <div class="bug-line bug-target" data-line="6" onclick="checkBugLine(this, true)">
+              <span class="line-num">6</span>
+              <code>micro-agent --prompt X --test Y --max-runs N     # no file path, wrong binary</code>
+            </div>
+          </div>
+          <div class="bug-feedback" id="bug-feedback"></div>
+        </div>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🔍</div>
+          <div class="callout-content">
+            <strong class="callout-title">Two mistakes in one line</strong>
+            <p>Line 6 is wrong twice over. It calls <code>micro-agent</code> (the single-file "Sales" line) instead of <code>ma-loop</code> (the "Support" line that loops). <em>And</em> it gives no <span class="term" data-definition="A positional argument is a value you type right after a command, in a fixed spot, with no name in front of it — like the file path in 'micro-agent myfile.ts.' The program knows what it means purely by its position. Leave it out and the program either errors or guesses.">positional argument</span> (the file path), which is exactly what tips <code>micro-agent</code> into the human-waiting branch. Two parts that each work, no shared contract.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — The fix -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The fix: two clean numbers, dialed correctly</h2>
+        <p>The repair isn't clever — it's <em>honest about the two doors</em>. Give each entry point one clear job, point the Sentinel at the right one, and keep the old path alive but fenced off so it can't collide with the new feature.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong><code>micro-agent</code> stays the single-file line</strong>
+              <p>Keep it exactly as is — for one-shot, single-file generation with a file path. Nothing wrong with the Sales desk; it just isn't who you call for the loop.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong><code>ma-loop</code> is the loop line</strong>
+              <p>The Ralph Loop with its tier ladder. Anything that needs "keep trying until the test passes" dials this number.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>The Sentinel routes to <code>ma-loop run --tier-config</code></strong>
+              <p>Point the wiring at the right door. Now the call reaches the department that actually does after-hours fixing — engine on, finally.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>The legacy 2-tier path is kept — but gated</strong>
+              <p>The old two-tier flow still works for anyone who relies on it, but it's <span class="term" data-definition="To gate a code path means to put it behind an explicit on/off switch (a flag or config) so it only runs when deliberately turned on. It keeps old behavior available without letting it interfere with new behavior — like a door that's still there but locked unless you have the key.">gated</span> behind a switch so it can't collide with the new <code>--tier-config</code> feature. Nothing breaks; nothing crosses wires.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">🤝</div>
+          <div class="callout-content">
+            <strong class="callout-title">The repair is an <span class="term" data-definition="An integration contract is the agreement between two parts of a system about exactly how they talk: which command to call, what arguments it expects, what shape the answer comes back in. Most 'it works on my machine' failures are a broken contract — both parts work alone, they just disagree on the handshake.">integration contract</span>, written down</strong>
+            <p>Each side now agrees on the handshake: which binary, which arguments, which output shape. That's all an integration contract is — and getting it explicit is what turns two parts that "each work" into a system that actually works.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Debug it like an engineer</h2>
+        <p>No definitions — just judgment calls. Read each situation, decide what you'd do, then check. The goal is the <em>instinct</em>, not the trivia.</p>
+
+        <div class="quiz-container" id="quiz-module9">
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 1</span>
+              <p>Your Sentinel reports <em>every single task</em> as "all tiers exhausted — escalating." Every task. The models are fine in isolation; the tests pass when you run them by hand. What's the FIRST thing you'd suspect?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Exactly. When every task fails the same uninformative way regardless of its content, the logic isn't the problem — the wiring is. 'Always fails identically' is the signature of an integration contract mismatch, not a model that's bad at one task here and there."
+                 data-explanation-wrong="Tempting, but think about the pattern: it fails on EVERY task, identically. A model being 'not smart enough' would fail on hard tasks and pass on easy ones. Uniform, content-independent failure points at the wiring between the parts — the contract — not the brains inside them.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The models aren't smart enough — swap in a bigger model.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The wiring — how the Sentinel calls the engine. Identical failure on every task smells like a contract mismatch.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The tests are flaky — add retries and move on.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 2</span>
+              <p>The bare call crashed instantly (exit 1). Someone wrapped it in a fake terminal (<code>script -qfc</code>) to "fix the crash." Now it doesn't crash — it <em>hangs</em> until it times out. Why did faking a terminal make things <em>worse</em>?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-c"
+                 data-explanation-right="Right. The crash happened because there was no real terminal to draw a prompt into. Faking one removes that obstacle — so now the tool SUCCEEDS at opening its interactive prompt and waits forever for a human to type. A fast, loud crash got turned into a slow, silent hang. The fake terminal treated the symptom and made the real problem harder to see."
+                 data-explanation-wrong="Not quite. The fake terminal didn't make the tool slower or break the test — it removed the very thing that was stopping it (no real terminal). With that gone, the tool happily opens its human-prompt and waits indefinitely. You traded an instant, informative crash for a silent timeout, which is harder to diagnose, not easier.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The fake terminal slowed everything down, so the tests timed out.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>It corrupted the test command, so the loop never started.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>It removed the crash but let the tool draw its human-prompt — which then waits forever. A loud crash became a silent hang.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 3</span>
+              <p>You've found the bug: the Sentinel calls <code>micro-agent</code> with no file path, instead of <code>ma-loop</code>. What's the cleanest fix that doesn't break anyone still using the old path?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-a"
+                 data-explanation-right="Exactly. Route the Sentinel to ma-loop run --tier-config (the binary that actually loops), keep micro-agent for genuine single-file jobs, and gate the legacy 2-tier path so it can't collide with the new tier-config feature. Each door keeps its one clear job, and nothing existing breaks."
+                 data-explanation-wrong="That path has a hidden cost. Forcing micro-agent to accept flag-only calls, or ripping out the legacy path entirely, either bolts the loop onto the wrong binary or breaks people who still depend on the old flow. The clean move is to dial the right number (ma-loop) and fence off the old path rather than demolish it.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Route the Sentinel to <code>ma-loop run --tier-config</code>, keep <code>micro-agent</code> for single-file, and gate the legacy 2-tier path.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Rewrite <code>micro-agent</code> so it loops too, and delete <code>ma-loop</code> to avoid confusion.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Delete the legacy 2-tier path entirely so there's only one way to do anything.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 4</span>
+              <p>Even after the dialing is fixed, the Sentinel logs <code>Cost: $0</code> and <code>Iterations: 0</code> for a run you <em>know</em> used a paid model and looped several times. The run "succeeded." Should you celebrate or investigate?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Investigate. A paid model reporting $0 and 0 iterations isn't a free lunch — it's almost certainly a parse miss: the engine printed 'Completed in 3 iteration(s)' but the Sentinel's regex wanted 'Iterations: 3,' so it matched nothing and recorded 0. The work happened; the reading of it failed. This output-shape mismatch is the second contract bug — and the bridge into observability."
+                 data-explanation-wrong="A $0 cost on a paid model should set off alarms, not confetti. The numbers are zero because the Sentinel's regex didn't match the engine's wording (e.g. 'Completed in 3 iteration(s)' vs the expected 'Iterations: 3'), so it parsed nothing and defaulted to 0. The run really happened — the measurement quietly failed.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Celebrate — $0 and 0 iterations means it solved it instantly for free.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Investigate — a paid run reporting $0 is a parse miss: the output words didn't match the regex, so real numbers became 0.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Ignore it — the cost field is just cosmetic and doesn't matter.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module9')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module9')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 10 — The aha! callout + bridge to observability -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The lie hidden in a single number</h2>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — "exited non-zero" is NOT "the work ran and failed"</strong>
+            <p>Here, a non-zero exit code meant the work <em>never started</em> — but the Sentinel read it as "tried and failed, escalate." Trusting one number flattened three very different stories (crash, timeout, real failure) into a single misleading verdict, and the whole bug hid behind it for months.</p>
+          </div>
+        </div>
+
+        <p>This is the cardinal sin of AI systems: a failure that doesn't say what it actually is. The bug wasn't subtle — it was <em>invisible</em>, because nothing along the way was forced to tell the truth.</p>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🛰️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Next: making failures impossible to miss</strong>
+            <p>If one number can hide a whole broken engine, the cure isn't "be smarter" — it's "make every step show its work." That's <strong>observability</strong>, and it's the thesis the entire course has been building toward. Module 10 brings it home.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>

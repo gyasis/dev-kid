@@ -1,0 +1,344 @@
+<section class="module" id="module-9" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">09</span>
+      <h1 class="module-title">The Visual Family</h1>
+      <p class="module-subtitle">Structure over prose — the kit of display fixtures that replace paragraphs with things you can scan</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The gallery fixtures metaphor + hook -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A museum doesn't hand you an essay</h2>
+        <p>Walk into a good gallery and nobody hands you a wall of text. Instead you get <strong>fixtures</strong>: a pedestal under the important piece, a small wall label beside it, a glass case grouping related items, a diorama you can lean into. Your eyes <em>scan</em> — you understand the room before you've read a single full sentence.</p>
+        <p>Most fixtures need no electricity at all. A pedestal is just shaped wood. Only one or two have a switch — a spotlight you can click on. This module is the course's kit of fixtures: a family of <strong>structured visuals</strong> that turn paragraphs into things you scan.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🖼️</div>
+          <div class="callout-content">
+            <strong class="callout-title">The opening secret</strong>
+            <p>Not every element animates. The course's quiet weapon is this family of structured visuals that replace prose — file trees, cards, badges, step lists — and almost all of them are pure
+              <span class="term" data-definition="CSS is the language that decides how a web page looks — colors, spacing, borders, where boxes sit. It's the styling layer, written as plain text rules. Think of it as the gallery's lighting and pedestal design: it shapes how things are presented without changing what they are.">CSS</span>, no moving parts.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — Why care: the 50% rule -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why this family exists at all</h2>
+        <p>The course's content rule is blunt: every screen must be <strong>at least 50% visual</strong>. You can't hit that by writing prettier paragraphs — you hit it by reaching for a fixture instead. Knowing the family by name is also what lets you tell an AI exactly what you want.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — structure IS explanation</strong>
+            <p>A good
+              <span class="term" data-definition="Layout means the arrangement of things on a page — what sits next to what, what's grouped, what's stacked, what's emphasized. Good layout communicates relationships before any words are read, the way a museum's floor plan tells you the route before you read a single label.">layout</span>
+              teaches before a single word is read. When you see three cards in a row, you already know "these are three peers." When you see a numbered ladder, you already know "this happens in order." The arrangement does the explaining — the words just confirm it.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3 — Meet the family (pattern cards) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Meet the fixtures — each with one job</h2>
+        <p>Here's the whole family on one shelf. Each card is a fixture, and each "use it when…" line tells you the exact moment to reach for it. Five of these six are pure CSS — shaped wood, no wiring.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🗂️</div>
+            <h4 class="pattern-title">File Tree</h4>
+            <p class="pattern-desc">A labeled diagram of folders and files. <strong>Use it when</strong> you'd otherwise write "this folder does X, that file does Y."</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">🔖</div>
+            <h4 class="pattern-title">Icon-Label Rows</h4>
+            <p class="pattern-desc">A stack of icon + one-liner rows. <strong>Use it when</strong> you have a short list of components or features to introduce.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5)">
+            <div class="pattern-icon" style="background: var(--color-actor-5)">🪜</div>
+            <h4 class="pattern-title">Step Cards</h4>
+            <p class="pattern-desc">Numbered cards in a column. <strong>Use it when</strong> something happens in a clear order — a sequence, a recipe, a pipeline.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3)">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">🏷️</div>
+            <h4 class="pattern-title">Config Badges</h4>
+            <p class="pattern-desc">A code chip beside a plain-English meaning. <strong>Use it when</strong> you're annotating settings, permissions, or config keys.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">➡️</div>
+            <h4 class="pattern-title">Flow Diagram</h4>
+            <p class="pattern-desc">Boxes joined by arrows. <strong>Use it when</strong> "A then B then C" deserves to be seen, not read as a sentence.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-accent)">
+            <div class="pattern-icon" style="background: var(--color-accent)">📣</div>
+            <h4 class="pattern-title">Callout Box</h4>
+            <p class="pattern-desc">A highlighted aside. <strong>Use it when</strong> there's an "aha!" insight or a warning that must not blend into the body text.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — Pure-CSS fixtures shown live (file tree + step cards) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The pure-CSS fixtures, doing their job</h2>
+        <p>These two are made of nothing but shaped boxes — no switch, no
+          <span class="term" data-definition="JavaScript (JS) is the language that makes a web page DO things — respond to clicks, change after you load it, run little programs in the browser. It's the electricity. Most fixtures in this family don't use any.">JavaScript</span>.
+          The same words that would be a flat list become something your eye can climb.</p>
+
+        <div class="file-tree animate-in">
+          <div class="ft-folder open">
+            <span class="ft-name">references/</span>
+            <span class="ft-desc">The fixture catalog the skill copies into every course</span>
+            <div class="ft-children">
+              <div class="ft-file">
+                <span class="ft-name">interactive-elements.md</span>
+                <span class="ft-desc">Every fixture's HTML pattern lives here</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">styles.css</span>
+                <span class="ft-desc">The look of every fixture — copied, never re-written</span>
+              </div>
+              <div class="ft-file">
+                <span class="ft-name">main.js</span>
+                <span class="ft-desc">The tiny bit of electricity the two switched fixtures need</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-cards animate-in" style="margin-top: var(--space-8)">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>You have a flat paragraph</strong>
+              <p>"First we read the code, then we plan modules, then we write each one." Three ideas, hidden in one run-on sentence.</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>You pick the matching fixture</strong>
+              <p>It's a sequence → reach for step cards (this very fixture). One glance now shows there are exactly three stages.</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>The reader scans instead of reads</strong>
+              <p>The structure carries the meaning. The words just fill in the detail — and the screen is now mostly visual.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5 — Config badges (another pure-CSS member) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Badges: a code chip with its plain meaning</h2>
+        <p>When you need to explain settings, the badge fixture pairs the raw key with a human translation. The chip on the left is exactly what's in the file; the line on the right is what it means.</p>
+
+        <div class="badge-list animate-in">
+          <div class="badge-item">
+            <code class="badge-code">data-desc</code>
+            <span class="badge-desc">The note stored on a diagram box — its label reads it out when clicked</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">arch-component</code>
+            <span class="badge-desc">A clickable box in an architecture diagram — the engine auto-wires its clicks</span>
+          </div>
+          <div class="badge-item">
+            <code class="badge-code">layer</code>
+            <span class="badge-desc">One stacked version of a sample (HTML, then +CSS, then +JS) that a tab can reveal</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 6 — The hero: LIVE architecture diagram -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The hero fixture — a diagram you can click</h2>
+        <p>This is one of only two fixtures with a switch. It's a clickable map of the skill's own pipeline. Click any box and its label fills the panel below — like tapping a museum
+          <span class="term" data-definition="Structured data means information stored in a labeled, organized shape instead of loose prose — like a form with named fields rather than a free-text note. Here, each diagram box carries its description as a labeled field the code can read on demand.">structured</span>-info plaque.</p>
+
+        <div class="arch-diagram" id="arch9">
+          <h4 class="arch-zone-label" style="text-align:center; margin-bottom: var(--space-4); color: var(--color-text-secondary)">The codebase-to-course pipeline — click a component</h4>
+          <div class="arch-component" data-desc="Reads the codebase and writes module HTML — it's the author of the whole course.">
+            <div class="arch-icon">🤖</div><span>Writing Agent</span>
+          </div>
+          <div class="arch-component" data-desc="A short plan for one module: its metaphor, its code snippets, and which fixtures to use. The agent reads this before writing.">
+            <div class="arch-icon">📝</div><span>Module Brief</span>
+          </div>
+          <div class="arch-component" data-desc="The fixture catalog (interactive-elements.md) plus styles.css and main.js — copied into every course, never re-invented.">
+            <div class="arch-icon">🗂️</div><span>References</span>
+          </div>
+          <div class="arch-component" data-desc="The finished single-page course — all modules, all fixtures, ready to open in a browser with no install.">
+            <div class="arch-icon">🎓</div><span>Final Course</span>
+          </div>
+          <div class="arch-description" id="arch-desc">Click any component to learn what it does</div>
+        </div>
+      </section>
+
+      <!-- SCREEN 7 — Code↔English for the arch click handler -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The one bit of wiring behind the click</h2>
+        <p>That whole interaction is nine lines of JavaScript — and you never wrote an <code>onclick</code> on the boxes. The engine finds every box and wires it for you. Here's the exact handler, line by line.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+<pre><code><span class="code-line"><span class="code-function">$$</span>(<span class="code-string">'.arch-component'</span>).<span class="code-function">forEach</span>(comp =&gt; {</span>
+<span class="code-line">  comp.<span class="code-function">addEventListener</span>(<span class="code-string">'click'</span>, <span class="code-keyword">function</span> () {</span>
+<span class="code-line">    <span class="code-keyword">const</span> diagram = <span class="code-keyword">this</span>.<span class="code-function">closest</span>(<span class="code-string">'.arch-diagram'</span>);</span>
+<span class="code-line">    <span class="code-function">$$</span>(<span class="code-string">'.arch-component'</span>, diagram).<span class="code-function">forEach</span>(c =&gt; c.classList.<span class="code-function">remove</span>(<span class="code-string">'active'</span>));</span>
+<span class="code-line">    <span class="code-keyword">this</span>.classList.<span class="code-function">add</span>(<span class="code-string">'active'</span>);</span>
+<span class="code-line">    <span class="code-keyword">const</span> descEl = <span class="code-function">$</span>(<span class="code-string">'.arch-description'</span>, diagram);</span>
+<span class="code-line">    <span class="code-keyword">if</span> (descEl) descEl.textContent = <span class="code-keyword">this</span>.dataset.desc || <span class="code-string">''</span>;</span>
+<span class="code-line">  });</span>
+<span class="code-line">});</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Find every box that's an "arch-component" and set each one up.</p>
+              <p class="tl">When this box is clicked, run the steps below.</p>
+              <p class="tl">Look upward from the clicked box to the nearest enclosing diagram. (That's what
+                <span class="term" data-definition="closest is a built-in browser command that walks UP from an element to find the nearest ancestor that matches — like asking a painting 'which room am I in?' and getting the gallery, not the whole museum. It keeps two diagrams on the same page from interfering with each other.">closest</span>
+                does — it scopes everything to this one diagram.)</p>
+              <p class="tl">Turn off the "active" highlight on every box in this diagram.</p>
+              <p class="tl">Now turn the highlight ON for the box you just clicked.</p>
+              <p class="tl">Grab the little description panel that belongs to this diagram.</p>
+              <p class="tl">Fill that panel with the note stored on the clicked box — its
+                <span class="term" data-definition="dataset is how code reads the custom data-* notes attached to an HTML element. A box written with data-desc='...' shows up in code as box.dataset.desc — like reading the sticky note taped to the back of a painting.">dataset</span>.desc.</p>
+              <p class="tl">(closes the click handler)</p>
+              <p class="tl">(closes the setup loop — done for all boxes)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🔌</div>
+          <div class="callout-content">
+            <strong class="callout-title">Everything else is shaped wood</strong>
+            <p>This handler — and the layer
+              <span class="term" data-definition="A toggle is a switch that flips a thing between states — on/off, this view/that view. Clicking a layer tab toggles which version of the sample is showing. Like a light switch, but for swapping what you see.">toggle</span>
+              on the next screen — are the <em>only</em> two fixtures that touch JavaScript. The file tree, cards, badges, step lists, and callouts you've seen are pure CSS with zero scripting.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — The second switched fixture: LIVE layer toggle -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The layer toggle — peeling a sample apart</h2>
+        <p>The second switched fixture lets you reveal a sample one layer at a time: the bare bones, then the paint, then the electricity. Click the tabs to peel the same little card apart.</p>
+
+        <div class="layer-demo">
+          <div class="layer-tabs">
+            <button class="layer-tab active" onclick="showLayer('layer9-html', this)">HTML</button>
+            <button class="layer-tab" onclick="showLayer('layer9-css', this)">+ CSS</button>
+            <button class="layer-tab" onclick="showLayer('layer9-js', this)">+ JS</button>
+          </div>
+          <div class="layer-viewport">
+            <div class="layer" id="layer9-html" style="display:block">
+              <div style="font-family: var(--font-mono); font-size: var(--text-sm)">
+                <div>Writing Agent</div>
+                <div>Reads the codebase and writes module HTML</div>
+              </div>
+            </div>
+            <div class="layer" id="layer9-css" style="display:none">
+              <div class="pattern-card" style="border-top: 3px solid var(--color-actor-2); max-width: 320px">
+                <div class="pattern-icon" style="background: var(--color-actor-2)">🤖</div>
+                <h4 class="pattern-title">Writing Agent</h4>
+                <p class="pattern-desc">Reads the codebase and writes module HTML</p>
+              </div>
+            </div>
+            <div class="layer" id="layer9-js" style="display:none">
+              <div class="arch-diagram" id="arch9b">
+                <div class="arch-component" data-desc="See? Now it reacts to clicks. That reaction is the JS layer — the electricity switched on.">
+                  <div class="arch-icon">🤖</div><span>Writing Agent</span>
+                </div>
+                <div class="arch-description" id="arch-desc-9b">Click the box — now it's interactive</div>
+              </div>
+            </div>
+          </div>
+          <p class="layer-description" id="layer9-desc">HTML is the bare bones — just labeled text. CSS makes it a styled card. JS makes it click-responsive. Same content, three layers of fixture.</p>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Pick the right fixture</h2>
+        <p>No definitions here — just decisions. Read each situation and choose the move a fixture-savvy course author would make.</p>
+
+        <div class="quiz-container" id="quiz-module9">
+          <div class="quiz-question-block"
+               data-correct="opt-cards"
+               data-explanation-right="Exactly — a list of 3+ items belongs in cards or icon-label rows. The structure instantly shows they're peers, and the screen stops being a wall of text."
+               data-explanation-wrong="Re-reading the paragraph doesn't fix the real problem: it's still a paragraph. The rule says any list of 3+ items should become a visual fixture so the reader scans instead of reads.">
+            <h3 class="quiz-question">You've written a paragraph that crams five separate features into one block of text. What's the fix?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-shorten" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Just shorten the paragraph and tighten the wording</span>
+              </button>
+              <button class="quiz-option" data-value="opt-cards" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Convert it into pattern cards or icon-label rows — one per feature</span>
+              </button>
+              <button class="quiz-option" data-value="opt-bold" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Bold the five feature names so they stand out</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-two"
+               data-explanation-right="Right. The architecture diagram (clicks fill the description) and the layer toggle (tabs swap which layer shows) are the only two members that need JavaScript. Everything else is pure CSS."
+               data-explanation-wrong="Close, but most of the family is pure CSS — no electricity. Only the architecture diagram and the layer toggle need a switch (JavaScript). File trees, cards, badges, and step lists don't.">
+            <h3 class="quiz-question">Two members of this family need a touch of JavaScript. Which two?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-tree" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>The file tree and the step cards</span>
+              </button>
+              <button class="quiz-option" data-value="opt-two" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>The architecture diagram and the layer toggle</span>
+              </button>
+              <button class="quiz-option" data-value="opt-badges" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>The config badges and the callout box</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-flow"
+               data-explanation-right="Yes — a sequence of ordered stages is exactly what a flow diagram (or numbered step cards) is for. The arrows carry the 'this then that' meaning before a word is read."
+               data-explanation-wrong="That fixture is for a different job. When the thing you're describing happens in a clear order, reach for a flow diagram or numbered step cards — the ordering itself becomes the visual.">
+            <h3 class="quiz-question">You're explaining how a request travels: user → frontend → backend → database, in that order. Which fixture fits best?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-badges" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>Config badges — a chip beside each meaning</span>
+              </button>
+              <button class="quiz-option" data-value="opt-tree" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>A file tree showing the folders involved</span>
+              </button>
+              <button class="quiz-option" data-value="opt-flow" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div><span>A flow diagram (or numbered step cards) showing the order</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module9')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module9')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 10 — Bridge to next module -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">From fixtures to the house style</h2>
+        <p>You've met the kit: file trees, cards, badges, step lists, callouts, and the two switched fixtures — the architecture diagram and the layer toggle. Pick the one whose <em>shape</em> matches your meaning, and the screen teaches itself.</p>
+        <p>Next: <strong>Design &amp; Content Philosophy</strong> — the house style that decides how all these fixtures look, breathe, and fit together so the whole course feels like one room.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

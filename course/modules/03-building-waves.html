@@ -1,0 +1,392 @@
+<section class="module" id="module-3" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">03</span>
+      <h1 class="module-title">Building Waves</h1>
+      <p class="module-subtitle">How a flat checklist becomes a parallel battle plan — one real algorithm, taught gently.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- SCREEN 1 — The hook -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A flat list, a hard question</h2>
+        <p>Your <span class="term" data-definition="tasks.md is the plain-text checklist file where you list everything you want built — one task per line. Dev-Kid reads it like a recipe. When talking to the AI you'd say 'add a task to tasks.md for the login screen.'">tasks.md</span> is just a stack of to-do lines. Nothing in it says which jobs can happen <em>together</em> and which have to <em>wait</em>.</p>
+        <p>So how does <span class="term" data-definition="The Orchestrator (the file cli/orchestrator.py) is Dev-Kid's planner. It reads your flat task list and figures out a safe order to run everything in. Think of it as the contractor who turns a wish-list into a crew schedule.">The Orchestrator</span> know that T003 can run at the same moment as T001 — but T005 has to hang back? That single decision is its entire job, and you're about to watch it think.</p>
+
+        <div class="callout callout-info animate-in">
+          <div class="callout-icon">🛫</div>
+          <div class="callout-content">
+            <strong class="callout-title">Hold this picture: boarding a plane by zones</strong>
+            <p>Everyone's headed to the same destination, but you can't all cram the aisle at once. You board in <em>groups</em> that don't block each other — and if two passengers want the same seat, one waits for the next group.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2 — The metaphor → reality bridge -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Zones, but for tasks</h2>
+        <p>A boarding <strong>zone</strong> is a batch of passengers who can move without elbowing each other. Dev-Kid calls each batch a <span class="term" data-definition="A wave is a batch of tasks that are safe to run at the same time because none of them get in each other's way. Tasks in the same wave run in parallel; the next wave waits until this one finishes.">wave</span> — and everything in one wave runs in <span class="term" data-definition="Running 'in parallel' means doing several things at the exact same time instead of one after another — like four checkout lanes open at once instead of a single queue.">parallel</span>.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">🛫</div>
+            <div>
+              <strong>One zone = one wave</strong>
+              <p>A group of jobs that don't block each other, all dispatched at once.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">💺</div>
+            <div>
+              <strong>Same seat = same file</strong>
+              <p>Two tasks that touch the same file can't share a zone — one must wait.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">⏭️</div>
+            <div>
+              <strong>Bumped to the next zone</strong>
+              <p>A blocked task slides into the earliest later wave where nothing conflicts.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>The Orchestrator's whole skill is reading your list and deciding who gets to board together. To do that, it first builds a map of who-waits-on-whom.</p>
+      </section>
+
+      <!-- SCREEN 3 — The three signals -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Three signals build the map</h2>
+        <p>Before it can group anything, the Orchestrator builds a <span class="term" data-definition="A dependency graph is a map of who-waits-on-whom. Each task is a dot, and an arrow from task A to task B means 'A can't start until B is done.' It's how the planner keeps order without a human spelling everything out.">dependency graph</span> — a who-waits-on-whom map. It gathers <strong>three</strong> kinds of clues:</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">🔒</div>
+            <h4 class="pattern-title">File locks</h4>
+            <p class="pattern-desc">Two tasks naming the same <code>`file.py`</code> can't ride the same wave. This is the one you control — just by how you write the task.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">🔗</div>
+            <h4 class="pattern-title">Explicit deps</h4>
+            <p class="pattern-desc">You literally wrote "after T001" or "depends on T456" in the task. The planner takes you at your word.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4)">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">🚧</div>
+            <h4 class="pattern-title"><code>## Wave N</code> headers</h4>
+            <p class="pattern-desc">A heading in the file draws a hard line. Everything below it waits for everything above it. A clean way to force order.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">aha! — file-lock detection is just string matching</strong>
+            <p>There's no magic. The planner literally scans your task text for paths wrapped in backticks and compares the strings. That's <em>why</em> the <code>`backtick`</code> convention matters — it's the signal the machine is actually looking for. Forget the backticks and the file becomes invisible to it.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4 — HERO: data flow animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch five tasks board their zones</h2>
+        <p>Five tasks come in, each tagged with the file it touches. Step through and watch the Orchestrator pack them into the earliest wave where nothing collides. The collision is the whole point — keep your eye on the two tasks fighting over <code>a.py</code>.</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"T1 touches a.py. Wave 1 is empty, so it boards Wave 1 (the first zone)."},
+          {"highlight":"flow-actor-2","label":"T2 touches b.py. No clash with T1, so it joins T1 in Wave 1 — they run in parallel."},
+          {"highlight":"flow-actor-1","label":"T3 also touches a.py. But T1 already holds a.py in Wave 1 — same seat, same file. T3 is bumped.","packet":true,"from":"actor-1","to":"actor-3"},
+          {"highlight":"flow-actor-3","label":"T3 lands in Wave 2, the earliest zone where a.py is free again."},
+          {"highlight":"flow-actor-3","label":"T4 touches c.py. Wave 1 is fine for it (no clash) — but watch: it could ride Wave 1 with T1 and T2."},
+          {"highlight":"flow-actor-5","label":"T5 says depends on T3. Since T3 is in Wave 2, T5 must wait — it boards Wave 3.","packet":true,"from":"actor-3","to":"actor-5"},
+          {"highlight":"flow-actor-2","label":"Final boarding: Wave 1 = T1+T2+T4 (parallel). Wave 2 = T3. Wave 3 = T5. Nobody blocks anybody."}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon" style="background: var(--color-actor-1)">T1</div>
+              <span>a.py</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon" style="background: var(--color-actor-2)">T2</div>
+              <span>b.py</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3)">T3</div>
+              <span>a.py</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon" style="background: var(--color-actor-4)">T4</div>
+              <span>c.py</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-5">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5)">T5</div>
+              <span>after T3</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to watch the boarding begin</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+
+        <p>Notice T1 and T3 both wanted <code>a.py</code> — same seat — so the planner sequenced them across two waves. That's the file-lock rule doing its quiet job.</p>
+      </section>
+
+      <!-- SCREEN 5 — The greedy idea -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">"Earliest seat that fits" — the greedy rule</h2>
+        <p>How does the planner decide <em>which</em> wave each task lands in? It uses a <span class="term" data-definition="A greedy algorithm makes the best choice it can right now, without backtracking to look for a perfect overall plan. Like a gate agent who seats each passenger in the earliest open zone instead of redrawing the whole boarding chart. Fast and predictable, even if not always 'optimal.'">greedy algorithm</span>: for every task, drop it into the <strong>earliest</strong> wave where nothing it depends on is still pending and no file it touches is taken.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Take the next task in line</strong>
+              <p>Go through tasks in order — no clever reshuffling.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Ask: what does it wait on?</strong>
+              <p>Check the dependency graph and the files it touches.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Seat it in the earliest safe wave</strong>
+              <p>The first zone where nothing conflicts. Done — move to the next task.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>"Greedy" sounds reckless, but here it means <em>predictable</em>: same list in, same waves out, every time. No surprises is exactly what you want from a build plan.</p>
+      </section>
+
+      <!-- SCREEN 6 — Code translation 1: wave headers -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: a header draws a hard line</h2>
+        <p>This is the real snippet from <code>cli/orchestrator.py</code> that handles a <code>## Wave N</code> heading. When the planner hits one of these headers, it closes off the current group and opens a brand-new one.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-comment"># Wave-section phase header — `## Wave N`, `### Phase 2`, etc.</span></span>
+<span class="code-line"><span class="code-keyword">if</span> self.WAVE_HEADER_RE.<span class="code-function">match</span>(line):</span>
+<span class="code-line">    <span class="code-keyword">if</span> current_task_lines:</span>
+<span class="code-line">        self.<span class="code-function">_process_task</span>(current_task_lines, task_id, current_wave_idx)</span>
+<span class="code-line">        task_id += <span class="code-number">1</span></span>
+<span class="code-line">        current_task_lines = []</span>
+<span class="code-line">    self._wave_phases.<span class="code-function">append</span>([])</span>
+<span class="code-line">    current_wave_idx = <span class="code-function">len</span>(self._wave_phases) - <span class="code-number">1</span></span>
+<span class="code-line">    <span class="code-keyword">continue</span></span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Reminder of which lines this catches — a heading like "## Wave 2".</p>
+              <p class="tl">Did we hit a wave heading? (<span class="term" data-definition="A regex — short for 'regular expression' — is a tiny pattern-matching language. It lets the code say 'find any line that looks like ## Wave followed by a number' in one compact rule. RE in the code stands for regex.">regex</span> checks if the line matches the header shape.)</p>
+              <p class="tl">If we'd been collecting a task right above this header...</p>
+              <p class="tl">...finish that task and file it into the current wave.</p>
+              <p class="tl">Bump the task counter so the next task gets a fresh ID.</p>
+              <p class="tl">Empty the buffer — that task is done being read.</p>
+              <p class="tl">Open a brand-new, empty wave bucket. Everything after this header goes here.</p>
+              <p class="tl">Remember this new bucket is "current" so the next tasks land in it.</p>
+              <p class="tl">Skip ahead — we've handled this line, move to the next.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>So a single line of plain text in your task file becomes a hard <span class="term" data-definition="A phase boundary is a wall in the plan. Tasks on one side must completely finish before tasks on the other side start — like a curtain dropping between acts of a play.">phase boundary</span>. That's the cheapest way to say "do this part dead last."</p>
+      </section>
+
+      <!-- SCREEN 7 — Code translation 2: the edges -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">In the code: wiring the wait-on arrows</h2>
+        <p>Once the waves exist, the planner connects them. Every task in Wave&nbsp;N gets an <span class="term" data-definition="In a dependency graph, a node is a single task (a dot) and an edge is an arrow connecting two of them. An edge from A to B means 'A waits on B.' Nodes are the things; edges are the relationships between them.">edge</span> — a "waits-on" arrow — pointing back to <em>every</em> task in the earlier waves. That's what guarantees the boarding zones stay in order.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">for</span> wave_idx, task_ids <span class="code-keyword">in</span> <span class="code-function">enumerate</span>(self._wave_phases):</span>
+<span class="code-line">    <span class="code-keyword">if</span> wave_idx == <span class="code-number">0</span>:</span>
+<span class="code-line">        <span class="code-keyword">continue</span>  <span class="code-comment"># Wave 1 has no upstream phase</span></span>
+<span class="code-line">    <span class="code-keyword">for</span> tid <span class="code-keyword">in</span> task_ids:</span>
+<span class="code-line">        <span class="code-keyword">for</span> prior_wave <span class="code-keyword">in</span> self._wave_phases[:wave_idx]:</span>
+<span class="code-line">            <span class="code-keyword">for</span> prior_tid <span class="code-keyword">in</span> prior_wave:</span>
+<span class="code-line">                <span class="code-keyword">if</span> prior_tid != tid:</span>
+<span class="code-line">                    graph[tid].<span class="code-function">add</span>(prior_tid)</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Go through the waves one at a time, numbered 0, 1, 2...</p>
+              <p class="tl">Is this the very first wave?</p>
+              <p class="tl">Then skip it — Wave 1 has nothing before it to wait on.</p>
+              <p class="tl">For each task sitting in this wave...</p>
+              <p class="tl">...look back at every <em>earlier</em> wave...</p>
+              <p class="tl">...and at every task that lived in those earlier waves.</p>
+              <p class="tl">As long as it isn't the task itself...</p>
+              <p class="tl">...record an arrow: "this task waits on that earlier one." (That's adding an edge to the graph.)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent animate-in">
+          <div class="callout-icon">🧠</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why every task gets an arrow to the whole prior wave</strong>
+            <p>The planner doesn't try to be clever about which earlier task matters. It says: "if you're in Wave&nbsp;2, you wait for <em>all</em> of Wave&nbsp;1." That blunt rule is what makes a <code>## Wave</code> header a guaranteed, no-exceptions barrier.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 8 — Why you should care -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why this hands you the steering wheel</h2>
+        <p>Here's the payoff: the plan is built from <em>how you phrase tasks</em>. You don't have to touch the code to change the outcome — you change the words.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">✅</div>
+            <div>
+              <strong>Wrap file paths in backticks</strong>
+              <p>Write <code>affecting `src/auth.py`</code> and the planner can't miss the file lock.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4)">🚧</div>
+            <div>
+              <strong>Drop a <code>## Wave</code> header to force "go last"</strong>
+              <p>Anything below it waits for everything above. Cheapest way to sequence work.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">🔎</div>
+            <div>
+              <strong>When parallel tasks collide, blame the plan</strong>
+              <p>If two jobs clobbered the same file, the <em>phrasing</em> was wrong — not the engine.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-warning animate-in">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">The silent failure to watch for</strong>
+            <p>Forget the backticks and the planner treats two same-file tasks as unrelated. They board the same wave, run at once, and overwrite each other's work — with no error. The fix isn't in the code; it's three backtick characters in your task line.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 9 — Quiz -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Test your instinct</h2>
+        <p>No definitions here — just situations. Read each one, decide what <em>you'd</em> do, then check.</p>
+
+        <div class="quiz-container" id="quiz-module3">
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 1</span>
+              <p>Two tasks both edit <code>config.py</code>, but you wrote the filenames as plain text — no backticks. The Orchestrator runs them in the same wave and they clobber each other. What's the real fix?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-b"
+                 data-explanation-right="Exactly. File-lock detection is just string-matching on backtick paths. Wrap both as `config.py` and the planner sees the collision and sequences them across two waves — no code change needed."
+                 data-explanation-wrong="Tempting, but the engine isn't broken — it never saw the conflict. Without backticks, those two filenames are invisible as file locks. The cheapest, correct fix lives in your phrasing, not in orchestrator.py.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>File a bug — the parallel engine is unsafe and needs patching.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Wrap both file paths in backticks so the planner detects the file lock.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Add more tasks so the waves naturally spread out.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 2</span>
+              <p>You want task T009 — a final smoke test — to run dead last, after absolutely everything else. None of the other tasks mention its files. What's the cheapest way to force it?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-c"
+                 data-explanation-right="Right. A `## Wave` header is a hard phase boundary — every task below it waits for every task above it. Put T009 under its own header and it's guaranteed to board last. One line of text."
+                 data-explanation-wrong="That'd work-ish, but it's fragile and tedious. A single `## Wave` header above T009 makes it wait for the entire prior wave automatically — that's the blunt, reliable lever the planner gives you.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Add "depends on" lines to T009 naming every other task by hand.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Make T009 touch the same files as everything else so it gets locked out.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Put a <code>## Wave</code> header just above T009 so it lands in its own final wave.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <div class="scenario-block">
+            <div class="scenario-context">
+              <span class="scenario-label">Scenario 3</span>
+              <p>You're explaining to a teammate why Wave&nbsp;2 tasks each carry a wait-on arrow back to <em>every</em> Wave&nbsp;1 task — even ones they share no files with. Why does the planner wire it that way?</p>
+            </div>
+            <div class="quiz-question-block"
+                 data-correct="opt-a"
+                 data-explanation-right="Exactly. The wave header is meant to be a no-exceptions barrier. By pointing every later task at all earlier ones, the planner guarantees Wave 1 fully finishes before Wave 2 begins — order is enforced bluntly, not cleverly."
+                 data-explanation-wrong="Not quite. The arrows aren't about files at all here — file conflicts are a separate signal. These wave-boundary edges exist so a `## Wave` header acts as a guaranteed wall: everything above finishes before anything below starts.">
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>To make the wave header a guaranteed barrier — all of Wave 1 finishes before any of Wave 2 starts.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Because every Wave 2 task secretly shares a file with every Wave 1 task.</span>
+                </button>
+                <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>To make the dependency graph look more complete for the dashboard.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback"></div>
+            </div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module3')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module3')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 10 — Bridge to next -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The plan is set — now who enforces it?</h2>
+        <p>The Orchestrator has packed everyone into zones and drawn every wait-on arrow. But a boarding plan is only paper until someone at the gate actually holds the line.</p>
+        <p>Next up — <strong>The Checkpoint Contract</strong>: what happens the moment a wave actually runs, and the one rule that stops a half-finished wave from sneaking the next one through.</p>
+      </section>
+
+    </div>
+  </div>
+</section>

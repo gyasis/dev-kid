@@ -1,0 +1,392 @@
+<section class="module" id="module-3" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+
+    <header class="module-header animate-in">
+      <span class="module-number">03</span>
+      <h1 class="module-title">Briefs &amp; Parallel Agents</h1>
+      <p class="module-subtitle">How ten course modules get written at the same time — by writers who never opened the codebase.</p>
+    </header>
+
+    <div class="module-body">
+
+      <!-- ============ SCREEN 1: HOOK + METAPHOR ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A film shoot, not a one-person crew</h2>
+        <p>Ten modules of this course were written <em>at the same time</em> by separate AI helpers that never read the source code. The trick is a single document called a <span class="term" data-definition="A brief (or work order) is a self-contained instruction packet that tells a worker exactly what to do, with everything they need already included — so they never have to go hunt for context. When talking to AI, you'd say 'write me a brief for each task so each worker has everything it needs.'">brief</span>.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🎬</div>
+          <div class="callout-content">
+            <strong class="callout-title">The metaphor: a film shoot with a shot list</strong>
+            <p>A director scouts the location once, then hands each camera crew a single <strong>shot brief</strong> — pre-loaded with everything for that one scene. The crews shoot in parallel. Nobody re-reads the whole screenplay before every take.</p>
+          </div>
+        </div>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1)">🎬</div>
+            <div>
+              <strong>The director</strong>
+              <p>Reads the whole screenplay once, plans every scene — this is the main AI agent.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2)">📋</div>
+            <div>
+              <strong>The shot brief</strong>
+              <p>One page per scene, pre-loaded with the lines, props, and angles — this is a module brief.</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3)">🎥</div>
+            <div>
+              <strong>The camera crews</strong>
+              <p>Each shoots one scene from its brief, all at once — these are the parallel writing agents.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 2: HERO — GROUP CHAT ANIMATION ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch the dispatch happen</h2>
+        <p>Here is what it sounds like when the main agent hands out briefs and the <span class="term" data-definition="A subagent is a separate, smaller AI helper that the main AI spins up to handle one focused job. It has its own fresh memory and only knows what you hand it. When talking to AI, you'd say 'spin up a subagent to write this part.'">subagents</span> get to work. Notice that three writers reply almost on top of each other — that is <span class="term" data-definition="Parallel means several things happen at the same time instead of one after another. Three writers working in parallel finish roughly three times faster than one writer doing them in sequence. When talking to AI, you'd say 'run these in parallel.'">parallel</span> work, not a line.</p>
+
+        <div class="chat-window" id="chat-pipeline">
+          <div class="chat-messages">
+
+            <div class="chat-message" data-msg="0" data-sender="main" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🎬</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">Main Agent</span>
+                <p>I've read the whole codebase and planned the curriculum. Here are your 3 briefs — one module each. Everything you need is already inside.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="1" data-sender="w1" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">1</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">Writer-1</span>
+                <p>On it. I'll only read my brief — not touching the repo.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="2" data-sender="w2" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">2</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">Writer-2</span>
+                <p>Same here — starting now, in parallel.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="3" data-sender="w3" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-4)">3</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-4)">Writer-3</span>
+                <p>Got my brief + the reference sections it points to. Writing.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="4" data-sender="w1" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2)">1</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2)">Writer-1</span>
+                <p>Module 1 written. ✅ Used the snippets from the brief verbatim.</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="5" data-sender="w2" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3)">2</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3)">Writer-2</span>
+                <p>Module 2 written. ✅</p>
+              </div>
+            </div>
+
+            <div class="chat-message" data-msg="6" data-sender="main" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1)">🎬</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1)">Main Agent</span>
+                <p>All briefs back. Now I assemble the modules into one page and run a consistency check — names, accent color, tone.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="chat-typing" id="chat-pipeline-typing" style="display:none">
+            <div class="chat-avatar" id="chat-pipeline-typing-avatar">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+
+          <div class="chat-controls">
+            <button class="btn chat-next-btn">Next Message</button>
+            <button class="btn chat-all-btn">Play All</button>
+            <button class="btn chat-reset-btn">Replay</button>
+            <span class="chat-progress"></span>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Aha! — Blueprint vs. construction crew</strong>
+            <p>Separating <em>planning</em> (the briefs) from <em>production</em> (the writing) is the same split as an architect's blueprint versus the crew that builds from it. The planner thinks once; the builders execute many times without re-thinking.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 3: WHAT IS IN A BRIEF ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">What a brief actually contains</h2>
+        <p>A brief is a tidy work order. It tells the writer the teaching angle, hands over the exact code to show, and lists which reference sections to read — and nothing else. Here is the template.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line"><span class="code-comment">## Module N: [Title]</span></span>
+<span class="code-line"><span class="code-comment">### Teaching Arc</span>      — metaphor, hook, key insight, "why care?"</span>
+<span class="code-line"><span class="code-comment">### Code Snippets</span>     — pre-extracted from the codebase (verbatim, with paths)</span>
+<span class="code-line"><span class="code-comment">### Interactive Elements</span> — checklist of what to build</span>
+<span class="code-line"><span class="code-comment">### Reference Files</span>   — only the sections this agent needs</span>
+<span class="code-line"><span class="code-comment">### Connections</span>       — prev/next module, tone notes</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">The title and number of the module this writer owns.</p>
+              <p class="tl">The story angle — the everyday metaphor and the "why should I care?" so the writer doesn't have to invent it.</p>
+              <p class="tl"><strong>The key move:</strong> the real code is copied <em>into</em> the brief already. The writer never opens the actual project to find it.</p>
+              <p class="tl">A checklist of which interactive widgets to build — quiz, chat animation, step cards.</p>
+              <p class="tl">Pointers to only the few reference sections this writer needs — not the whole manual.</p>
+              <p class="tl">A note on what comes before and after, so the modules connect smoothly.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💰</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why "pre-extracted code" is the whole game</strong>
+            <p>Because the snippets are already <em>in</em> the brief, the writer never opens the real repo. That saves the writer's <span class="term" data-definition="The context budget is the limited amount of text an AI can hold in its working memory at once — like a desk that only fits so many papers. Reading the whole codebase fills the desk; a brief leaves room to actually work. When talking to AI, you'd say 'keep the context budget small — only give it what it needs.'">context budget</span> for the actual writing instead of spending it reading a giant codebase it would mostly ignore.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 4: THE DISPATCH RULE ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The dispatch rule: batches of three</h2>
+        <p>The skill's own instructions spell out exactly what each writer is handed — and, just as importantly, what it is <em>not</em>. <span class="term" data-definition="To dispatch is to hand a job off to a worker to run on its own. The main AI dispatches a subagent the way a dispatcher sends a single delivery driver out with one address. When talking to AI, you'd say 'dispatch a subagent for each module.'">Dispatch</span> happens in groups of up to three at a time.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>
+<span class="code-line">Dispatch modules to subagents in batches of up to 3. Each agent receives:</span>
+<span class="code-line"> - Its module brief</span>
+<span class="code-line"> - content-philosophy.md and gotchas.md</span>
+<span class="code-line"> - Only the sections of interactive-elements.md / design-system.md it needs</span>
+<span class="code-line">What agents do NOT receive: the full codebase, SKILL.md, other briefs.</span>
+            </code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Send the modules out to writers, up to three running at once. Each writer gets a small, fixed kit:</p>
+              <p class="tl">Its own brief — the work order for its one module.</p>
+              <p class="tl">The two house-style guides: how to write content, and the mistakes to avoid.</p>
+              <p class="tl">Just the slices of the design and widget manuals it actually needs — not the whole books.</p>
+              <p class="tl"><strong>The blocklist:</strong> no full codebase, no master instructions, no peeking at other writers' briefs. Less to read, less chance of drifting off-style.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-success)">
+            <div class="pattern-icon" style="background: var(--color-success)">📥</div>
+            <h4 class="pattern-title">What each writer GETS</h4>
+            <p class="pattern-desc">Its one brief, the two style guides, and the exact reference sections it needs. A small, focused kit.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-error)">
+            <div class="pattern-icon" style="background: var(--color-error)">🚫</div>
+            <h4 class="pattern-title">What it NEVER gets</h4>
+            <p class="pattern-desc">The full codebase, the master instructions, or any other writer's brief. Anything that would bloat its memory or cause drift.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 5: THE PIPELINE — STEP CARDS ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The whole pipeline, end to end</h2>
+        <p>From a raw codebase to a finished course, the skill follows six steps. The first three are the director's planning; the last three are the shoot and the edit.</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Analyze the codebase</strong>
+              <p>The main agent reads the project once and figures out what it does and how the pieces fit.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Design the curriculum</strong>
+              <p>It decides how many modules there are and what each one teaches.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Write the briefs</strong>
+              <p>For each module it drafts a work order — pre-extracting the exact code snippets into the brief.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Dispatch parallel writers</strong>
+              <p>It hands briefs to subagents in batches of three. They write their modules at the same time.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <strong>Assemble</strong>
+              <p>The finished module files are stitched together into one single-page course.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">6</div>
+            <div class="step-body">
+              <strong>Review</strong>
+              <p>A final consistency pass checks names, accent color, and tone across every module.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 6: SIMPLE VS COMPLEX ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">When does the skill skip all this?</h2>
+        <p>Briefs and parallel writers are not always worth it. For a small project, the main agent just writes the modules one after another — no work orders, no dispatching.</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">📝</div>
+            <h4 class="pattern-title">Simple codebase</h4>
+            <p class="pattern-desc">One agent writes each module in sequence. The whole thing fits in its memory, so there's nothing to pre-digest.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">🎬</div>
+            <h4 class="pattern-title">Complex codebase</h4>
+            <p class="pattern-desc">Too big to hold at once. The agent writes briefs and dispatches parallel writers — the film-shoot pattern.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">📌</div>
+          <div class="callout-content">
+            <strong class="callout-title">The portable lesson</strong>
+            <p>You can demand this pattern from any AI system: "pre-digest the inputs into self-contained work orders, then give each worker only what it needs." That is how you scale AI work without blowing the context budget.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 7: QUIZ ============ -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Think it through</h2>
+        <p>No definitions here — just decisions. Pick the answer a thoughtful architect would.</p>
+
+        <div class="quiz-container" id="quiz-module3">
+
+          <div class="quiz-question-block"
+               data-correct="opt-b"
+               data-explanation-right="Exactly. Handing every writer the whole codebase would burn their context budget on reading they don't need, AND give them room to drift off the planned style. The brief pre-digests only what's relevant — cheaper and more consistent."
+               data-explanation-wrong="Think about two costs at once: the money/memory of every writer re-reading a huge codebase, and the risk that with too much raw material each writer wanders off the planned angle. The brief solves both.">
+            <h3 class="quiz-question">Why NOT give each writing agent the whole codebase?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The codebase is secret and the writers aren't allowed to see it.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It wastes their context budget and invites them to drift off the planned style — the brief gives only what's relevant.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Writers can only read Markdown files, not source code.</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-c"
+               data-explanation-right="Right. For a small, simple project the whole thing fits in one agent's memory, so there's nothing to pre-digest — it just writes the modules one after another. Briefs + parallel writers are the answer to size, not a rule for everything."
+               data-explanation-wrong="Briefs aren't mandatory. The skill skips them precisely when the project is small enough that one agent can hold it all and write sequentially — the overhead of work orders only pays off on big, complex codebases.">
+            <h3 class="quiz-question">When would the skill skip briefs and just write modules sequentially?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>When the course has more than five modules.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>When the user is in a hurry and wants it fast.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>When the codebase is simple enough to fit in one agent's memory.</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="opt-a"
+               data-explanation-right="Yes. Two writers got the same module brief, so they'd produce duplicate work — and because neither sees the other's brief, neither would notice. The fix lives in the dispatch step: each brief goes to exactly one writer."
+               data-explanation-wrong="Trace where briefs are created and handed out. Writers never see each other's work, so a duplicate assignment wouldn't be caught by them — it has to be prevented up front, in how the main agent dispatches the briefs.">
+            <h3 class="quiz-question">Two finished modules come back nearly identical. Based on the pipeline, where would you look first?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="opt-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The dispatch step — two writers were probably handed the same brief.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The writers — they must have copied from each other mid-task.</span>
+              </button>
+              <button class="quiz-option" data-value="opt-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The final review step — it should have rewritten one of them.</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module3')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module3')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 8: BRIDGE TO NEXT ============ -->
+      <section class="screen animate-in">
+        <div class="callout callout-info">
+          <div class="callout-icon">➡️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Up next: Navigation &amp; Reveal</strong>
+            <p>We've seen how the modules get <em>written</em>. Next we open the engine that makes the finished page come alive — how it scrolls, snaps, and reveals each section as you go.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</section>
