@@ -108,9 +108,7 @@ def _normalize_tid(tid: str) -> str:
     return f"T{m.group(1).zfill(3)}"
 
 
-def _http_post_json(
-    url: str, payload: dict, headers: dict, timeout: int
-) -> dict:
+def _http_post_json(url: str, payload: dict, headers: dict, timeout: int) -> dict:
     """Shared HTTP POST helper. Returns parsed JSON body or raises RuntimeError."""
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers=headers)
@@ -326,6 +324,130 @@ def parse_agent_output(response: str) -> Dict[str, List[str]]:
     return deps
 
 
+# ---------------------------------------------------------------------------
+# File-impact inference (gap-filler) — for PROSE/unstructured tasks that name
+# no detectable file path. dev-kid's reason for being: determine which files a
+# task touches so collision/parallelism can be computed, even when the source
+# never encoded it. Fallback-only (regex + symbol-graph run first), Ollama-first.
+# ---------------------------------------------------------------------------
+FILE_INFERENCE_PROMPT = """You are a file-impact analyzer for a software project's task list.
+
+For EACH task below, determine which files from the PROJECT FILES list the task \
+is most likely to MODIFY or CREATE. This is used to stop two tasks that touch the \
+same file from running in parallel, so precision matters more than recall.
+
+Rules:
+- Only return paths that appear in PROJECT FILES (or an obvious NEW file inside a \
+directory shown there).
+- At MOST 5 files per task — the ones most likely edited.
+- If you cannot confidently associate any file with a task, return an empty list.
+- Output ONLY valid JSON. No prose. No markdown fences.
+
+Schema:
+{{"files": {{"T001": ["src/auth.py"], "T002": []}}}}
+
+PROJECT FILES:
+```
+{file_list}
+```
+
+TASKS:
+```
+{tasks_block}
+```
+
+JSON output:
+"""
+
+
+def parse_file_inference(
+    response: str, valid_files: Optional[set] = None
+) -> Dict[str, List[str]]:
+    """Extract {task_id: [files]} from LLM output. Tolerant of fences/trailing text.
+
+    If valid_files is provided, drop any path not in that set (anti-hallucination).
+    """
+    if not response:
+        return {}
+    cleaned = response.strip()
+    fence_re = re.compile(r"^```(?:json)?\s*\n?", re.IGNORECASE)
+    cleaned = fence_re.sub("", cleaned, count=1)
+    if cleaned.rstrip().endswith("```"):
+        cleaned = cleaned.rstrip()[:-3].rstrip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start < 0 or end < 0 or end <= start:
+        return {}
+    blob = cleaned[start : end + 1]
+    try:
+        data = json.loads(blob)
+    except json.JSONDecodeError:
+        blob2 = re.sub(r",\s*([}\]])", r"\1", blob)
+        try:
+            data = json.loads(blob2)
+        except json.JSONDecodeError:
+            return {}
+
+    out: Dict[str, List[str]] = {}
+    files_map = data.get("files", {})
+    if not isinstance(files_map, dict):
+        return {}
+    for raw_tid, paths in files_map.items():
+        tid = _normalize_tid(raw_tid)
+        if not tid or not isinstance(paths, list):
+            continue
+        kept: List[str] = []
+        for p in paths:
+            if not isinstance(p, str):
+                continue
+            p = p.strip().strip("`")
+            if not p:
+                continue
+            if valid_files is not None and p not in valid_files:
+                continue  # anti-hallucination: only real project files
+            if p not in kept:
+                kept.append(p)
+        if kept:
+            out[tid] = kept[:5]
+    return out
+
+
+def infer_files_via_agent(
+    tasks: List[tuple],
+    project_files: List[str],
+    model: str = DEFAULT_MODEL,
+    ollama_url: str = DEFAULT_OLLAMA_URL,
+    timeout: int = DEFAULT_TIMEOUT_SEC,
+    valid_files: Optional[set] = None,
+) -> Dict[str, List[str]]:
+    """Infer likely-modified files for prose tasks via the LLM.
+
+    Args:
+        tasks: list of (task_id, description) for tasks that resolved to 0 files.
+        project_files: repo-relative paths the model may choose from.
+        model/ollama_url/timeout: provider routing (Ollama-first via query_model).
+        valid_files: set used to reject hallucinated paths (defaults to project_files).
+
+    Returns:
+        {task_id: [files]} — only confident, real-file associations.
+    """
+    if not tasks or not project_files:
+        return {}
+    if valid_files is None:
+        valid_files = set(project_files)
+    tasks_block = "\n".join(f"{tid}: {desc}" for tid, desc in tasks)
+    file_list = "\n".join(project_files)
+    prompt = FILE_INFERENCE_PROMPT.format(file_list=file_list, tasks_block=tasks_block)
+    try:
+        response = query_model(
+            prompt, model=model, ollama_url=ollama_url, timeout=timeout
+        )
+    except Exception as exc:
+        print(f"   ⚠️  File inference LLM call failed: {exc}")
+        return {}
+    return parse_file_inference(response, valid_files=valid_files)
+
+
 def _cache_path(project_root: Path = None) -> Path:
     root = Path(project_root) if project_root else Path.cwd()
     return root / ".claude" / "deps-cache.json"
@@ -397,7 +519,9 @@ def extract_deps_via_agent(
     prompt = PROMPT_TEMPLATE.format(tasks_content=content)
 
     try:
-        response = query_model(prompt, model=model, ollama_url=ollama_url, timeout=timeout)
+        response = query_model(
+            prompt, model=model, ollama_url=ollama_url, timeout=timeout
+        )
     except Exception as exc:
         print(f"   ⚠️  Agent parser LLM call failed: {exc}")
         print(f"   ℹ️  Orchestration continues with regex-only parser")
@@ -413,9 +537,13 @@ def extract_deps_via_agent(
             kept = [d for d in dep_ids if d in valid_task_ids]
             if kept:
                 filtered[task_id] = kept
-        dropped = sum(len(v) for v in deps.values()) - sum(len(v) for v in filtered.values())
+        dropped = sum(len(v) for v in deps.values()) - sum(
+            len(v) for v in filtered.values()
+        )
         if dropped:
-            print(f"   ℹ️  Agent parser: dropped {dropped} edge(s) referencing unknown task IDs")
+            print(
+                f"   ℹ️  Agent parser: dropped {dropped} edge(s) referencing unknown task IDs"
+            )
         deps = filtered
 
     try:
@@ -466,7 +594,12 @@ def main() -> int:
         use_cache=not args.no_cache,
     )
 
-    print(json.dumps({"edges": [{"from": k, "to": v} for k, vs in deps.items() for v in vs]}, indent=2))
+    print(
+        json.dumps(
+            {"edges": [{"from": k, "to": v} for k, vs in deps.items() for v in vs]},
+            indent=2,
+        )
+    )
     return 0
 
 
