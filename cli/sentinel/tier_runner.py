@@ -287,6 +287,11 @@ class TierRunner:
             str(max_iter),
         ]
 
+        # #7 — make micro-agent actually use the configured tier1 model via
+        # ralph.config.yaml (it would otherwise use its built-in default).
+        cwd = Path.cwd()
+        wrote_config = _ensure_legacy_tier_config("ollama", model, ollama_url, cwd)
+
         print(f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} runs)...")
         start = time.time()
         try:
@@ -310,6 +315,9 @@ class TierRunner:
                 final_status="FAIL",
                 error_messages=["Tier 1 timed out after 300s"],
             )
+        finally:
+            if wrote_config:
+                Path(wrote_config).unlink(missing_ok=True)
         elapsed = time.time() - start
 
         parsed = _parse_micro_agent_output(result.stdout)
@@ -393,6 +401,10 @@ class TierRunner:
             str(max_iter),
         ]
 
+        # #7 — make micro-agent use the configured tier2 model via ralph.config.yaml.
+        cwd = Path.cwd()
+        wrote_config = _ensure_legacy_tier_config("anthropic", model, "", cwd)
+
         print(
             f"      🌩️  Tier 2: micro-agent ({model}, max {max_iter} runs, ${max_budget} budget)..."
         )
@@ -417,10 +429,24 @@ class TierRunner:
                 final_status="FAIL",
                 error_messages=[f"Tier 2 timed out after {timeout_sec}s"],
             )
+        finally:
+            if wrote_config:
+                Path(wrote_config).unlink(missing_ok=True)
         elapsed = time.time() - start
 
         parsed = _parse_micro_agent_output(result.stdout)
         final_status = "PASS" if result.returncode == 0 else "FAIL"
+
+        # #7 — make the configured per-tier budget meaningful: micro-agent has
+        # no pre-emptive cost cap, but warn loudly if this run overshot it so
+        # the operator notices instead of the value being silently dead config.
+        run_cost = parsed.get("cost_usd", 0.0)
+        if max_budget and run_cost > max_budget:
+            print(
+                f"      ⚠️  Tier 2 cost ${run_cost:.2f} exceeded its per-tier "
+                f"budget of ${max_budget:.2f} (cap is advisory — micro-agent "
+                f"has no pre-emptive budget; lower tier2.max_iterations to bound it)"
+            )
 
         # #6 — confirm micro-agent's success with an independent test re-run.
         if final_status == "PASS":
@@ -599,9 +625,19 @@ class TierRunner:
                 break
 
             # Global budget guard — would this tier likely push us over the global cap?
-            # Conservative estimate: assume worst case = remaining per-sentinel budget.
-            projected_tier_cost = max_cost - total_cost
-            if global_tracker.would_exceed(projected_tier_cost):
+            # #8 — a free (all-ollama) tier costs nothing, so it must NEVER be
+            # skipped by the budget guard. Previously the projection was the full
+            # remaining per-sentinel budget for EVERY tier, so once cumulative
+            # spend neared the ceiling even the free local tier got skipped,
+            # defeating the whole point of having a free first tier. Only paid
+            # tiers get the conservative remaining-budget projection.
+            tier_is_free = bool(models) and all(
+                (m or "").startswith("ollama/") for m in models.values()
+            )
+            projected_tier_cost = 0.0 if tier_is_free else (max_cost - total_cost)
+            if projected_tier_cost > 0 and global_tracker.would_exceed(
+                projected_tier_cost
+            ):
                 print(
                     f"      🛑 Skipping {tier_name}: projected cost ${projected_tier_cost:.2f} "
                     f"would exceed global budget (${global_tracker.cumulative_cost:.2f} + "
@@ -1084,6 +1120,31 @@ def _write_tier_config(tier: dict, ollama_url: str, project_root: Path) -> str |
     except Exception as exc:
         print(f"      ⚠️  Failed to write tier config: {exc}")
         return None
+
+
+def _ensure_legacy_tier_config(
+    provider: str, model: str, ollama_url: str, cwd: Path
+) -> str | None:
+    """Write a ralph.config.yaml so a legacy tier uses its configured model.
+
+    The legacy run_tier1/run_tier2 paths previously passed no model to
+    micro-agent and wrote no config, so micro-agent fell back to its built-in
+    default model — the dev-kid.yml tier1/tier2 `model:` setting was silently
+    ignored. This writes the same ralph.config.yaml the N-tier path uses.
+
+    Respects an existing user ralph.config.yaml (returns None, writes nothing)
+    so we never clobber a hand-authored config.
+
+    Returns the path written (for the caller to clean up), or None.
+    """
+    if (cwd / "ralph.config.yaml").exists():
+        return None  # user has their own config — don't overwrite it
+    synthetic_tier = {
+        "models": {
+            role: f"{provider}/{model}" for role in ("artisan", "librarian", "critic")
+        }
+    }
+    return _write_tier_config(synthetic_tier, ollama_url, cwd)
 
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
