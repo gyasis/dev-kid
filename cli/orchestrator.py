@@ -193,6 +193,20 @@ class TaskOrchestrator:
         # Extract file references from description
         file_locks = self._extract_file_references(description)
 
+        # Observability (no-black-boxes): a task whose verb clearly changes code
+        # but resolves to ZERO detected files cannot be protected by file-lock
+        # collision safety — it may be scheduled in parallel with a colliding
+        # task and race-edit the same file. Surface it loudly rather than
+        # silently treating the task as conflict-free.
+        if not file_locks and re.search(self._ACTION_VERBS, description, re.IGNORECASE):
+            snippet = description[:70] + ("…" if len(description) > 70 else "")
+            print(
+                f"⚠️  T{task_id:03d}: names no detectable file — file-lock safety "
+                f"can't protect it; it may run parallel to a colliding task. "
+                f"Wrap paths in backticks, e.g. `src/file.py`.  [{snippet}]",
+                file=sys.stderr,
+            )
+
         # Extract dependencies — forward verbs only ("this task needs X first").
         # Reverse verbs (blocks / before) produce edges to OTHER tasks, so they
         # go through a separate extractor + are merged in analyze_dependencies.
@@ -232,14 +246,38 @@ class TaskOrchestrator:
         for file in file_locks:
             self.file_to_tasks[file].append(task.id)
 
+    # Known extensionless filenames the dot-gated regexes miss entirely
+    # (no `.ext` → no match, even when backticked). Collisions on these used
+    # to be undetectable. Whole-word matched, so backtick or bare both hit.
+    _KNOWN_EXTENSIONLESS = (
+        r"Makefile|Dockerfile|Containerfile|Procfile|Rakefile|Gemfile|"
+        r"Vagrantfile|Jenkinsfile|Brewfile|CODEOWNERS|LICENSE|NOTICE"
+    )
+
+    # Verbs that signal a task actually changes code. Used by the
+    # observability warning when such a task resolves to zero file locks.
+    _ACTION_VERBS = (
+        r"\b(?:implement|add|create|update|build|write|modify|fix|refactor|"
+        r"edit|delete|remove|rename|move|wire|integrate|patch|extend|"
+        r"scaffold|introduce|register|replace)\b"
+    )
+
     def _extract_file_references(self, description: str) -> List[str]:
-        """Extract file paths from task description"""
+        """Extract file paths from a task description.
+
+        File-lock detection is the orchestrator's ONLY signal for same-file
+        collisions, so it deliberately errs toward OVER-detection: a false
+        lock merely serializes two tasks (safe/slower), while a MISSED lock
+        lets them run in the same wave and race-edit the file (unsafe).
+        """
         import re
 
-        # Match patterns like: file.py, path/to/file.ts, `src/component.tsx`
+        # Match patterns like: file.py, path/to/file.ts, `src/component.tsx`,
+        # `app.svelte` (long ext), and extensionless files like `Makefile`.
         patterns = [
-            r"`([^`]+\.[a-zA-Z]+)`",  # backtick-wrapped paths
-            r"\b([\w/.-]+\.[a-zA-Z]{2,4})\b",  # plain file paths
+            r"`([^`]+\.[a-zA-Z0-9]+)`",  # backtick-wrapped paths (any ext length)
+            r"\b([\w/.-]+\.[a-zA-Z]{2,10})\b",  # bare file paths (ext 2-10 chars)
+            r"\b(" + self._KNOWN_EXTENSIONLESS + r")\b",  # extensionless known files
         ]
 
         files = []
