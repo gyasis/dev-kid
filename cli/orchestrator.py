@@ -606,12 +606,6 @@ class TaskOrchestrator:
 
     def analyze_dependencies(self) -> Dict[str, Set[str]]:
         """Build dependency graph from inline + prose-section + file-lock signals."""
-        # Gap-filler (opt-in via agent-parse): BEFORE computing file-collision
-        # edges, let the LLM infer file locks for prose/zero-file action tasks —
-        # so dev-kid can determine parallel/sequential even when the source
-        # never encoded a file path. Fallback-only; regex + symbol-graph ran first.
-        if self._agent_parse:
-            self._infer_missing_file_locks()
         graph = defaultdict(set)
 
         for task in self.tasks:
@@ -682,92 +676,6 @@ class TaskOrchestrator:
         }
 
         return graph
-
-    def _list_project_files(self, cap: int = 400) -> List[str]:
-        """Return git-tracked repo-relative file paths (capped) for LLM inference.
-
-        Bounded to keep the prompt + cost small. Empty list if not a git repo.
-        """
-        import subprocess
-
-        try:
-            result = subprocess.run(
-                ["git", "ls-files"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=10,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                files = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
-                return files[:cap]
-        except Exception:
-            pass
-        return []
-
-    def _infer_missing_file_locks(self) -> None:
-        """LLM gap-filler: infer file locks for prose/zero-file ACTION tasks.
-
-        Closes the determination gap: a task like "refactor the login flow" names
-        no file, so regex + symbol-graph find nothing and it would be scheduled
-        in parallel with a colliding task. Here the LLM infers the files it likely
-        touches (from the real project file list), and those become file locks so
-        the existing wave/collision logic protects it. Inferred locks are LOW
-        CONFIDENCE and surfaced for review. Fallback-only + bounded + Ollama-first.
-        """
-        candidates = [
-            t
-            for t in self.tasks
-            if not t.completed
-            and not t.file_locks
-            and re.search(self._ACTION_VERBS, t.description, re.IGNORECASE)
-        ]
-        if not candidates:
-            return
-
-        project_files = self._list_project_files()
-        if not project_files:
-            return
-
-        try:
-            sys.path.insert(0, str(Path(__file__).parent))
-            from agent_dep_parser import infer_files_via_agent
-        except Exception as exc:
-            print(f"   ⚠️  file-inference import failed: {exc}")
-            return
-
-        model, url = self._agent_parse_config()
-        inferred = infer_files_via_agent(
-            [(t.id, t.description) for t in candidates],
-            project_files,
-            model=model,
-            ollama_url=url,
-            valid_files=set(project_files),
-        )
-        if not inferred:
-            return
-
-        by_id = {t.id: t for t in self.tasks}
-        n_files = 0
-        n_tasks = 0
-        for tid, files in inferred.items():
-            task = by_id.get(tid)
-            if not task:
-                continue
-            new = [f for f in files if f not in task.file_locks]
-            if not new:
-                continue
-            task.file_locks.extend(new)
-            for f in new:
-                self.file_to_tasks[f].append(task.id)
-            n_files += len(new)
-            n_tasks += 1
-        if n_files:
-            print(
-                f"   🔮 Inferred {n_files} file-lock(s) for {n_tasks} prose task(s) "
-                f"via {model} (LOW-CONFIDENCE — review; wrap real paths in "
-                f"backticks to make them authoritative)."
-            )
 
     def _merge_agent_deps(self, graph: Dict[str, Set[str]]) -> None:
         """Call the LLM dep parser and merge its edges into the graph."""
