@@ -3,7 +3,7 @@
 
 set -e
 
-VERSION="2.2.1"
+VERSION="2.3.0"
 INSTALL_DIR="${1:-$HOME/.dev-kid}"
 
 # Color output

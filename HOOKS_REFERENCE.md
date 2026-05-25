@@ -61,6 +61,48 @@ Claude Code Lifecycle
 Claude continues execution
 ```
 
+## Hook Deployment Model (symlinks)
+
+Since v2.3.0, `dev-kid init` does **not** copy hook scripts into your
+project. It **symlinks** them to the install-managed canonical source.
+
+```
+~/.dev-kid/templates/.claude/hooks/post-tool-use.sh   ← canonical source (versioned with dev-kid)
+                ▲
+                │  symlink (ln -sfn, absolute target)
+                │
+<project>/.claude/hooks/post-tool-use.sh              ← what Claude Code runs
+```
+
+| Artifact | How `init` deploys it | Why |
+|---|---|---|
+| Hook scripts (`.claude/hooks/*.sh`) | **symlink** → `~/.dev-kid/templates/.claude/hooks/` | one source of truth; a template edit propagates to every project; no drifting copies; `.claude/` is gitignored so links are never committed |
+| `.claude/settings.json` | **copy** | per-project config you tweak (e.g. `DEV_KID_HOOKS_ENABLED`, hook wiring) — must be able to differ per project |
+
+**Why symlinks over copies or a global install:**
+- *Copies* (the pre-2.3.0 behavior) drift — edit a template and existing
+  projects keep running their stale copy until re-init.
+- *Global hooks* in `~/.claude/` would fire in **every** repo on the machine,
+  including non-dev-kid ones — dangerous for the auto-checkpoint/commit hooks.
+  Symlinks keep hooks **per-project** (only where you ran `init`) while still
+  pointing at one canonical, versioned source.
+
+### Failure mode + repair
+
+A symlink breaks if the dev-kid install moves or is removed (the target no
+longer exists). Claude Code then can't run that hook.
+
+- **Detect:** `dev-kid init-check` reports `❌ FAIL … BROKEN symlinks: <names>`.
+- **Repair:** re-run `dev-kid init` in the project — `ln -sfn` re-points every
+  link to the current install. (Re-init is safe: `settings.json` and
+  `.dk/tasks.md` are left untouched.)
+
+### Adopting the model in an existing project
+
+Projects initialized before v2.3.0 have *copied* hooks. They keep working.
+To switch them to symlinks (and get future template edits automatically),
+just re-run `dev-kid init` there.
+
 ## Hook Configuration
 
 Hooks are configured in `.claude/settings.json`:
@@ -361,7 +403,42 @@ Hooks read/write the following files:
 
 ### Enabling/Disabling Hooks
 
-**Disable all hooks**:
+`DEV_KID_HOOKS_ENABLED` is the **master switch for all hooks** (default:
+`true`). Every hook script checks it first and exits early when it's
+`false`, so flipping it off cleanly silences the entire dev-kid hook layer
+(auto-checkpoint commits, the `🤖 Project Context` prompt banner, the
+`git reset --hard` guard, session-start recall, etc.) **without removing
+any wiring** — flip it back to re-enable.
+
+Pick the scope you actually want:
+
+| Method | Scope | Persists across sessions? | Use when |
+|---|---|---|---|
+| `export DEV_KID_HOOKS_ENABLED=false` | current shell only | ❌ gone next terminal/session | quick one-off; testing |
+| `"DEV_KID_HOOKS_ENABLED": "false"` in the project's `.claude/settings.json` `env` block | that project, every session | ✅ yes | **you're done dev-kid-ing a repo and don't want hooks firing there anymore** |
+
+**Persistently deactivate dev-kid for a project** (the common case once a
+feature is shipped — stops auto-commits + banner injection on every future
+session in that repo):
+
+```jsonc
+// <project>/.claude/settings.json
+{
+  "env": {
+    "DEV_KID_HOOKS_ENABLED": "false"
+  },
+  "hooks": { /* ...leave the wiring intact... */ }
+}
+```
+
+**Re-activate** later: set it to `"true"` or delete the `env` line. The hook
+scripts and `dev-kid.yml` are untouched, so no `dev-kid init` is needed.
+
+> This is a *deactivation*, not an uninstall. dev-kid itself (CLI, Rust
+> watchdog, config) stays fully operational — you're only telling the
+> harness not to fire the hooks in this one repo.
+
+**Disable all hooks (current shell, temporary)**:
 ```bash
 export DEV_KID_HOOKS_ENABLED=false
 ```

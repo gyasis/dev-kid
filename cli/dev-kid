@@ -3,7 +3,7 @@
 
 set -e
 
-VERSION="2.2.1"
+VERSION="2.3.0"
 export DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Color output
@@ -720,14 +720,16 @@ cmd_watchdog_stop() {
 cmd_watchdog_check() {
     echo -e "${GREEN}🔍 Running task check${NC}"
 
-    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    local watchdog_bin
+    watchdog_bin=$(find_watchdog_binary) || exit 1
     "$watchdog_bin" rehydrate
 }
 
 cmd_watchdog_report() {
     echo -e "${GREEN}📊 Task Timing Report${NC}"
 
-    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    local watchdog_bin
+    watchdog_bin=$(find_watchdog_binary) || exit 1
     "$watchdog_bin" report
 }
 
@@ -755,7 +757,8 @@ cmd_task_complete() {
     fi
 
     # Kill the task and mark as complete in registry
-    local watchdog_bin=$(find_watchdog_binary) || exit 1
+    local watchdog_bin
+    watchdog_bin=$(find_watchdog_binary) || exit 1
     "$watchdog_bin" kill "$task_id"
 }
 

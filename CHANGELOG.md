@@ -4,6 +4,61 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ---
 
+## v2.3.0 — 2026-05-25
+
+Minor release. Reworks how `dev-kid init` deploys Claude Code hooks (copy →
+symlink), adds broken-link detection to `init-check`, fixes a watchdog
+exit-code bug that produced a confusing shell error, and documents the
+hook master-switch / per-project deactivation properly.
+
+### Changed
+
+- **`dev-kid init` now SYMLINKS hook scripts instead of copying them.**
+  Each `<project>/.claude/hooks/*.sh` is a symlink to the install-managed
+  canonical source at `~/.dev-kid/templates/.claude/hooks/`. Rationale:
+  - **Single source of truth** — one edit to a template propagates to every
+    project on the machine; no more drifting per-project copies that silently
+    diverge from the canonical hook.
+  - **No repo pollution** — `.claude/` is gitignored per project, so the
+    symlinks are machine-local and never committed.
+  - `settings.json` is still **copied** (not symlinked): it's per-project
+    config the user tweaks (e.g. `DEV_KID_HOOKS_ENABLED`).
+  - Re-running `dev-kid init` on a project with old *copied* hooks converts
+    them to symlinks in place (`ln -sfn`).
+  - The per-file symlink loop also retires the old `cp -r …*` + `rm -rf
+    .claude/hooks/hooks/` nested-glob cleanup hack.
+
+### Added
+
+- **`dev-kid init-check` now FAILs on broken hook symlinks.** If the install
+  moved or was removed, the symlinks dangle and Claude Code can't run the
+  hooks. The check reports the broken names and hints `re-run 'dev-kid init'`
+  to re-point them. (`check_claude_hooks` in `cli/init_check.py`.)
+- **HOOKS_REFERENCE.md**: a "Hook Deployment Model" section explaining the
+  symlink layout + repair path, and a "Deactivating dev-kid for a project"
+  recipe — `DEV_KID_HOOKS_ENABLED` documented as the master switch, with the
+  *persistent* `settings.json` `env`-block method clearly distinguished from
+  the *ephemeral* shell `export`.
+
+### Fixed
+
+- **Watchdog binary resolution swallowed its own failure.** Three call sites
+  used `local watchdog_bin=$(find_watchdog_binary) || exit 1`. Because the
+  `local` builtin always returns exit 0, it masked the command
+  substitution's exit code — so `|| exit 1` never fired when the binary was
+  missing, and execution fell through to run an *empty* command, printing the
+  confusing `dev-kid: line 724: : command not found` on top of the real
+  "binary not found" message. Split declaration from assignment at all three
+  sites (`cmd_watchdog_check`, `cmd_watchdog_report`, `cmd_task_complete`) so
+  the guard fires and the command exits cleanly with just the helpful message.
+
+### Upgrade notes
+
+- Existing projects keep working with their copied hooks. To adopt the
+  symlink model (and pick up future template edits automatically), re-run
+  `dev-kid init` in the project. No data is lost — `settings.json` and
+  `.dk/tasks.md` are left untouched.
+
 ## v2.2.1 — 2026-05-22
 
 Patch release for the install script.

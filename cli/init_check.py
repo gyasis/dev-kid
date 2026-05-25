@@ -111,7 +111,18 @@ def check_claude_hooks() -> Tuple[str, str]:
     if not hooks_dir.is_dir():
         return CheckResult.WARN, ".claude/hooks/ missing — Claude Code hooks not installed"
     expected = {"stop.sh", "task-completed.sh", "pre-tool-use.sh", "session-start.sh"}
-    present = {p.name for p in hooks_dir.glob("*.sh")}
+    entries = list(hooks_dir.glob("*.sh"))
+    present = {p.name for p in entries}
+    # Dev-kid symlinks hook scripts to the install-managed source
+    # ($HOME/.dev-kid/templates/.claude/hooks). If the install moved or was
+    # removed, those links dangle and Claude Code can't run the hooks.
+    # is_symlink() is True but exists() is False for a broken link.
+    broken = sorted(p.name for p in entries if p.is_symlink() and not p.exists())
+    if broken:
+        return CheckResult.FAIL, (
+            f".claude/hooks/ has BROKEN symlinks: {', '.join(broken)} — "
+            "re-run 'dev-kid init' to re-point them to the install source"
+        )
     missing = expected - present
     if missing:
         return CheckResult.WARN, f".claude/hooks/ present but missing: {', '.join(sorted(missing))}"

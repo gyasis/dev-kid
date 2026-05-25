@@ -115,15 +115,25 @@ fi
 # task_timers.json — always reset (ephemeral watchdog state, safe to overwrite)
 cp "$TEMPLATES/.claude/task_timers.json" .claude/ || { echo "❌ Failed to copy task_timers.json"; exit 1; }
 
-# Copy hooks configuration and scripts
-echo "   Installing Claude Code hooks..."
+# Install Claude Code hooks.
+#   - settings.json is COPIED: it's per-project config the user tweaks
+#     (e.g. set DEV_KID_HOOKS_ENABLED=false to silence hooks for a finished
+#     project — see HOOKS_REFERENCE.md "Deactivating dev-kid for a project").
+#   - hook SCRIPTS are SYMLINKED to the install-managed canonical source
+#     ($TEMPLATES/.claude/hooks), so project repos never carry drifting
+#     copies and one edit to a template propagates to every project. The
+#     whole .claude/ dir is gitignored per project, so machine-local
+#     symlinks are appropriate (never committed).
+echo "   Installing Claude Code hooks (scripts symlinked to \$TEMPLATES)..."
 cp "$TEMPLATES/.claude/settings.json" .claude/ || { echo "❌ Failed to copy settings.json"; exit 1; }
 mkdir -p .claude/hooks
-cp -r "$TEMPLATES/.claude/hooks/"* .claude/hooks/ || { echo "❌ Failed to copy hooks"; exit 1; }
-chmod +x .claude/hooks/*.sh
-
-# Remove orphaned nested hooks/ dir created by glob expansion
-rm -rf .claude/hooks/hooks/
+for _hook in "$TEMPLATES/.claude/hooks/"*.sh; do
+    [ -e "$_hook" ] || continue
+    # ln -sfn: force-replace any existing copy/symlink with a fresh link.
+    # Absolute target so the link resolves regardless of cwd.
+    ln -sfn "$_hook" ".claude/hooks/$(basename "$_hook")" \
+        || { echo "❌ Failed to symlink hook $(basename "$_hook")"; exit 1; }
+done
 
 # Validate hooks deployed correctly
 for hook in pre-compact.sh task-completed.sh post-tool-use.sh user-prompt-submit.sh session-start.sh session-end.sh pre-tool-use.sh stop.sh post-tool-use-failure.sh; do
