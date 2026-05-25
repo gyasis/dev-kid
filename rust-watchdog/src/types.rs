@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Execution mode for tasks
@@ -54,14 +54,15 @@ pub enum TaskStatus {
     Cancelled,
 }
 
-impl ToString for TaskStatus {
-    fn to_string(&self) -> String {
-        match self {
-            TaskStatus::Running => "running".to_string(),
-            TaskStatus::Completed => "completed".to_string(),
-            TaskStatus::Failed => "failed".to_string(),
-            TaskStatus::Cancelled => "cancelled".to_string(),
-        }
+impl std::fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TaskStatus::Running => "running",
+            TaskStatus::Completed => "completed",
+            TaskStatus::Failed => "failed",
+            TaskStatus::Cancelled => "cancelled",
+        };
+        write!(f, "{s}")
     }
 }
 
@@ -133,8 +134,8 @@ impl ProcessRegistry {
 /// Orphaned task detection results
 #[derive(Debug, Default)]
 pub struct OrphanReport {
-    pub dead_processes: Vec<String>,     // Process died, task not complete
-    pub zombie_processes: Vec<String>,    // Task complete, process still running
+    pub dead_processes: Vec<String>,   // Process died, task not complete
+    pub zombie_processes: Vec<String>, // Task complete, process still running
 }
 
 impl OrphanReport {

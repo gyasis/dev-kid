@@ -6,7 +6,6 @@ use std::path::PathBuf;
 /// (In real implementation, this would be extracted to a module)
 fn validate_registry_path(path: &str) -> anyhow::Result<PathBuf> {
     use anyhow::bail;
-    use std::path::Path;
 
     let path_buf = PathBuf::from(path);
 
@@ -27,11 +26,15 @@ fn validate_registry_path(path: &str) -> anyhow::Result<PathBuf> {
         Ok(p) => p,
         Err(_) => {
             // If file doesn't exist yet, validate parent directory
-            let parent = absolute_path.parent()
+            let parent = absolute_path
+                .parent()
                 .ok_or_else(|| anyhow::anyhow!("Invalid registry path: no parent directory"))?;
 
             if !parent.exists() {
-                bail!("Registry path parent directory does not exist: {}", parent.display());
+                bail!(
+                    "Registry path parent directory does not exist: {}",
+                    parent.display()
+                );
             }
 
             // Return the non-canonical path for new files (will be created)
@@ -41,14 +44,7 @@ fn validate_registry_path(path: &str) -> anyhow::Result<PathBuf> {
 
     // SECURITY: Prevent access to sensitive system directories
     let canonical_str = canonical.to_string_lossy();
-    let forbidden_prefixes = [
-        "/etc",
-        "/root",
-        "/sys",
-        "/proc",
-        "/boot",
-        "/dev",
-    ];
+    let forbidden_prefixes = ["/etc", "/root", "/sys", "/proc", "/boot", "/dev"];
 
     for prefix in &forbidden_prefixes {
         if canonical_str.starts_with(prefix) {
@@ -59,7 +55,10 @@ fn validate_registry_path(path: &str) -> anyhow::Result<PathBuf> {
     // SECURITY: Ensure path is within current working directory
     let cwd = env::current_dir()?;
     if !canonical.starts_with(&cwd) {
-        bail!("Registry path must be within current working directory: {}", cwd.display());
+        bail!(
+            "Registry path must be within current working directory: {}",
+            cwd.display()
+        );
     }
 
     Ok(canonical)
@@ -121,11 +120,12 @@ fn test_system_directory_blocked() {
             // - "current working directory" (CWD restriction)
             // - "does not exist" (parent directory doesn't exist, e.g., /root when user isn't root)
             assert!(
-                error_msg.contains("system directory") ||
-                error_msg.contains("current working directory") ||
-                error_msg.contains("does not exist"),
+                error_msg.contains("system directory")
+                    || error_msg.contains("current working directory")
+                    || error_msg.contains("does not exist"),
                 "Error should mention security restriction for path {}, got: {}",
-                path, error_msg
+                path,
+                error_msg
             );
         }
     }
@@ -174,7 +174,10 @@ fn test_nonexistent_file_with_valid_parent() {
 
     // Test path to non-existent file with valid parent
     let result = validate_registry_path(".claude/new_registry.json");
-    assert!(result.is_ok(), "Non-existent file with valid parent should be accepted");
+    assert!(
+        result.is_ok(),
+        "Non-existent file with valid parent should be accepted"
+    );
 
     // Cleanup
     env::set_current_dir(&original_dir).unwrap();
@@ -184,7 +187,10 @@ fn test_nonexistent_file_with_valid_parent() {
 #[test]
 fn test_nonexistent_parent_directory_blocked() {
     let result = validate_registry_path("nonexistent_dir/registry.json");
-    assert!(result.is_err(), "Path with non-existent parent should be blocked");
+    assert!(
+        result.is_err(),
+        "Path with non-existent parent should be blocked"
+    );
 
     if let Err(e) = result {
         assert!(e.to_string().contains("does not exist"));
@@ -207,7 +213,10 @@ fn test_absolute_path_within_cwd() {
 
     // Test absolute path within CWD
     let result = validate_registry_path(&test_file.to_string_lossy());
-    assert!(result.is_ok(), "Absolute path within CWD should be accepted");
+    assert!(
+        result.is_ok(),
+        "Absolute path within CWD should be accepted"
+    );
 
     // Cleanup
     env::set_current_dir(&original_dir).unwrap();

@@ -1,18 +1,17 @@
-use anyhow::{Result, bail};
-use clap::{Parser, Subcommand};
-use tokio::time::{sleep, Duration};
+use anyhow::{bail, Result};
 use chrono::Local;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use tokio::time::{sleep, Duration};
 
-mod types;
-mod process;
-mod docker;
-mod registry;
-
-use types::*;
-use process::ProcessManager;
-use docker::DockerManager;
-use registry::RegistryManager;
+// Consume the library crate instead of re-declaring `mod docker; …`. Declaring
+// the modules here too compiled every module twice (once in the lib, once
+// inlined in the bin) and made the lib-only API surface look like dead code in
+// the bin build. One compilation, one source of truth.
+use task_watchdog::docker::DockerManager;
+use task_watchdog::process::ProcessManager;
+use task_watchdog::registry::RegistryManager;
+use task_watchdog::types::*;
 
 #[derive(Parser)]
 #[command(name = "task-watchdog")]
@@ -135,11 +134,15 @@ fn validate_registry_path(path: &str) -> Result<PathBuf> {
         Ok(p) => p,
         Err(_) => {
             // If file doesn't exist yet, validate parent directory
-            let parent = absolute_path.parent()
+            let parent = absolute_path
+                .parent()
                 .ok_or_else(|| anyhow::anyhow!("Invalid registry path: no parent directory"))?;
 
             if !parent.exists() {
-                bail!("Registry path parent directory does not exist: {}", parent.display());
+                bail!(
+                    "Registry path parent directory does not exist: {}",
+                    parent.display()
+                );
             }
 
             // Return the non-canonical path for new files (will be created)
@@ -149,14 +152,7 @@ fn validate_registry_path(path: &str) -> Result<PathBuf> {
 
     // SECURITY: Prevent access to sensitive system directories
     let canonical_str = canonical.to_string_lossy();
-    let forbidden_prefixes = [
-        "/etc",
-        "/root",
-        "/sys",
-        "/proc",
-        "/boot",
-        "/dev",
-    ];
+    let forbidden_prefixes = ["/etc", "/root", "/sys", "/proc", "/boot", "/dev"];
 
     for prefix in &forbidden_prefixes {
         if canonical_str.starts_with(prefix) {
@@ -167,7 +163,10 @@ fn validate_registry_path(path: &str) -> Result<PathBuf> {
     // SECURITY: Ensure path is within current working directory (or .claude subdir)
     let cwd = std::env::current_dir()?;
     if !canonical.starts_with(&cwd) {
-        bail!("Registry path must be within current working directory: {}", cwd.display());
+        bail!(
+            "Registry path must be within current working directory: {}",
+            cwd.display()
+        );
     }
 
     Ok(canonical)
@@ -181,35 +180,40 @@ async fn main() -> Result<()> {
         Commands::Run { interval, registry } => {
             let validated_path = validate_registry_path(&registry)?;
             run_watchdog(interval, &validated_path.to_string_lossy()).await?
-        },
+        }
         Commands::Check { task_id, registry } => {
             let validated_path = validate_registry_path(&registry)?;
             check_task(&task_id, &validated_path.to_string_lossy()).await?
-        },
+        }
         Commands::Kill { task_id, registry } => {
             let validated_path = validate_registry_path(&registry)?;
             kill_task(&task_id, &validated_path.to_string_lossy()).await?
-        },
+        }
         Commands::Rehydrate { registry } => {
             let validated_path = validate_registry_path(&registry)?;
             rehydrate(&validated_path.to_string_lossy()).await?
-        },
+        }
         Commands::Report { registry } => {
             let validated_path = validate_registry_path(&registry)?;
             show_report(&validated_path.to_string_lossy()).await?
-        },
+        }
         Commands::Stats { registry } => {
             let validated_path = validate_registry_path(&registry)?;
             show_stats(&validated_path.to_string_lossy()).await?
-        },
+        }
         Commands::Cleanup { days, registry } => {
             let validated_path = validate_registry_path(&registry)?;
             cleanup_tasks(days, &validated_path.to_string_lossy()).await?
-        },
-        Commands::Register { task_id, command, rules, registry } => {
+        }
+        Commands::Register {
+            task_id,
+            command,
+            rules,
+            registry,
+        } => {
             let validated_path = validate_registry_path(&registry)?;
             register_task(&task_id, &command, rules, &validated_path.to_string_lossy()).await?
-        },
+        }
     }
 
     Ok(())
@@ -255,7 +259,10 @@ async fn run_watchdog(interval_secs: u64, registry_path: &str) -> Result<()> {
             println!("\n⚠️  Found {} issues:", orphan_report.total_issues());
 
             if !orphan_report.dead_processes.is_empty() {
-                println!("\n💀 Dead Processes ({}):", orphan_report.dead_processes.len());
+                println!(
+                    "\n💀 Dead Processes ({}):",
+                    orphan_report.dead_processes.len()
+                );
                 for task_id in &orphan_report.dead_processes {
                     if let Some(task) = registry.get_task(task_id) {
                         println!("  {} - {}", task_id, task.command);
@@ -266,7 +273,10 @@ async fn run_watchdog(interval_secs: u64, registry_path: &str) -> Result<()> {
             }
 
             if !orphan_report.zombie_processes.is_empty() {
-                println!("\n🧟 Zombie Processes ({}):", orphan_report.zombie_processes.len());
+                println!(
+                    "\n🧟 Zombie Processes ({}):",
+                    orphan_report.zombie_processes.len()
+                );
                 for task_id in &orphan_report.zombie_processes {
                     if let Some(task) = registry.get_task(task_id) {
                         println!("  {} - {}", task_id, task.command);
@@ -279,8 +289,12 @@ async fn run_watchdog(interval_secs: u64, registry_path: &str) -> Result<()> {
                                 }
                             }
                             ExecutionMode::Docker => {
-                                if let (Some(docker_client), Some(docker_info)) = (&docker, &task.docker) {
-                                    let _ = docker_client.stop_container(&docker_info.container_id).await;
+                                if let (Some(docker_client), Some(docker_info)) =
+                                    (&docker, &task.docker)
+                                {
+                                    let _ = docker_client
+                                        .stop_container(&docker_info.container_id)
+                                        .await;
                                 }
                             }
                         }
@@ -340,13 +354,20 @@ async fn check_task(task_id: &str, registry_path: &str) -> Result<()> {
             println!("   Command: {}", task.command);
             println!("   Mode: {:?}", task.mode);
             println!("   Status: {:?}", task.status);
-            println!("   Started: {}", task.started_at.format("%Y-%m-%d %H:%M:%S"));
+            println!(
+                "   Started: {}",
+                task.started_at.format("%Y-%m-%d %H:%M:%S")
+            );
 
             match &task.mode {
                 ExecutionMode::Native => {
                     if let Some(native) = &task.native {
                         let is_alive = ProcessManager::is_alive(native.pid);
-                        println!("   PID: {} ({})", native.pid, if is_alive { "✅ alive" } else { "💀 dead" });
+                        println!(
+                            "   PID: {} ({})",
+                            native.pid,
+                            if is_alive { "✅ alive" } else { "💀 dead" }
+                        );
                         println!("   PGID: {}", native.pgid);
 
                         if is_alive {
@@ -360,14 +381,21 @@ async fn check_task(task_id: &str, registry_path: &str) -> Result<()> {
                 ExecutionMode::Docker => {
                     if let Some(docker_info) = &task.docker {
                         println!("   Container: {}", &docker_info.container_id[..12]);
-                        println!("   Limits: {} memory, {} CPU",
-                            docker_info.resource_limits.memory,
-                            docker_info.resource_limits.cpu
+                        println!(
+                            "   Limits: {} memory, {} CPU",
+                            docker_info.resource_limits.memory, docker_info.resource_limits.cpu
                         );
 
                         if let Some(docker) = DockerManager::new() {
                             let is_running = docker.is_running(&docker_info.container_id).await;
-                            println!("   Status: {}", if is_running { "✅ running" } else { "💀 stopped" });
+                            println!(
+                                "   Status: {}",
+                                if is_running {
+                                    "✅ running"
+                                } else {
+                                    "💀 stopped"
+                                }
+                            );
                         }
                     }
                 }
@@ -440,9 +468,10 @@ async fn rehydrate(registry_path: &str) -> Result<()> {
 
             // Check if still alive
             let is_alive = match &task.mode {
-                ExecutionMode::Native => {
-                    task.native.as_ref().map_or(false, |n| ProcessManager::is_alive(n.pid))
-                }
+                ExecutionMode::Native => task
+                    .native
+                    .as_ref()
+                    .is_some_and(|n| ProcessManager::is_alive(n.pid)),
                 ExecutionMode::Docker => {
                     if let Some(docker_info) = &task.docker {
                         if let Some(docker) = DockerManager::new() {
@@ -456,7 +485,14 @@ async fn rehydrate(registry_path: &str) -> Result<()> {
                 }
             };
 
-            println!("  Status: {}", if is_alive { "✅ Running" } else { "⚠️  DEAD" });
+            println!(
+                "  Status: {}",
+                if is_alive {
+                    "✅ Running"
+                } else {
+                    "⚠️  DEAD"
+                }
+            );
             println!();
         }
     }
@@ -496,9 +532,9 @@ async fn show_report(registry_path: &str) -> Result<()> {
             ExecutionMode::Docker => {
                 if let Some(docker_info) = &task.docker {
                     println!("  Container: {}", &docker_info.container_id[..12]);
-                    println!("  Limits: {}, {}",
-                        docker_info.resource_limits.memory,
-                        docker_info.resource_limits.cpu
+                    println!(
+                        "  Limits: {}, {}",
+                        docker_info.resource_limits.memory, docker_info.resource_limits.cpu
                     );
                 }
             }
@@ -569,9 +605,11 @@ async fn register_task(
 
     registry.upsert_task(task_id.to_string(), task)?;
 
-    println!("✅ Task {} registered with {} constitution rules",
+    println!(
+        "✅ Task {} registered with {} constitution rules",
         task_id,
-        registry.get_task(task_id)
+        registry
+            .get_task(task_id)
             .map(|t| t.constitution_rules.len())
             .unwrap_or(0)
     );
@@ -581,7 +619,7 @@ async fn register_task(
 
 /// Get memory usage of current process
 fn get_self_memory_kb() -> u64 {
-    use sysinfo::{System, Pid};
+    use sysinfo::{Pid, System};
 
     let mut sys = System::new_all();
     sys.refresh_all();

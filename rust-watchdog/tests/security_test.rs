@@ -1,5 +1,5 @@
-use task_watchdog::docker::DockerManager;
 use std::env;
+use task_watchdog::docker::DockerManager;
 
 #[tokio::test]
 async fn test_command_injection_prevention() {
@@ -31,14 +31,16 @@ async fn test_command_injection_prevention() {
         "injected".to_string(),
     ];
 
-    let result = manager.run_container(
-        "injection-test",
-        malicious_command,
-        &work_dir,
-        "512m",
-        "1.0",
-        Some("alpine:latest"),
-    ).await;
+    let result = manager
+        .run_container(
+            "injection-test",
+            malicious_command,
+            &work_dir,
+            "512m",
+            "1.0",
+            Some("alpine:latest"),
+        )
+        .await;
 
     // The container should be created (Docker accepts the command array)
     // But Docker will treat "&&" as a literal argument, not shell operator
@@ -46,7 +48,11 @@ async fn test_command_injection_prevention() {
         Ok(_) => println!("Container created successfully"),
         Err(e) => println!("Container creation error: {}", e),
     }
-    assert!(result.is_ok(), "Container creation should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Container creation should succeed: {:?}",
+        result
+    );
 
     if let Ok(container_id) = result {
         // Clean up
@@ -73,25 +79,28 @@ async fn test_safe_command_execution() {
         .to_string();
 
     // Safe command: run echo with proper argument array
-    let safe_command = vec![
-        "echo".to_string(),
-        "hello world".to_string(),
-    ];
+    let safe_command = vec!["echo".to_string(), "hello world".to_string()];
 
-    let result = manager.run_container(
-        "safe-test",
-        safe_command,
-        &work_dir,
-        "256m",
-        "0.5",
-        Some("alpine:latest"),
-    ).await;
+    let result = manager
+        .run_container(
+            "safe-test",
+            safe_command,
+            &work_dir,
+            "256m",
+            "0.5",
+            Some("alpine:latest"),
+        )
+        .await;
 
     match &result {
         Ok(_) => println!("Safe container created successfully"),
         Err(e) => println!("Safe container creation error: {}", e),
     }
-    assert!(result.is_ok(), "Safe command should execute successfully: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Safe command should execute successfully: {:?}",
+        result
+    );
 
     if let Ok(container_id) = result {
         // Clean up

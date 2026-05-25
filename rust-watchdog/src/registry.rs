@@ -1,10 +1,10 @@
+use crate::process::ProcessManager;
+use crate::types::{ExecutionMode, OrphanReport, ProcessRegistry, TaskInfo, TaskStatus};
 use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
+use fs2::FileExt;
 use std::fs::{self, OpenOptions, Permissions};
 use std::os::unix::fs::PermissionsExt;
-use fs2::FileExt;
-use crate::types::{ProcessRegistry, TaskInfo, OrphanReport, TaskStatus, ExecutionMode};
-use crate::process::ProcessManager;
+use std::path::{Path, PathBuf};
 
 /// Registry manager for persisting task state
 pub struct RegistryManager {
@@ -31,8 +31,7 @@ impl RegistryManager {
         if !self.registry_path.exists() {
             // Create directory if it doesn't exist
             if let Some(parent) = self.registry_path.parent() {
-                fs::create_dir_all(parent)
-                    .context("Failed to create registry directory")?;
+                fs::create_dir_all(parent).context("Failed to create registry directory")?;
             }
 
             // Initialize empty registry
@@ -41,11 +40,10 @@ impl RegistryManager {
             return Ok(());
         }
 
-        let content = fs::read_to_string(&self.registry_path)
-            .context("Failed to read registry file")?;
+        let content =
+            fs::read_to_string(&self.registry_path).context("Failed to read registry file")?;
 
-        self.registry = serde_json::from_str(&content)
-            .context("Failed to parse registry JSON")?;
+        self.registry = serde_json::from_str(&content).context("Failed to parse registry JSON")?;
 
         Ok(())
     }
@@ -55,13 +53,12 @@ impl RegistryManager {
     /// Callers that need safe concurrent access should use `locked_mutate`
     /// instead, which wraps this with an exclusive advisory lock + re-read.
     pub fn save(&self) -> Result<()> {
-        let json = serde_json::to_string_pretty(&self.registry)
-            .context("Failed to serialize registry")?;
+        let json =
+            serde_json::to_string_pretty(&self.registry).context("Failed to serialize registry")?;
 
         // Write to a sibling temp file, then rename (atomic on Linux/macOS)
         let tmp_path = self.registry_path.with_extension("json.tmp");
-        fs::write(&tmp_path, &json)
-            .context("Failed to write temp registry file")?;
+        fs::write(&tmp_path, &json).context("Failed to write temp registry file")?;
 
         fs::rename(&tmp_path, &self.registry_path)
             .context("Failed to atomically rename registry file")?;
@@ -85,8 +82,7 @@ impl RegistryManager {
     {
         // Ensure parent directory exists for both registry and lock file
         if let Some(parent) = self.registry_path.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create registry directory")?;
+            fs::create_dir_all(parent).context("Failed to create registry directory")?;
         }
 
         // Open/create the lock file and acquire an exclusive advisory lock.
@@ -94,6 +90,7 @@ impl RegistryManager {
         let lock_file = OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(false) // lock file is flock-only; never write content to it
             .open(self.lock_path())
             .context("Failed to open registry lock file")?;
         lock_file
@@ -222,7 +219,10 @@ impl RegistryManager {
         let total = self.registry.tasks.len();
         let running = self.registry.running_tasks().len();
         let completed = self.registry.completed_tasks().len();
-        let failed = self.registry.tasks.values()
+        let failed = self
+            .registry
+            .tasks
+            .values()
             .filter(|t| t.status == TaskStatus::Failed)
             .count();
 
@@ -245,7 +245,7 @@ impl RegistryManager {
                 .iter()
                 .filter(|(_, task)| {
                     matches!(task.status, TaskStatus::Completed | TaskStatus::Failed)
-                        && task.completed_at.map_or(false, |c| c < cutoff)
+                        && task.completed_at.is_some_and(|c| c < cutoff)
                 })
                 .map(|(id, _)| id.clone())
                 .collect();
@@ -277,7 +277,7 @@ pub struct RegistryStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ExecutionMode, TaskStatus, NativeTask};
+    use crate::types::{ExecutionMode, NativeTask, TaskStatus};
     use chrono::Utc;
 
     #[test]
@@ -317,8 +317,8 @@ mod tests {
 
     #[test]
     fn test_concurrent_upsert_no_data_loss() {
-        use std::thread;
         use std::sync::Arc;
+        use std::thread;
 
         let temp_path = "/tmp/test_registry_concurrent.json";
         let _ = fs::remove_file(temp_path);
@@ -344,8 +344,8 @@ mod tests {
                         started_at: Utc::now(),
                         completed_at: None,
                         native: Some(NativeTask {
-                            pid: 10000 + i as i32,
-                            pgid: 10000 + i as i32,
+                            pid: 10000 + i,
+                            pgid: 10000 + i,
                             start_time: format!("t{i}"),
                             env_tag: None,
                         }),

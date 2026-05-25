@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
-use bollard::Docker;
 use bollard::container::{Config, CreateContainerOptions, StopContainerOptions};
 use bollard::models::HostConfig;
-use futures_util::stream::StreamExt;
+use bollard::Docker;
 use std::collections::HashMap;
 
 /// Docker container manager
@@ -159,10 +158,7 @@ impl DockerManager {
 
         let containers = self.client.list_containers(options).await?;
 
-        Ok(containers
-            .iter()
-            .filter_map(|c| c.id.clone())
-            .collect())
+        Ok(containers.iter().filter_map(|c| c.id.clone()).collect())
     }
 
     /// Parse memory string (e.g., "512m", "1g") to bytes
@@ -174,9 +170,7 @@ impl DockerManager {
         }
 
         let (num_str, unit) = mem.split_at(mem.len() - 1);
-        let num: i64 = num_str
-            .parse()
-            .context("Invalid memory limit number")?;
+        let num: i64 = num_str.parse().context("Invalid memory limit number")?;
 
         let bytes = match unit {
             "k" => num * 1024,
@@ -202,8 +196,14 @@ mod tests {
 
     #[test]
     fn test_parse_memory() {
-        assert_eq!(DockerManager::parse_memory("512m").unwrap(), 512 * 1024 * 1024);
-        assert_eq!(DockerManager::parse_memory("1g").unwrap(), 1024 * 1024 * 1024);
+        assert_eq!(
+            DockerManager::parse_memory("512m").unwrap(),
+            512 * 1024 * 1024
+        );
+        assert_eq!(
+            DockerManager::parse_memory("1g").unwrap(),
+            1024 * 1024 * 1024
+        );
         assert_eq!(DockerManager::parse_memory("2048k").unwrap(), 2048 * 1024);
     }
 }

@@ -1,6 +1,6 @@
+use crate::types::ResourceUsage;
 use anyhow::{Context, Result};
 use std::process::Command;
-use crate::types::ResourceUsage;
 
 #[cfg(unix)]
 use nix::sys::signal::{kill, killpg, Signal};
@@ -36,7 +36,7 @@ impl ProcessManager {
     #[cfg(unix)]
     pub fn get_start_time(pid: i32) -> Result<String> {
         let output = Command::new("ps")
-            .args(&["-p", &pid.to_string(), "-o", "lstart="])
+            .args(["-p", &pid.to_string(), "-o", "lstart="])
             .output()
             .context("Failed to execute ps command")?;
 
@@ -51,7 +51,13 @@ impl ProcessManager {
     pub fn get_start_time(pid: i32) -> Result<String> {
         // Windows implementation using wmic
         let output = Command::new("wmic")
-            .args(&["process", "where", &format!("ProcessId={}", pid), "get", "CreationDate"])
+            .args(&[
+                "process",
+                "where",
+                &format!("ProcessId={}", pid),
+                "get",
+                "CreationDate",
+            ])
             .output()
             .context("Failed to execute wmic")?;
 
@@ -80,8 +86,7 @@ impl ProcessManager {
             // Check if still alive
             if Self::is_alive(pid) {
                 // Force kill with SIGKILL
-                kill(Pid::from_raw(pid), Signal::SIGKILL)
-                    .context("Failed to send SIGKILL")?;
+                kill(Pid::from_raw(pid), Signal::SIGKILL).context("Failed to send SIGKILL")?;
                 println!("  Sent SIGKILL to PID {}", pid);
             }
         }
@@ -134,7 +139,7 @@ impl ProcessManager {
 
     /// Get process resource usage (CPU and memory)
     pub fn get_resource_usage(pid: i32) -> Option<ResourceUsage> {
-        use sysinfo::{System, Pid as SysPid};
+        use sysinfo::{Pid as SysPid, System};
 
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -158,7 +163,7 @@ impl ProcessManager {
         let mut pids = Vec::new();
 
         let output = Command::new("ps")
-            .args(&["axe"])  // 'e' shows environment
+            .args(["axe"]) // 'e' shows environment
             .output();
 
         if let Ok(output) = output {
