@@ -154,7 +154,9 @@ class SentinelRunner:
                 self._safe_write_manifest(result_obj, files)
                 return result_obj
         except Exception as exc:
-            print(f"      ⚠️  Placeholder scan INCOMPLETE: {exc} — treating as unscanned, not clean")
+            print(
+                f"      ⚠️  Placeholder scan INCOMPLETE: {exc} — treating as unscanned, not clean"
+            )
             result_obj.error_message = f"Placeholder scan incomplete: {exc}"
 
         # ------------------------------------------------------------------
@@ -199,14 +201,15 @@ class SentinelRunner:
                         self._safe_write_manifest(result_obj, files)
                         return result_obj
             except Exception as exc:
-                print(f"      ⚠️  SQL constitution scan INCOMPLETE: {exc} — treating as unscanned, not clean")
+                print(
+                    f"      ⚠️  SQL constitution scan INCOMPLETE: {exc} — treating as unscanned, not clean"
+                )
 
         # SQL-specific placeholder detection
         sql_files_for_placeholder = [f for f in files if f.suffix == ".sql"]
         if sql_files_for_placeholder:
             try:
-                from .placeholder_scanner import \
-                    scan_sql_file as sql_placeholder_scan
+                from .placeholder_scanner import scan_sql_file as sql_placeholder_scan
 
                 for sql_f in sql_files_for_placeholder:
                     sql_ph_violations = sql_placeholder_scan(str(sql_f))
@@ -220,7 +223,7 @@ class SentinelRunner:
                             )
                         result_obj.result = "FAIL"
                         result_obj.should_halt_wave = True
-                        result_obj.error_message = f"SQL placeholder code detected. Remove stubs before checkpoint."
+                        result_obj.error_message = "SQL placeholder code detected. Remove stubs before checkpoint."
                         self._safe_write_manifest(result_obj, files)
                         return result_obj
             except Exception as exc:
@@ -266,7 +269,7 @@ class SentinelRunner:
                 print(f"      ⚠️  Sentinel SKIP: No providers available for {task_id}")
                 for w in health["warnings"]:
                     print(f"         ❌ {w}")
-                print(f"      ℹ️  Fix provider config then re-run — skipping test loop")
+                print("      ℹ️  Fix provider config then re-run — skipping test loop")
                 result_obj.result = "SKIP"
                 self._safe_write_manifest(result_obj, files)
                 return result_obj  # SKIP, not FAIL — config issue not code issue
@@ -314,7 +317,7 @@ class SentinelRunner:
                         f"All tiers exhausted for {task_id}. "
                         "Manual intervention required."
                     )
-                    print(f"      ❌ All tiers exhausted — wave will halt")
+                    print("      ❌ All tiers exhausted — wave will halt")
             else:
                 # ── Legacy 2-tier path: Ollama → Claude ──
                 t1 = runner.run_tier1(objective, test_cmd, self._config)
@@ -343,7 +346,7 @@ class SentinelRunner:
                             f"Both tiers exhausted for {task_id}. "
                             "Manual intervention required."
                         )
-                        print(f"      ❌ Both tiers exhausted — wave will halt")
+                        print("      ❌ Both tiers exhausted — wave will halt")
         except Exception as exc:
             # Distinguish expected test failures (should halt) from unexpected
             # errors (import errors, I/O errors, etc.) which are non-fatal.
@@ -354,9 +357,15 @@ class SentinelRunner:
                 print(f"      ❌ Sentinel test error (halting wave): {exc}")
             else:
                 result_obj.result = "ERROR"
-                result_obj.should_halt_wave = False  # Non-fatal — don't block wave for infra issues
-                result_obj.error_message = f"Sentinel infrastructure error (non-fatal): {exc}"
-                print(f"      ⚠️  Sentinel infra error (non-fatal, wave continues): {exc}")
+                result_obj.should_halt_wave = (
+                    False  # Non-fatal — don't block wave for infra issues
+                )
+                result_obj.error_message = (
+                    f"Sentinel infrastructure error (non-fatal): {exc}"
+                )
+                print(
+                    f"      ⚠️  Sentinel infra error (non-fatal, wave continues): {exc}"
+                )
 
         # ------------------------------------------------------------------
         # Phase 4 (US3/US4): Interface diff, change radius, cascade (T033)
@@ -400,7 +409,9 @@ class SentinelRunner:
                 if diff_stat.returncode == 0 and diff_stat.stdout.strip():
                     parts = diff_stat.stdout.strip().split()
                     added = int(parts[0]) if parts and parts[0].isdigit() else 0
-                    removed = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+                    removed = (
+                        int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+                    )
             except Exception:
                 pass
             files_changed.append(
@@ -438,7 +449,7 @@ class SentinelRunner:
         from .interface_diff import InterfaceDiff
 
         if not files:
-            print(f"      ℹ️  Cascade: no files to analyze — skipping")
+            print("      ℹ️  Cascade: no files to analyze — skipping")
             return
 
         # --- Interface diff for each modified file ---

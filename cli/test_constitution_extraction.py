@@ -7,7 +7,6 @@ from task descriptions and stores them in task.constitution_rules.
 """
 
 import tempfile
-import json
 from pathlib import Path
 import sys
 
@@ -24,7 +23,7 @@ def test_basic_constitution_extraction():
   - **Constitution**: rule1, rule2, rule3
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -32,7 +31,7 @@ def test_basic_constitution_extraction():
         orch.parse_tasks()
 
         assert len(orch.tasks) == 1
-        assert orch.tasks[0].constitution_rules == ['rule1', 'rule2', 'rule3']
+        assert orch.tasks[0].constitution_rules == ["rule1", "rule2", "rule3"]
         print("✅ Basic constitution extraction: PASS")
 
 
@@ -43,7 +42,7 @@ def test_single_constitution_rule():
   - **Constitution**: single-rule
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -51,7 +50,7 @@ def test_single_constitution_rule():
         orch.parse_tasks()
 
         assert len(orch.tasks) == 1
-        assert orch.tasks[0].constitution_rules == ['single-rule']
+        assert orch.tasks[0].constitution_rules == ["single-rule"]
         print("✅ Single constitution rule: PASS")
 
 
@@ -62,7 +61,7 @@ def test_constitution_with_spaces():
   - **Constitution**: rule-one, rule two with spaces, rule-three
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -70,7 +69,11 @@ def test_constitution_with_spaces():
         orch.parse_tasks()
 
         assert len(orch.tasks) == 1
-        assert orch.tasks[0].constitution_rules == ['rule-one', 'rule two with spaces', 'rule-three']
+        assert orch.tasks[0].constitution_rules == [
+            "rule-one",
+            "rule two with spaces",
+            "rule-three",
+        ]
         print("✅ Constitution with spaces: PASS")
 
 
@@ -80,7 +83,7 @@ def test_no_constitution_metadata():
 - [ ] Task without constitution
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -99,7 +102,7 @@ def test_empty_constitution():
   - **Constitution**:
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -118,7 +121,7 @@ def test_completed_task_with_constitution():
   - **Constitution**: done, verified
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -127,7 +130,7 @@ def test_completed_task_with_constitution():
 
         assert len(orch.tasks) == 1
         assert orch.tasks[0].completed == True
-        assert orch.tasks[0].constitution_rules == ['done', 'verified']
+        assert orch.tasks[0].constitution_rules == ["done", "verified"]
         print("✅ Completed task with constitution: PASS")
 
 
@@ -138,7 +141,7 @@ def test_constitution_in_execution_plan():
   - **Constitution**: verify-before-commit, run-tests
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -148,11 +151,11 @@ def test_constitution_in_execution_plan():
         plan = orch.generate_execution_plan("test-phase")
 
         # Verify constitution_rules in JSON output
-        wave = plan['execution_plan']['waves'][0]
-        task = wave['tasks'][0]
+        wave = plan["execution_plan"]["waves"][0]
+        task = wave["tasks"][0]
 
-        assert 'constitution_rules' in task
-        assert task['constitution_rules'] == ['verify-before-commit', 'run-tests']
+        assert "constitution_rules" in task
+        assert task["constitution_rules"] == ["verify-before-commit", "run-tests"]
         print("✅ Constitution in execution plan: PASS")
 
 
@@ -168,7 +171,7 @@ def test_multiple_tasks_mixed_constitutions():
   - **Constitution**: rule-x, rule-y, rule-z
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(test_tasks)
         f.flush()
 
@@ -176,13 +179,13 @@ def test_multiple_tasks_mixed_constitutions():
         orch.parse_tasks()
 
         assert len(orch.tasks) == 3
-        assert orch.tasks[0].constitution_rules == ['rule-a', 'rule-b']
+        assert orch.tasks[0].constitution_rules == ["rule-a", "rule-b"]
         assert orch.tasks[1].constitution_rules == []
-        assert orch.tasks[2].constitution_rules == ['rule-x', 'rule-y', 'rule-z']
+        assert orch.tasks[2].constitution_rules == ["rule-x", "rule-y", "rule-z"]
         print("✅ Multiple tasks with mixed constitutions: PASS")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Running constitution extraction tests...\n")
 
     test_basic_constitution_extraction()

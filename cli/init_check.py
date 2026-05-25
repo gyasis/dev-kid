@@ -17,12 +17,13 @@ Exit code:
   1 — at least one FAIL, project not ready
   2 — environment problem (dev-kid not installed, etc.)
 """
+
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import Tuple
 
 CWD = Path.cwd()
 
@@ -36,44 +37,69 @@ class CheckResult:
 def check_dev_kid_on_path() -> Tuple[str, str]:
     if shutil.which("dev-kid"):
         return CheckResult.PASS, f"dev-kid found at {shutil.which('dev-kid')}"
-    return CheckResult.FAIL, "dev-kid CLI not on PATH — install via the dev-kid repo's ./install"
+    return (
+        CheckResult.FAIL,
+        "dev-kid CLI not on PATH — install via the dev-kid repo's ./install",
+    )
 
 
 def check_dev_kid_yml() -> Tuple[str, str]:
     f = CWD / "dev-kid.yml"
     if f.exists():
         return CheckResult.PASS, f"{f.name} present"
-    return CheckResult.WARN, "dev-kid.yml missing — sentinel will use defaults; run `dev-kid config init`"
+    return (
+        CheckResult.WARN,
+        "dev-kid.yml missing — sentinel will use defaults; run `dev-kid config init`",
+    )
 
 
 def check_ralph_tiers() -> Tuple[str, str]:
     f = CWD / "ralph-tiers.json"
     if f.exists():
         return CheckResult.PASS, f"{f.name} present"
-    return CheckResult.WARN, "ralph-tiers.json missing — sentinel will fall back to default tiers; copy from ~/.dev-kid/ralph-tiers.json"
+    return (
+        CheckResult.WARN,
+        "ralph-tiers.json missing — sentinel will fall back to default tiers; copy from ~/.dev-kid/ralph-tiers.json",
+    )
 
 
 def check_env_keys() -> Tuple[str, str]:
     env_path = CWD / ".env"
     if not env_path.exists() and not env_path.is_symlink():
-        return CheckResult.WARN, ".env file/symlink missing in project root — providers will rely on shell env"
+        return (
+            CheckResult.WARN,
+            ".env file/symlink missing in project root — providers will rely on shell env",
+        )
     try:
         content = env_path.read_text(encoding="utf-8")
     except Exception as e:
         return CheckResult.FAIL, f".env exists but cannot be read: {e}"
     keys_present = []
-    for key in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"):
-        if any(line.startswith(f"{key}=") and "=" in line for line in content.splitlines()):
+    for key in (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY",
+    ):
+        if any(
+            line.startswith(f"{key}=") and "=" in line for line in content.splitlines()
+        ):
             keys_present.append(key)
     if keys_present:
         return CheckResult.PASS, f".env has: {', '.join(keys_present)}"
-    return CheckResult.WARN, ".env exists but no API keys detected; only Ollama tiers will work"
+    return (
+        CheckResult.WARN,
+        ".env exists but no API keys detected; only Ollama tiers will work",
+    )
 
 
 def check_tasks_md() -> Tuple[str, str]:
     f = CWD / "tasks.md"
     if not f.exists() and not f.is_symlink():
-        return CheckResult.FAIL, "tasks.md missing — run `/speckit.tasks` to generate, or create manually"
+        return (
+            CheckResult.FAIL,
+            "tasks.md missing — run `/speckit.tasks` to generate, or create manually",
+        )
     return CheckResult.PASS, "tasks.md present"
 
 
@@ -84,14 +110,20 @@ def check_tasks_md_symlink() -> Tuple[str, str]:
     if f.is_symlink():
         target = os.readlink(f)
         return CheckResult.PASS, f"tasks.md is a symlink → {target}"
-    return CheckResult.WARN, "tasks.md is a regular file (recommended: symlink to specs/<feature>/tasks.md)"
+    return (
+        CheckResult.WARN,
+        "tasks.md is a regular file (recommended: symlink to specs/<feature>/tasks.md)",
+    )
 
 
 def check_execution_plan() -> Tuple[str, str]:
     f = CWD / "execution_plan.json"
     if f.exists():
         return CheckResult.PASS, "execution_plan.json present"
-    return CheckResult.WARN, "execution_plan.json missing — run `dev-kid orchestrate <phase>` before execute"
+    return (
+        CheckResult.WARN,
+        "execution_plan.json missing — run `dev-kid orchestrate <phase>` before execute",
+    )
 
 
 def check_constitution() -> Tuple[str, str]:
@@ -103,13 +135,19 @@ def check_constitution() -> Tuple[str, str]:
     for c in candidates:
         if c.exists():
             return CheckResult.PASS, f"constitution at {c.relative_to(CWD)}"
-    return CheckResult.WARN, "no constitution found — add one for compliance enforcement"
+    return (
+        CheckResult.WARN,
+        "no constitution found — add one for compliance enforcement",
+    )
 
 
 def check_claude_hooks() -> Tuple[str, str]:
     hooks_dir = CWD / ".claude" / "hooks"
     if not hooks_dir.is_dir():
-        return CheckResult.WARN, ".claude/hooks/ missing — Claude Code hooks not installed"
+        return (
+            CheckResult.WARN,
+            ".claude/hooks/ missing — Claude Code hooks not installed",
+        )
     expected = {"stop.sh", "task-completed.sh", "pre-tool-use.sh", "session-start.sh"}
     entries = list(hooks_dir.glob("*.sh"))
     present = {p.name for p in entries}
@@ -125,8 +163,11 @@ def check_claude_hooks() -> Tuple[str, str]:
         )
     missing = expected - present
     if missing:
-        return CheckResult.WARN, f".claude/hooks/ present but missing: {', '.join(sorted(missing))}"
-    return CheckResult.PASS, f".claude/hooks/ has all expected hooks"
+        return (
+            CheckResult.WARN,
+            f".claude/hooks/ present but missing: {', '.join(sorted(missing))}",
+        )
+    return CheckResult.PASS, ".claude/hooks/ has all expected hooks"
 
 
 def check_sentinel_can_parse_tasks() -> Tuple[str, str]:
@@ -144,15 +185,25 @@ def check_sentinel_can_parse_tasks() -> Tuple[str, str]:
         return CheckResult.FAIL, f"sentinel-run failed to invoke: {e}"
     out = (result.stdout or "") + (result.stderr or "")
     if "no tasks found" in out.lower():
-        return CheckResult.FAIL, "sentinel-run sees 0 tasks — parser may be pre-permissive (re-apply parser patches)"
+        return (
+            CheckResult.FAIL,
+            "sentinel-run sees 0 tasks — parser may be pre-permissive (re-apply parser patches)",
+        )
     # Count visible task lines
     task_count = sum(
-        1 for line in out.splitlines()
+        1
+        for line in out.splitlines()
         if line.strip().startswith("[ ]") or line.strip().startswith("[x]")
     )
     if task_count > 0:
-        return CheckResult.PASS, f"sentinel-run sees {task_count} task(s) — permissive parser working"
-    return CheckResult.WARN, "sentinel-run output unrecognized format — may need investigation"
+        return (
+            CheckResult.PASS,
+            f"sentinel-run sees {task_count} task(s) — permissive parser working",
+        )
+    return (
+        CheckResult.WARN,
+        "sentinel-run output unrecognized format — may need investigation",
+    )
 
 
 def check_speckit_alignment() -> Tuple[str, str]:
@@ -165,7 +216,10 @@ def check_speckit_alignment() -> Tuple[str, str]:
     try:
         # branch
         result = subprocess.run(
-            ["git", "branch", "--show-current"], capture_output=True, text=True, timeout=5
+            ["git", "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         branch = result.stdout.strip()
     except Exception:
@@ -177,10 +231,14 @@ def check_speckit_alignment() -> Tuple[str, str]:
     if fj.exists():
         try:
             import json
+
             d = json.loads(fj.read_text())
             feature_dir = d.get("feature_directory") or d.get("name")
         except Exception as e:
-            return CheckResult.WARN, f".specify/feature.json present but unparseable: {e}"
+            return (
+                CheckResult.WARN,
+                f".specify/feature.json present but unparseable: {e}",
+            )
 
     # symlink target
     tm = CWD / "tasks.md"
@@ -197,25 +255,42 @@ def check_speckit_alignment() -> Tuple[str, str]:
     sl_dir = None
     if symlink_target:
         # strip /tasks.md suffix
-        sl_dir = symlink_target.rsplit("/tasks.md", 1)[0] if "/tasks.md" in symlink_target else symlink_target
+        sl_dir = (
+            symlink_target.rsplit("/tasks.md", 1)[0]
+            if "/tasks.md" in symlink_target
+            else symlink_target
+        )
 
-    live_sources = {k: v for k, v in {
-        "branch": branch_dir,
-        "feature.json": fj_dir,
-        "symlink": sl_dir,
-    }.items() if v}
+    live_sources = {
+        k: v
+        for k, v in {
+            "branch": branch_dir,
+            "feature.json": fj_dir,
+            "symlink": sl_dir,
+        }.items()
+        if v
+    }
 
     if not live_sources:
-        return CheckResult.WARN, "no speckit signals present (no branch, no feature.json, no symlink) — orchestrate will use mtime fallback"
+        return (
+            CheckResult.WARN,
+            "no speckit signals present (no branch, no feature.json, no symlink) — orchestrate will use mtime fallback",
+        )
 
     # All signals agree?
     distinct = set(live_sources.values())
     if len(distinct) == 1:
-        return CheckResult.PASS, f"speckit signals agree → {next(iter(distinct))}  (sources: {list(live_sources)})"
+        return (
+            CheckResult.PASS,
+            f"speckit signals agree → {next(iter(distinct))}  (sources: {list(live_sources)})",
+        )
 
     # Disagreement — show what each says
     summary = ", ".join(f"{k}={v}" for k, v in live_sources.items())
-    return CheckResult.FAIL, f"speckit signals DISAGREE: {summary}. Run `dev-kid spec-resolve` to see which wins."
+    return (
+        CheckResult.FAIL,
+        f"speckit signals DISAGREE: {summary}. Run `dev-kid spec-resolve` to see which wins.",
+    )
 
 
 CHECKS = [

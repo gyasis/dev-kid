@@ -6,16 +6,16 @@ This module handles the creation and management of .constitution.md files
 that define immutable development rules for Speckit-driven workflows.
 """
 
-import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
 
 @dataclass
 class ConstitutionViolation:
     """Represents a violation of constitution rules"""
+
     rule: str
     file: str
     line: int
@@ -25,6 +25,7 @@ class ConstitutionViolation:
 @dataclass
 class ConstitutionSection:
     """Represents a section of the constitution"""
+
     name: str
     rules: List[str]
 
@@ -42,7 +43,7 @@ class Constitution:
         "Architecture Principles",
         "Testing Standards",
         "Code Standards",
-        "Security Standards"
+        "Security Standards",
     ]
 
     def __init__(self, file_path: str = "memory-bank/shared/.constitution.md"):
@@ -57,19 +58,18 @@ class Constitution:
         content = self.file_path.read_text()
 
         # Extract sections (## Section Name)
-        section_pattern = r'^## (.+)$'
+        section_pattern = r"^## (.+)$"
         current_section = None
         current_rules = []
 
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             # Check for section header
             section_match = re.match(section_pattern, line.strip())
             if section_match:
                 # Save previous section
                 if current_section:
                     self.sections[current_section] = ConstitutionSection(
-                        name=current_section,
-                        rules=current_rules
+                        name=current_section, rules=current_rules
                     )
 
                 # Start new section
@@ -77,7 +77,7 @@ class Constitution:
                 current_rules = []
 
             # Check for rule (- Rule text)
-            elif line.strip().startswith('- '):
+            elif line.strip().startswith("- "):
                 rule = line.strip()[2:].strip()
                 if rule and current_section:
                     current_rules.append(rule)
@@ -85,8 +85,7 @@ class Constitution:
         # Save last section
         if current_section:
             self.sections[current_section] = ConstitutionSection(
-                name=current_section,
-                rules=current_rules
+                name=current_section, rules=current_rules
             )
 
     def validate_quality(self) -> Tuple[int, List[str]]:
@@ -109,20 +108,34 @@ class Constitution:
                 recommendations.append(f"Section '{section}' has no rules")
             elif len(self.sections[section].rules) < 3:
                 score -= 5
-                recommendations.append(f"Section '{section}' has few rules (consider adding more)")
+                recommendations.append(
+                    f"Section '{section}' has few rules (consider adding more)"
+                )
 
         # Check for specific critical rules
-        tech_rules = self.sections.get("Technology Standards", ConstitutionSection("", [])).rules
-        if not any("version" in r.lower() or "3." in r or "4." in r for r in tech_rules):
+        tech_rules = self.sections.get(
+            "Technology Standards", ConstitutionSection("", [])
+        ).rules
+        if not any(
+            "version" in r.lower() or "3." in r or "4." in r for r in tech_rules
+        ):
             score -= 5
-            recommendations.append("Technology Standards: Specify language/framework versions")
+            recommendations.append(
+                "Technology Standards: Specify language/framework versions"
+            )
 
-        test_rules = self.sections.get("Testing Standards", ConstitutionSection("", [])).rules
+        test_rules = self.sections.get(
+            "Testing Standards", ConstitutionSection("", [])
+        ).rules
         if not any("coverage" in r.lower() or "%" in r for r in test_rules):
             score -= 5
-            recommendations.append("Testing Standards: Specify coverage threshold (e.g., >80%)")
+            recommendations.append(
+                "Testing Standards: Specify coverage threshold (e.g., >80%)"
+            )
 
-        code_rules = self.sections.get("Code Standards", ConstitutionSection("", [])).rules
+        code_rules = self.sections.get(
+            "Code Standards", ConstitutionSection("", [])
+        ).rules
         if not any("type" in r.lower() or "hint" in r.lower() for r in code_rules):
             score -= 3
             recommendations.append("Code Standards: Consider requiring type hints")
@@ -151,7 +164,7 @@ class Constitution:
             "model": ["Technology Standards", "Architecture Principles"],
             "database": ["Technology Standards", "Security Standards"],
             "auth": ["Security Standards"],
-            "security": ["Security Standards"]
+            "security": ["Security Standards"],
         }
 
         task_lower = task_description.lower()
@@ -186,7 +199,7 @@ class Constitution:
             return violations
 
         content = file_path_obj.read_text()
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         # Check code standards
         code_section = self.sections.get("Code Standards", ConstitutionSection("", []))
@@ -196,45 +209,60 @@ class Constitution:
             if "type hint" in rule.lower() or "type annotation" in rule.lower():
                 # Check for functions without type hints (simple heuristic)
                 for i, line in enumerate(lines, 1):
-                    if line.strip().startswith('def ') and '->' not in line:
-                        violations.append(ConstitutionViolation(
-                            rule=rule,
-                            file=file_path,
-                            line=i,
-                            message="Function missing type hints"
-                        ))
+                    if line.strip().startswith("def ") and "->" not in line:
+                        violations.append(
+                            ConstitutionViolation(
+                                rule=rule,
+                                file=file_path,
+                                line=i,
+                                message="Function missing type hints",
+                            )
+                        )
 
             # Docstring check
             if "docstring" in rule.lower():
                 # Check for functions without docstrings
                 for i, line in enumerate(lines, 1):
-                    if line.strip().startswith('def ') or line.strip().startswith('class '):
+                    if line.strip().startswith("def ") or line.strip().startswith(
+                        "class "
+                    ):
                         # Check if next non-empty line is a docstring
-                        next_lines = lines[i:i+3]
-                        has_docstring = any('"""' in l or "'''" in l for l in next_lines)
+                        next_lines = lines[i : i + 3]
+                        has_docstring = any(
+                            '"""' in l or "'''" in l for l in next_lines
+                        )
                         if not has_docstring:
-                            violations.append(ConstitutionViolation(
-                                rule=rule,
-                                file=file_path,
-                                line=i,
-                                message="Function/class missing docstring"
-                            ))
+                            violations.append(
+                                ConstitutionViolation(
+                                    rule=rule,
+                                    file=file_path,
+                                    line=i,
+                                    message="Function/class missing docstring",
+                                )
+                            )
 
         # Check security standards
-        security_section = self.sections.get("Security Standards", ConstitutionSection("", []))
+        security_section = self.sections.get(
+            "Security Standards", ConstitutionSection("", [])
+        )
 
         for rule in security_section.rules:
             # Check for hardcoded secrets
             if "hardcoded" in rule.lower() or "secret" in rule.lower():
                 for i, line in enumerate(lines, 1):
-                    if any(keyword in line.lower() for keyword in ['password', 'api_key', 'secret', 'token']):
-                        if '=' in line and ('"' in line or "'" in line):
-                            violations.append(ConstitutionViolation(
-                                rule=rule,
-                                file=file_path,
-                                line=i,
-                                message="Possible hardcoded secret"
-                            ))
+                    if any(
+                        keyword in line.lower()
+                        for keyword in ["password", "api_key", "secret", "token"]
+                    ):
+                        if "=" in line and ('"' in line or "'" in line):
+                            violations.append(
+                                ConstitutionViolation(
+                                    rule=rule,
+                                    file=file_path,
+                                    line=i,
+                                    message="Possible hardcoded secret",
+                                )
+                            )
 
         return violations
 
@@ -242,19 +270,23 @@ class Constitution:
 class ConstitutionManager:
     """Manages constitution creation, editing, and templates"""
 
-    TEMPLATES_DIR = Path(__file__).parent.parent / "templates" / "constitution_templates"
+    TEMPLATES_DIR = (
+        Path(__file__).parent.parent / "templates" / "constitution_templates"
+    )
 
     TEMPLATES = {
         "python-api": "Python API (FastAPI/Flask)",
         "typescript-frontend": "TypeScript Frontend (React/Next.js)",
         "data-engineering": "Data Engineering (Airflow/dbt)",
         "full-stack": "Full-Stack (Frontend + Backend)",
-        "custom": "Custom (blank template)"
+        "custom": "Custom (blank template)",
     }
 
     def __init__(self, project_path: str = "."):
         self.project_path = Path(project_path)
-        self.constitution_path = self.project_path / "memory-bank" / "shared" / ".constitution.md"
+        self.constitution_path = (
+            self.project_path / "memory-bank" / "shared" / ".constitution.md"
+        )
 
     def init_from_template(self, template_name: str) -> bool:
         """
@@ -299,13 +331,13 @@ class ConstitutionManager:
         """
         if not self.constitution_path.exists():
             print(f"❌ Constitution not found: {self.constitution_path}")
-            print(f"   Run: dev-kid constitution init")
+            print("   Run: dev-kid constitution init")
             return False
 
         constitution = Constitution(str(self.constitution_path))
         score, recommendations = constitution.validate_quality()
 
-        print(f"\n🔍 Validating Constitution...\n")
+        print("\n🔍 Validating Constitution...\n")
 
         # Check each section
         for section in Constitution.REQUIRED_SECTIONS:
@@ -368,27 +400,30 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Constitution Management")
-    parser.add_argument('command', choices=['init', 'validate', 'show', 'list-templates'],
-                       help='Command to execute')
-    parser.add_argument('--template', help='Template name for init command')
-    parser.add_argument('--project-path', default='.', help='Project root path')
+    parser.add_argument(
+        "command",
+        choices=["init", "validate", "show", "list-templates"],
+        help="Command to execute",
+    )
+    parser.add_argument("--template", help="Template name for init command")
+    parser.add_argument("--project-path", default=".", help="Project root path")
 
     args = parser.parse_args()
 
     manager = ConstitutionManager(args.project_path)
 
-    if args.command == 'list-templates':
+    if args.command == "list-templates":
         print("\nAvailable Templates:\n")
         for i, (key, desc) in enumerate(ConstitutionManager.TEMPLATES.items(), 1):
             print(f"  {i}. {key}: {desc}")
         print()
 
-    elif args.command == 'init':
+    elif args.command == "init":
         if not args.template:
             # Interactive mode
             print("\n📜 Constitution Initialization\n")
             print("Select project type:")
-            for i, (key, desc) in enumerate(ConstitutionManager.TEMPLATES.items(), 1):
+            for i, (_key, desc) in enumerate(ConstitutionManager.TEMPLATES.items(), 1):
                 print(f"  {i}. {desc}")
 
             try:
@@ -408,12 +443,12 @@ def main():
             print("  2. Validate: dev-kid constitution validate")
             print("  3. Use in workflow: /speckit.constitution\n")
 
-    elif args.command == 'validate':
+    elif args.command == "validate":
         manager.validate()
 
-    elif args.command == 'show':
+    elif args.command == "show":
         manager.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

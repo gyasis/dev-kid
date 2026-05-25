@@ -16,15 +16,15 @@ import shutil
 def setup_test_environment(tmp_dir: Path):
     """Setup test git repo with constitution and tasks"""
     # Initialize git repo
-    subprocess.run(['git', 'init'], cwd=tmp_dir, check=True)
-    subprocess.run(['git', 'config', 'user.email', 'test@example.com'], cwd=tmp_dir)
-    subprocess.run(['git', 'config', 'user.name', 'Test User'], cwd=tmp_dir)
+    subprocess.run(["git", "init"], cwd=tmp_dir, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_dir)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_dir)
 
     # Create initial commit
     readme = tmp_dir / "README.md"
     readme.write_text("# Test Project")
-    subprocess.run(['git', 'add', '.'], cwd=tmp_dir)
-    subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=tmp_dir)
+    subprocess.run(["git", "add", "."], cwd=tmp_dir)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_dir)
 
     # Create memory-bank structure
     memory_bank = tmp_dir / "memory-bank" / "shared"
@@ -50,6 +50,7 @@ def setup_test_environment(tmp_dir: Path):
 
     # Create private memory-bank directory for progress.md
     import getpass
+
     username = getpass.getuser()
     private_dir = tmp_dir / "memory-bank" / "private" / username
     private_dir.mkdir(parents=True, exist_ok=True)
@@ -74,15 +75,12 @@ def setup_test_environment(tmp_dir: Path):
                         {
                             "task_id": "TASK-001",
                             "instruction": "Create calculator module with tests",
-                            "agent_role": "test-agent"
+                            "agent_role": "test-agent",
                         }
                     ],
-                    "checkpoint_after": {
-                        "enabled": True,
-                        "validation_required": True
-                    }
+                    "checkpoint_after": {"enabled": True, "validation_required": True},
                 }
-            ]
+            ],
         }
     }
 
@@ -115,10 +113,11 @@ def test_add() -> None:
     assert add(1, 2) == 3
 """)
 
-    subprocess.run(['git', 'add', '.'], cwd=tmp_dir)
+    subprocess.run(["git", "add", "."], cwd=tmp_dir)
 
     # Run wave executor in the temp directory
     import os
+
     original_dir = os.getcwd()
     os.chdir(tmp_dir)
 
@@ -130,7 +129,9 @@ def test_add() -> None:
         executor.load_plan()
 
         try:
-            executor.execute_checkpoint(1, executor.plan['execution_plan']['waves'][0]['checkpoint_after'])
+            executor.execute_checkpoint(
+                1, executor.plan["execution_plan"]["waves"][0]["checkpoint_after"]
+            )
             print("   ✅ Checkpoint passed (as expected)")
             return True
         except SystemExit as e:
@@ -147,7 +148,7 @@ def test_missing_type_hints(tmp_dir: Path):
     print("\n🧪 Test 2: Missing type hints (should FAIL)")
 
     # Reset git state
-    subprocess.run(['git', 'reset', '--hard', 'HEAD'], cwd=tmp_dir, check=True)
+    subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=tmp_dir, check=True)
 
     # Create non-compliant Python file (no type hints)
     test_file = tmp_dir / "calculator.py"
@@ -169,10 +170,11 @@ def test_add():
     pass
 """)
 
-    subprocess.run(['git', 'add', '.'], cwd=tmp_dir)
+    subprocess.run(["git", "add", "."], cwd=tmp_dir)
 
     # Run wave executor in the temp directory
     import os
+
     original_dir = os.getcwd()
     os.chdir(tmp_dir)
 
@@ -184,7 +186,9 @@ def test_add():
         executor.load_plan()
 
         try:
-            executor.execute_checkpoint(1, executor.plan['execution_plan']['waves'][0]['checkpoint_after'])
+            executor.execute_checkpoint(
+                1, executor.plan["execution_plan"]["waves"][0]["checkpoint_after"]
+            )
             print("   ❌ Checkpoint passed (unexpected - should have failed)")
             return False
         except SystemExit as e:
@@ -201,7 +205,7 @@ def test_missing_docstring(tmp_dir: Path):
     print("\n🧪 Test 3: Missing docstring (should FAIL)")
 
     # Reset git state
-    subprocess.run(['git', 'reset', '--hard', 'HEAD'], cwd=tmp_dir, check=True)
+    subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=tmp_dir, check=True)
 
     # Create non-compliant Python file (no docstring)
     test_file = tmp_dir / "calculator.py"
@@ -221,10 +225,11 @@ def test_add():
     pass
 """)
 
-    subprocess.run(['git', 'add', '.'], cwd=tmp_dir)
+    subprocess.run(["git", "add", "."], cwd=tmp_dir)
 
     # Run wave executor in the temp directory
     import os
+
     original_dir = os.getcwd()
     os.chdir(tmp_dir)
 
@@ -236,7 +241,9 @@ def test_add():
         executor.load_plan()
 
         try:
-            executor.execute_checkpoint(1, executor.plan['execution_plan']['waves'][0]['checkpoint_after'])
+            executor.execute_checkpoint(
+                1, executor.plan["execution_plan"]["waves"][0]["checkpoint_after"]
+            )
             print("   ❌ Checkpoint passed (unexpected - should have failed)")
             return False
         except SystemExit as e:
@@ -253,7 +260,7 @@ def test_no_constitution(tmp_dir: Path):
     print("\n🧪 Test 4: No constitution (should PASS with warning)")
 
     # Reset git state
-    subprocess.run(['git', 'reset', '--hard', 'HEAD'], cwd=tmp_dir, check=True)
+    subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=tmp_dir, check=True)
 
     # Remove constitution AFTER reset
     constitution = tmp_dir / "memory-bank" / "shared" / ".constitution.md"
@@ -262,10 +269,11 @@ def test_no_constitution(tmp_dir: Path):
     # Create any Python file (doesn't matter if compliant)
     test_file = tmp_dir / "utils.py"
     test_file.write_text("def foo(): pass")
-    subprocess.run(['git', 'add', '.'], cwd=tmp_dir)
+    subprocess.run(["git", "add", "."], cwd=tmp_dir)
 
     # Run wave executor in the temp directory
     import os
+
     original_dir = os.getcwd()
     os.chdir(tmp_dir)
 
@@ -277,7 +285,9 @@ def test_no_constitution(tmp_dir: Path):
         executor.load_plan()
 
         try:
-            executor.execute_checkpoint(1, executor.plan['execution_plan']['waves'][0]['checkpoint_after'])
+            executor.execute_checkpoint(
+                1, executor.plan["execution_plan"]["waves"][0]["checkpoint_after"]
+            )
             print("   ✅ Checkpoint passed with warning (as expected)")
             return True
         except SystemExit as e:
@@ -348,5 +358,5 @@ def main():
         shutil.rmtree(tmp_dir)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

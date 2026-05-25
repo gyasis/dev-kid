@@ -122,7 +122,7 @@ class TaskOrchestrator:
         current_wave_idx = -1
         self._wave_phases = []
 
-        for i, line in enumerate(lines):
+        for _i, line in enumerate(lines):
             # Wave-section phase header — `## Wave N`, `### Phase 2`, etc.
             # Flush any open task block into the OLD wave before bumping the
             # index, so a stray task between the last bullet and the next
@@ -269,9 +269,7 @@ class TaskOrchestrator:
         # Arrow forms: "T005 → T018" or "T005 -> T018" inside a task bullet.
         # Heuristic: arrow usually means "predecessor → current task", so if
         # T005 → appears in T018's block, T018 depends on T005.
-        arrow_matches = re.findall(
-            r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE
-        )
+        arrow_matches = re.findall(r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE)
         return [f"T{m.zfill(3)}" for m in matches + arrow_matches]
 
     def _extract_blocks(self, description: str) -> List[str]:
@@ -433,7 +431,7 @@ class TaskOrchestrator:
         deps: Dict[str, List[str]] = defaultdict(list)
 
         section_header_re = re.compile(
-            r"^\s*(#{1,6})\s*Dependencies\b.*$"     # heading form
+            r"^\s*(#{1,6})\s*Dependencies\b.*$"  # heading form
             r"|^\s*\*\*Dependencies\*\*\s*:?\s*$",  # bold form
             re.IGNORECASE,
         )
@@ -491,7 +489,8 @@ class TaskOrchestrator:
                 r"|comes\s+before"
                 r"|completes\s+before"
                 r"|precedes)\b(.*)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if narrative:
                 source_num = narrative.group(1)
@@ -506,7 +505,8 @@ class TaskOrchestrator:
             fwd_narrative = re.match(
                 r"T(\d{1,4}).*?\b(?:must\s+(?:complete|be\s+done|land)\s+after"
                 r"|must\s+follow)\b(.*)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if fwd_narrative:
                 task_num = fwd_narrative.group(1)
@@ -521,7 +521,8 @@ class TaskOrchestrator:
                 r"T(\d{1,4})\s*[:\-]?\s*"
                 r"(?:requires|depends\s+on|after|needs|->|→)?\s*"
                 r"((?:T\d{1,4}\s*,?\s*)+)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if fwd:
                 _record_forward(fwd.group(1), fwd.group(2))
@@ -530,7 +531,8 @@ class TaskOrchestrator:
             # --- Structured reverse: T<a> blocks/before T<b>[, T<c>...] ---
             rev = re.match(
                 r"T(\d{1,4})\s+(?:blocks|before)\s+((?:T\d{1,4}\s*,?\s*)+)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if rev:
                 _record_reverse(rev.group(1), rev.group(2))
@@ -659,7 +661,9 @@ class TaskOrchestrator:
         added = 0
         for task_id, dep_ids in agent_deps.items():
             for dep in dep_ids:
-                if dep not in graph[task_id] and not self._would_create_cycle(graph, task_id, dep):
+                if dep not in graph[task_id] and not self._would_create_cycle(
+                    graph, task_id, dep
+                ):
                     graph[task_id].add(dep)
                     added += 1
         if added:
@@ -702,12 +706,13 @@ class TaskOrchestrator:
             # Reuse sentinel tier1 model as sensible default
             model = self._read_yml_value("sentinel.tier1", "model") or "qwen3-coder:30b"
         if not url:
-            url = self._read_yml_value("sentinel.tier1", "ollama_url") or "http://localhost:11434"
+            url = (
+                self._read_yml_value("sentinel.tier1", "ollama_url")
+                or "http://localhost:11434"
+            )
         return (model, url)
 
-    def _read_yml_bool(
-        self, section: str, key: str, default: bool = False
-    ) -> bool:
+    def _read_yml_bool(self, section: str, key: str, default: bool = False) -> bool:
         try:
             yml_path = Path("dev-kid.yml")
             if not yml_path.exists():
@@ -791,15 +796,26 @@ class TaskOrchestrator:
         if pending_tasks == [] and len(self.tasks) > 0:
             if os.environ.get("ALLOW_EMPTY_WAVES") != "1":
                 import sys
+
                 print()
-                print("⚠️  All", len(self.tasks), "tasks in tasks.md are already marked [x].")
+                print(
+                    "⚠️  All",
+                    len(self.tasks),
+                    "tasks in tasks.md are already marked [x].",
+                )
                 print()
                 print("   This usually means ONE of:")
-                print("     (a) Feature is genuinely complete — set ALLOW_EMPTY_WAVES=1 to acknowledge.")
-                print("     (b) Wrong tasks.md is loaded — devkid resolved to a stale/wrong spec.")
+                print(
+                    "     (a) Feature is genuinely complete — set ALLOW_EMPTY_WAVES=1 to acknowledge."
+                )
+                print(
+                    "     (b) Wrong tasks.md is loaded — devkid resolved to a stale/wrong spec."
+                )
                 print()
                 print("   Diagnose:")
-                print("     dev-kid spec-resolve            # show which tasks.md was picked + why")
+                print(
+                    "     dev-kid spec-resolve            # show which tasks.md was picked + why"
+                )
                 print("     ls -la tasks.md                  # check symlink target")
                 print("     cat .specify/feature.json        # check speckit pointer")
                 print()
@@ -883,20 +899,21 @@ class TaskOrchestrator:
                     "wave_position": wave_id,
                     "can_test_now": True,  # deps satisfied by wave ordering
                     "test_hint": (
-                        "isolated-unit" if not has_deps
-                        else "integration-post-deps"
+                        "isolated-unit" if not has_deps else "integration-post-deps"
                     ),
                 }
-                task_dicts.append({
-                    "task_id": t.id,
-                    "agent_role": "Developer",
-                    "instruction": t.description,
-                    "file_locks": t.file_locks,
-                    "constitution_rules": t.constitution_rules,
-                    "testability": testability,
-                    "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
-                    "dependencies": deps,
-                })
+                task_dicts.append(
+                    {
+                        "task_id": t.id,
+                        "agent_role": "Developer",
+                        "instruction": t.description,
+                        "file_locks": t.file_locks,
+                        "constitution_rules": t.constitution_rules,
+                        "testability": testability,
+                        "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
+                        "dependencies": deps,
+                    }
+                )
 
             # Create wave
             wave = Wave(
@@ -1223,7 +1240,9 @@ class TaskOrchestrator:
                 )
                 if len(computed) == 1:
                     marker = "✓ single wave"
-                elif all(b - a == 1 for a, b in zip(computed, computed[1:])):
+                elif all(
+                    b - a == 1 for a, b in zip(computed, computed[1:], strict=False)
+                ):
                     marker = "✓ contiguous block"
                 else:
                     marker = "⚠ NON-CONTIGUOUS — deps split across phase boundary"
@@ -1307,11 +1326,10 @@ class TaskOrchestrator:
                 import sys as _sys
 
                 _sys.path.insert(0, str(Path(__file__).parent))
-                from dbt_graph import (CycleDetector, DBTGraph,
-                                       DBTTopologicalSort)
+                from dbt_graph import CycleDetector, DBTGraph, DBTTopologicalSort
 
                 graph = DBTGraph().load(".")
-                print(f"   🌿 dbt project detected — applying DAG-aware wave ordering")
+                print("   🌿 dbt project detected — applying DAG-aware wave ordering")
 
                 if graph.nodes:
                     cycle = CycleDetector.detect_cycle(graph)

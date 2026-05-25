@@ -15,6 +15,7 @@ from dataclasses import dataclass
 @dataclass
 class ConstitutionViolation:
     """Represents a violation of constitution rules"""
+
     file: str
     line: int
     rule: str
@@ -24,6 +25,7 @@ class ConstitutionViolation:
 @dataclass
 class ConstitutionSection:
     """Represents a section of the constitution"""
+
     name: str
     rules: List[str]
 
@@ -41,7 +43,7 @@ class Constitution:
         "Architecture Principles",
         "Testing Standards",
         "Code Standards",
-        "Security Standards"
+        "Security Standards",
     ]
 
     # SQL/dbt constitution rules that are recognised and opt-in
@@ -86,23 +88,22 @@ class Constitution:
         Raises:
             Exception: If file cannot be read or parsed
         """
-        content = self.file_path.read_text(encoding='utf-8')
+        content = self.file_path.read_text(encoding="utf-8")
 
         # Extract sections (## Section Name)
-        section_pattern = r'^## (.+)$'
+        section_pattern = r"^## (.+)$"
         current_section = None
         current_rules = []
         rule_dict = {}
 
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             # Check for section header
             section_match = re.match(section_pattern, line.strip())
             if section_match:
                 # Save previous section
                 if current_section:
                     self.sections[current_section] = ConstitutionSection(
-                        name=current_section,
-                        rules=current_rules
+                        name=current_section, rules=current_rules
                     )
 
                     # Add to rule dictionary with section prefix
@@ -115,7 +116,7 @@ class Constitution:
                 current_rules = []
 
             # Check for rule (- Rule text)
-            elif line.strip().startswith('- '):
+            elif line.strip().startswith("- "):
                 rule = line.strip()[2:].strip()
                 if rule and current_section:
                     current_rules.append(rule)
@@ -123,8 +124,7 @@ class Constitution:
         # Save last section
         if current_section:
             self.sections[current_section] = ConstitutionSection(
-                name=current_section,
-                rules=current_rules
+                name=current_section, rules=current_rules
             )
 
             # Add to rule dictionary
@@ -145,20 +145,24 @@ class Constitution:
             List of relevant rules
         """
         # If task has explicit constitution_rules, use those
-        if hasattr(task, 'constitution_rules') and task.constitution_rules:
+        if hasattr(task, "constitution_rules") and task.constitution_rules:
             relevant_rules = []
             for rule_key in task.constitution_rules:
                 if rule_key in self.rules:
                     relevant_rules.append(self.rules[rule_key])
                 else:
                     # Try to match by section
-                    section_name = rule_key.split('.')[0] if '.' in rule_key else rule_key
+                    section_name = (
+                        rule_key.split(".")[0] if "." in rule_key else rule_key
+                    )
                     if section_name in self.sections:
                         relevant_rules.extend(self.sections[section_name].rules)
             return relevant_rules
 
         # Otherwise, extract based on task description
-        task_description = task.description if hasattr(task, 'description') else str(task)
+        task_description = (
+            task.description if hasattr(task, "description") else str(task)
+        )
         return self._get_rules_by_keywords(task_description)
 
     def _get_rules_by_keywords(self, task_description: str) -> List[str]:
@@ -228,11 +232,11 @@ class Constitution:
                 continue
 
             # Dispatch by file type
-            if file_str.endswith('.py'):
+            if file_str.endswith(".py"):
                 violations.extend(self.validate_file(file_str))
-            elif file_str.endswith('.sql'):
+            elif file_str.endswith(".sql"):
                 violations.extend(self.scan_sql_file(file_str))
-            elif file_str.endswith('.yml') or file_str.endswith('.yaml'):
+            elif file_str.endswith(".yml") or file_str.endswith(".yaml"):
                 violations.extend(self.scan_yaml_file(file_str))
 
         return violations
@@ -250,14 +254,16 @@ class Constitution:
         if not self.file_path.exists():
             return active
 
-        content = self.file_path.read_text(encoding='utf-8')
+        content = self.file_path.read_text(encoding="utf-8")
         for rule_id in self.SQL_RULE_IDS:
             # Rule is active if it appears as a list item anywhere in the constitution
-            if re.search(rf'^\s*[-*]\s+{re.escape(rule_id)}\s*$', content, re.MULTILINE):
+            if re.search(
+                rf"^\s*[-*]\s+{re.escape(rule_id)}\s*$", content, re.MULTILINE
+            ):
                 active.append(rule_id)
         return active
 
-    def scan_sql_file(self, file_path: str) -> List['ConstitutionViolation']:
+    def scan_sql_file(self, file_path: str) -> List["ConstitutionViolation"]:
         """Scan a .sql file for active SQL constitution rule violations.
 
         Args:
@@ -272,6 +278,7 @@ class Constitution:
 
         try:
             from sentinel.sql_constitution import SQLConstitutionScanner
+
             scanner = SQLConstitutionScanner()
             sql_violations = scanner.scan_file(file_path, active_rules)
             return [
@@ -286,7 +293,7 @@ class Constitution:
         except Exception:
             return []
 
-    def scan_yaml_file(self, file_path: str) -> List['ConstitutionViolation']:
+    def scan_yaml_file(self, file_path: str) -> List["ConstitutionViolation"]:
         """Scan a dbt .yml schema file for active SQL constitution rule violations.
 
         Args:
@@ -301,6 +308,7 @@ class Constitution:
 
         try:
             from sentinel.sql_constitution import DBTSchemaYAMLScanner
+
             scanner = DBTSchemaYAMLScanner()
             yml_violations = scanner.scan_yaml(file_path, active_rules)
             return [
@@ -332,11 +340,11 @@ class Constitution:
             return violations
 
         # Only validate Python files for now
-        if not file_path.endswith('.py'):
+        if not file_path.endswith(".py"):
             return violations
 
         content = file_path_obj.read_text()
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         # Check code standards
         code_section = self.sections.get("Code Standards", ConstitutionSection("", []))
@@ -351,7 +359,9 @@ class Constitution:
                 violations.extend(self._check_docstrings(file_path, lines, rule))
 
         # Check testing standards
-        testing_section = self.sections.get("Testing Standards", ConstitutionSection("", []))
+        testing_section = self.sections.get(
+            "Testing Standards", ConstitutionSection("", [])
+        )
 
         for rule in testing_section.rules:
             # Test coverage check (basic heuristic)
@@ -359,7 +369,9 @@ class Constitution:
                 violations.extend(self._check_test_coverage(file_path, lines, rule))
 
         # Check security standards
-        security_section = self.sections.get("Security Standards", ConstitutionSection("", []))
+        security_section = self.sections.get(
+            "Security Standards", ConstitutionSection("", [])
+        )
 
         for rule in security_section.rules:
             # Check for hardcoded secrets
@@ -368,7 +380,9 @@ class Constitution:
 
         return violations
 
-    def _check_type_hints(self, file_path: str, lines: List[str], rule: str) -> List[ConstitutionViolation]:
+    def _check_type_hints(
+        self, file_path: str, lines: List[str], rule: str
+    ) -> List[ConstitutionViolation]:
         """
         Check for functions without type hints
 
@@ -380,49 +394,55 @@ class Constitution:
 
         for i, line in enumerate(lines, 1):
             # Skip private/dunder methods
-            if re.match(r'\s*def\s+_[_\w]*\(', line):
+            if re.match(r"\s*def\s+_[_\w]*\(", line):
                 continue
 
             # Check for function definition
-            if line.strip().startswith('def '):
+            if line.strip().startswith("def "):
                 # Check if it's a simple property or setter
-                if '@property' in '\n'.join(lines[max(0, i-3):i]):
+                if "@property" in "\n".join(lines[max(0, i - 3) : i]):
                     continue
 
                 # Check for return type hint
-                if '->' not in line:
-                    violations.append(ConstitutionViolation(
-                        file=file_path,
-                        line=i,
-                        rule="TYPE_HINTS_REQUIRED",
-                        message="Function missing return type hint"
-                    ))
+                if "->" not in line:
+                    violations.append(
+                        ConstitutionViolation(
+                            file=file_path,
+                            line=i,
+                            rule="TYPE_HINTS_REQUIRED",
+                            message="Function missing return type hint",
+                        )
+                    )
 
                 # Check for parameter type hints
                 # Extract function signature
-                func_match = re.search(r'def\s+\w+\s*\((.*?)\)', line)
+                func_match = re.search(r"def\s+\w+\s*\((.*?)\)", line)
                 if func_match:
                     params = func_match.group(1).strip()
                     # Skip if no parameters or only self/cls
-                    if params and params not in ['self', 'cls']:
+                    if params and params not in ["self", "cls"]:
                         # Check if parameters have type hints
-                        param_list = [p.strip() for p in params.split(',')]
+                        param_list = [p.strip() for p in params.split(",")]
                         for param in param_list:
                             # Skip self, cls, *args, **kwargs
-                            if param in ['self', 'cls'] or param.startswith('*'):
+                            if param in ["self", "cls"] or param.startswith("*"):
                                 continue
                             # Check if parameter has type hint (:)
-                            if ':' not in param:
-                                violations.append(ConstitutionViolation(
-                                    file=file_path,
-                                    line=i,
-                                    rule="TYPE_HINTS_REQUIRED",
-                                    message=f"Parameter '{param}' missing type hint"
-                                ))
+                            if ":" not in param:
+                                violations.append(
+                                    ConstitutionViolation(
+                                        file=file_path,
+                                        line=i,
+                                        rule="TYPE_HINTS_REQUIRED",
+                                        message=f"Parameter '{param}' missing type hint",
+                                    )
+                                )
 
         return violations
 
-    def _check_docstrings(self, file_path: str, lines: List[str], rule: str) -> List[ConstitutionViolation]:
+    def _check_docstrings(
+        self, file_path: str, lines: List[str], rule: str
+    ) -> List[ConstitutionViolation]:
         """
         Check for functions/classes without docstrings
 
@@ -433,30 +453,36 @@ class Constitution:
 
         for i, line in enumerate(lines, 1):
             # Skip private methods
-            if re.match(r'\s*def\s+_[_\w]*\(', line):
+            if re.match(r"\s*def\s+_[_\w]*\(", line):
                 continue
 
             # Skip private classes
-            if re.match(r'\s*class\s+_[_\w]*', line):
+            if re.match(r"\s*class\s+_[_\w]*", line):
                 continue
 
-            if line.strip().startswith('def ') or line.strip().startswith('class '):
+            if line.strip().startswith("def ") or line.strip().startswith("class "):
                 # Check if next non-empty line is a docstring
-                next_lines = lines[i:i+3] if i < len(lines) else []
+                next_lines = lines[i : i + 3] if i < len(lines) else []
                 has_docstring = any('"""' in l or "'''" in l for l in next_lines)
 
                 if not has_docstring:
-                    entity_type = "Function" if line.strip().startswith('def ') else "Class"
-                    violations.append(ConstitutionViolation(
-                        file=file_path,
-                        line=i,
-                        rule="DOCSTRINGS_REQUIRED",
-                        message=f"{entity_type} missing docstring"
-                    ))
+                    entity_type = (
+                        "Function" if line.strip().startswith("def ") else "Class"
+                    )
+                    violations.append(
+                        ConstitutionViolation(
+                            file=file_path,
+                            line=i,
+                            rule="DOCSTRINGS_REQUIRED",
+                            message=f"{entity_type} missing docstring",
+                        )
+                    )
 
         return violations
 
-    def _check_test_coverage(self, file_path: str, lines: List[str], rule: str) -> List[ConstitutionViolation]:
+    def _check_test_coverage(
+        self, file_path: str, lines: List[str], rule: str
+    ) -> List[ConstitutionViolation]:
         """
         Check for test coverage requirements
 
@@ -468,24 +494,30 @@ class Constitution:
         file_path_obj = Path(file_path)
 
         # Check if this is a test file
-        is_test_file = 'test_' in file_path_obj.name or file_path_obj.name.endswith('_test.py')
+        is_test_file = "test_" in file_path_obj.name or file_path_obj.name.endswith(
+            "_test.py"
+        )
 
         if is_test_file:
             # Count test functions
-            test_count = sum(1 for line in lines if line.strip().startswith('def test_'))
+            test_count = sum(
+                1 for line in lines if line.strip().startswith("def test_")
+            )
 
             # If this is a test file with no tests, flag it
             if test_count == 0:
-                violations.append(ConstitutionViolation(
-                    file=file_path,
-                    line=1,
-                    rule="TEST_COVERAGE_REQUIRED",
-                    message="Test file contains no test functions"
-                ))
+                violations.append(
+                    ConstitutionViolation(
+                        file=file_path,
+                        line=1,
+                        rule="TEST_COVERAGE_REQUIRED",
+                        message="Test file contains no test functions",
+                    )
+                )
         else:
             # Check if this is a regular Python file that should have tests
             # Skip __init__.py and other special files
-            if file_path_obj.name in ['__init__.py', 'setup.py', 'conftest.py']:
+            if file_path_obj.name in ["__init__.py", "setup.py", "conftest.py"]:
                 return violations
 
             # Check if corresponding test file exists
@@ -499,21 +531,27 @@ class Constitution:
             tests_dir = parent_dir / "tests"
             test_file_3 = tests_dir / f"test_{stem}.py" if tests_dir.exists() else None
 
-            has_test_file = (test_file_1.exists() or
-                           test_file_2.exists() or
-                           (test_file_3 and test_file_3.exists()))
+            has_test_file = (
+                test_file_1.exists()
+                or test_file_2.exists()
+                or (test_file_3 and test_file_3.exists())
+            )
 
             if not has_test_file:
-                violations.append(ConstitutionViolation(
-                    file=file_path,
-                    line=1,
-                    rule="TEST_COVERAGE_REQUIRED",
-                    message=f"No test file found for {file_path_obj.name} (expected test_{stem}.py or {stem}_test.py)"
-                ))
+                violations.append(
+                    ConstitutionViolation(
+                        file=file_path,
+                        line=1,
+                        rule="TEST_COVERAGE_REQUIRED",
+                        message=f"No test file found for {file_path_obj.name} (expected test_{stem}.py or {stem}_test.py)",
+                    )
+                )
 
         return violations
 
-    def _check_hardcoded_secrets(self, file_path: str, lines: List[str], rule: str) -> List[ConstitutionViolation]:
+    def _check_hardcoded_secrets(
+        self, file_path: str, lines: List[str], rule: str
+    ) -> List[ConstitutionViolation]:
         """
         Check for hardcoded secrets in code
 
@@ -524,18 +562,27 @@ class Constitution:
 
         # Common secret keywords to detect
         secret_keywords = [
-            'password', 'passwd', 'pwd',
-            'api_key', 'apikey', 'api-key',
-            'secret', 'secret_key',
-            'token', 'auth_token', 'access_token',
-            'private_key', 'privatekey',
-            'client_secret', 'client-secret'
+            "password",
+            "passwd",
+            "pwd",
+            "api_key",
+            "apikey",
+            "api-key",
+            "secret",
+            "secret_key",
+            "token",
+            "auth_token",
+            "access_token",
+            "private_key",
+            "privatekey",
+            "client_secret",
+            "client-secret",
         ]
 
         for i, line in enumerate(lines, 1):
             # Skip comments and docstrings
             stripped_line = line.strip()
-            if stripped_line.startswith('#'):
+            if stripped_line.startswith("#"):
                 continue
             if stripped_line.startswith('"""') or stripped_line.startswith("'''"):
                 continue
@@ -545,25 +592,33 @@ class Constitution:
             for keyword in secret_keywords:
                 if keyword in line_lower:
                     # Check if it's an assignment with a string literal
-                    if '=' in line and ('"' in line or "'" in line):
+                    if "=" in line and ('"' in line or "'" in line):
                         # Exclude common safe patterns
                         safe_patterns = [
-                            'os.getenv', 'os.environ',
-                            'environ.get', 'config.get',
-                            'None', '""', "''",
-                            'input(', 'getpass(',
-                            'default=', 'help=',  # argparse defaults
+                            "os.getenv",
+                            "os.environ",
+                            "environ.get",
+                            "config.get",
+                            "None",
+                            '""',
+                            "''",
+                            "input(",
+                            "getpass(",
+                            "default=",
+                            "help=",  # argparse defaults
                         ]
 
                         is_safe = any(pattern in line for pattern in safe_patterns)
 
                         if not is_safe:
-                            violations.append(ConstitutionViolation(
-                                file=file_path,
-                                line=i,
-                                rule="NO_HARDCODED_SECRETS",
-                                message=f"Possible hardcoded secret: '{keyword}' assignment detected"
-                            ))
+                            violations.append(
+                                ConstitutionViolation(
+                                    file=file_path,
+                                    line=i,
+                                    rule="NO_HARDCODED_SECRETS",
+                                    message=f"Possible hardcoded secret: '{keyword}' assignment detected",
+                                )
+                            )
                             break  # Only report once per line
 
         return violations
@@ -588,20 +643,34 @@ class Constitution:
                 recommendations.append(f"Section '{section}' has no rules")
             elif len(self.sections[section].rules) < 3:
                 score -= 5
-                recommendations.append(f"Section '{section}' has few rules (consider adding more)")
+                recommendations.append(
+                    f"Section '{section}' has few rules (consider adding more)"
+                )
 
         # Check for specific critical rules
-        tech_rules = self.sections.get("Technology Standards", ConstitutionSection("", [])).rules
-        if not any("version" in r.lower() or "3." in r or "4." in r for r in tech_rules):
+        tech_rules = self.sections.get(
+            "Technology Standards", ConstitutionSection("", [])
+        ).rules
+        if not any(
+            "version" in r.lower() or "3." in r or "4." in r for r in tech_rules
+        ):
             score -= 5
-            recommendations.append("Technology Standards: Specify language/framework versions")
+            recommendations.append(
+                "Technology Standards: Specify language/framework versions"
+            )
 
-        test_rules = self.sections.get("Testing Standards", ConstitutionSection("", [])).rules
+        test_rules = self.sections.get(
+            "Testing Standards", ConstitutionSection("", [])
+        ).rules
         if not any("coverage" in r.lower() or "%" in r for r in test_rules):
             score -= 5
-            recommendations.append("Testing Standards: Specify coverage threshold (e.g., >80%)")
+            recommendations.append(
+                "Testing Standards: Specify coverage threshold (e.g., >80%)"
+            )
 
-        code_rules = self.sections.get("Code Standards", ConstitutionSection("", [])).rules
+        code_rules = self.sections.get(
+            "Code Standards", ConstitutionSection("", [])
+        ).rules
         if not any("type" in r.lower() or "hint" in r.lower() for r in code_rules):
             score -= 3
             recommendations.append("Code Standards: Consider requiring type hints")
@@ -643,5 +712,5 @@ def main():
         print("✅ Constitution is well-formed\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

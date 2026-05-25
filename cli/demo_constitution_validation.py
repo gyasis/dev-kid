@@ -114,7 +114,7 @@ def demonstrate_validation():
 - Never commit credentials to version control
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(constitution_content)
         constitution_path = f.name
 
@@ -133,6 +133,7 @@ def demonstrate_validation():
 
     # Group violations by rule
     from collections import defaultdict
+
     violations_by_rule = defaultdict(list)
     for violation in violations:
         violations_by_rule[violation.rule].append(violation)
@@ -169,7 +170,7 @@ def demonstrate_validation():
         ("Type Hints", "TYPE_HINTS_REQUIRED"),
         ("Docstrings", "DOCSTRINGS_REQUIRED"),
         ("Hardcoded Secrets", "NO_HARDCODED_SECRETS"),
-        ("Test Coverage", "TEST_COVERAGE_REQUIRED")
+        ("Test Coverage", "TEST_COVERAGE_REQUIRED"),
     ]
 
     for feature_name, rule_name in features:
@@ -186,7 +187,9 @@ def demonstrate_validation():
     files_clean = len(clean_files)
 
     print(f"  Total files validated: {total_files}")
-    print(f"  Files with violations: {files_with_issues} ({files_with_issues/total_files*100:.1f}%)")
+    print(
+        f"  Files with violations: {files_with_issues} ({files_with_issues/total_files*100:.1f}%)"
+    )
     print(f"  Clean files: {files_clean} ({files_clean/total_files*100:.1f}%)")
     print(f"  Total violations: {len(violations)}")
     print(f"  Unique violation types: {len(violations_by_rule)}")
@@ -194,10 +197,11 @@ def demonstrate_validation():
     # Cleanup
     Path(constitution_path).unlink()
     import shutil
+
     shutil.rmtree(temp_dir)
 
     print("\n✅ Demonstration complete!\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     demonstrate_validation()

@@ -11,7 +11,6 @@ Tests verify:
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -52,7 +51,11 @@ def test_execute_task_with_constitution_rules():
         "task_id": "UNIT-001",
         "instruction": "Test task with constitution rules",
         "agent_role": "test-agent",
-        "constitution_rules": ["no_destructive_ops", "verify_before_commit", "test_rule"]
+        "constitution_rules": [
+            "no_destructive_ops",
+            "verify_before_commit",
+            "test_rule",
+        ],
     }
 
     executor = WaveExecutor()
@@ -67,8 +70,12 @@ def test_execute_task_with_constitution_rules():
 
     task_info = registry["tasks"]["UNIT-001"]
     assert task_info["command"] == task["instruction"], "Command mismatch"
-    assert len(task_info["constitution_rules"]) == 3, "Constitution rules count mismatch"
-    assert "no_destructive_ops" in task_info["constitution_rules"], "Constitution rule missing"
+    assert (
+        len(task_info["constitution_rules"]) == 3
+    ), "Constitution rules count mismatch"
+    assert (
+        "no_destructive_ops" in task_info["constitution_rules"]
+    ), "Constitution rule missing"
 
     print("✅ Test passed: Task registered with 3 constitution rules")
     return True
@@ -82,7 +89,7 @@ def test_execute_task_without_constitution_rules():
     task = {
         "task_id": "UNIT-002",
         "instruction": "Test task without constitution rules",
-        "agent_role": "test-agent"
+        "agent_role": "test-agent",
     }
 
     executor = WaveExecutor()
@@ -95,7 +102,9 @@ def test_execute_task_without_constitution_rules():
 
     task_info = registry["tasks"]["UNIT-002"]
     assert task_info["command"] == task["instruction"], "Command mismatch"
-    assert len(task_info["constitution_rules"]) == 0, "Should have no constitution rules"
+    assert (
+        len(task_info["constitution_rules"]) == 0
+    ), "Should have no constitution rules"
 
     print("✅ Test passed: Task registered with no constitution rules")
     return True
@@ -110,7 +119,7 @@ def test_execute_task_empty_constitution_rules():
         "task_id": "UNIT-003",
         "instruction": "Test task with empty rules list",
         "agent_role": "test-agent",
-        "constitution_rules": []
+        "constitution_rules": [],
     }
 
     executor = WaveExecutor()
@@ -122,7 +131,9 @@ def test_execute_task_empty_constitution_rules():
     assert "UNIT-003" in registry["tasks"], "Task not registered"
 
     task_info = registry["tasks"]["UNIT-003"]
-    assert len(task_info["constitution_rules"]) == 0, "Should have no constitution rules"
+    assert (
+        len(task_info["constitution_rules"]) == 0
+    ), "Should have no constitution rules"
 
     print("✅ Test passed: Empty constitution rules handled correctly")
     return True
@@ -153,6 +164,7 @@ def test_execute_task_method_signature():
 def cleanup_test_environment(test_dir: Path):
     """Cleanup test environment"""
     import shutil
+
     os.chdir(Path.home())
     shutil.rmtree(test_dir)
 
@@ -197,7 +209,7 @@ def run_all_tests():
 
     # Cleanup
     cleanup_test_environment(test_dir)
-    print(f"\n✅ Test environment cleaned up")
+    print("\n✅ Test environment cleaned up")
 
     # Exit with appropriate code
     sys.exit(0 if failed == 0 else 1)

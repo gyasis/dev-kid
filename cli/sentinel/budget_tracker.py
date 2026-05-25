@@ -23,19 +23,21 @@ Usage from tier_runner.py:
 
     tracker.record(actual_cost, duration_sec, task_id)
 """
+
 from __future__ import annotations
 
 import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
-
+from typing import Optional
 
 _STATE_FILE = Path(".claude/sentinel/.budget-state.json")
 _DEFAULT_BUDGET_USD = 25.0  # global cap across all sentinels in one execute run
 _DEFAULT_WARN_THRESHOLD_PCT = 0.80  # warn at 80% spent
-_DEFAULT_HANDOFF_THRESHOLD_USD = 1.0  # per-task threshold that triggers handoff escalation
+_DEFAULT_HANDOFF_THRESHOLD_USD = (
+    1.0  # per-task threshold that triggers handoff escalation
+)
 
 
 class BudgetTracker:
@@ -68,7 +70,9 @@ class BudgetTracker:
             if self.state_file.exists():
                 data = json.loads(self.state_file.read_text(encoding="utf-8"))
                 self._cumulative_cost = float(data.get("cumulative_cost_usd", 0.0))
-                self._cumulative_duration_sec = float(data.get("cumulative_duration_sec", 0.0))
+                self._cumulative_duration_sec = float(
+                    data.get("cumulative_duration_sec", 0.0)
+                )
                 self._task_count = int(data.get("task_count", 0))
                 self._warned = bool(data.get("warned", False))
         except Exception:
@@ -130,7 +134,9 @@ class BudgetTracker:
         """
         return projected_cost >= self.handoff_per_task_usd
 
-    def record(self, cost_usd: float, duration_sec: float, task_id: Optional[str] = None) -> None:
+    def record(
+        self, cost_usd: float, duration_sec: float, task_id: Optional[str] = None
+    ) -> None:
         self._cumulative_cost += float(cost_usd)
         self._cumulative_duration_sec += float(duration_sec)
         self._task_count += 1
@@ -218,19 +224,35 @@ def get_tracker(
     root = (project_root or _resolve_project_root()).resolve()
     key = str(root)
     if key not in _project_trackers:
-        b = budget_usd if budget_usd is not None else float(
-            os.environ.get("DEVKID_SENTINEL_BUDGET_USD", _DEFAULT_BUDGET_USD)
+        b = (
+            budget_usd
+            if budget_usd is not None
+            else float(
+                os.environ.get("DEVKID_SENTINEL_BUDGET_USD", _DEFAULT_BUDGET_USD)
+            )
         )
-        w = warn_pct if warn_pct is not None else float(
-            os.environ.get("DEVKID_SENTINEL_WARN_PCT", _DEFAULT_WARN_THRESHOLD_PCT)
+        w = (
+            warn_pct
+            if warn_pct is not None
+            else float(
+                os.environ.get("DEVKID_SENTINEL_WARN_PCT", _DEFAULT_WARN_THRESHOLD_PCT)
+            )
         )
-        h = handoff_per_task_usd if handoff_per_task_usd is not None else float(
-            os.environ.get("DEVKID_SENTINEL_HANDOFF_THRESHOLD", _DEFAULT_HANDOFF_THRESHOLD_USD)
+        h = (
+            handoff_per_task_usd
+            if handoff_per_task_usd is not None
+            else float(
+                os.environ.get(
+                    "DEVKID_SENTINEL_HANDOFF_THRESHOLD", _DEFAULT_HANDOFF_THRESHOLD_USD
+                )
+            )
         )
         # Resolve state file under THIS project's root, not CWD
         state_file = root / ".claude" / "sentinel" / ".budget-state.json"
         _project_trackers[key] = BudgetTracker(
-            budget_usd=b, warn_pct=w, handoff_per_task_usd=h,
+            budget_usd=b,
+            warn_pct=w,
+            handoff_per_task_usd=h,
             state_file=state_file,
         )
     return _project_trackers[key]

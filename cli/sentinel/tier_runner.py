@@ -18,7 +18,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -108,8 +107,16 @@ def sentinel_health_check(config) -> dict:
                         tier_issues = []
 
                         for role, model_str in models.items():
-                            provider = model_str.split("/", 1)[0] if "/" in model_str else "openai"
-                            model_name = model_str.split("/", 1)[1] if "/" in model_str else model_str
+                            provider = (
+                                model_str.split("/", 1)[0]
+                                if "/" in model_str
+                                else "openai"
+                            )
+                            model_name = (
+                                model_str.split("/", 1)[1]
+                                if "/" in model_str
+                                else model_str
+                            )
 
                             if not provider_ok.get(provider, False):
                                 tier_ok = False
@@ -126,11 +133,13 @@ def sentinel_health_check(config) -> dict:
                         status = "ready" if tier_ok else "unavailable"
                         if tier_ok:
                             usable_tier_count += 1
-                        tier_health.append({
-                            "tier": tier_name,
-                            "status": status,
-                            "issues": tier_issues,
-                        })
+                        tier_health.append(
+                            {
+                                "tier": tier_name,
+                                "status": status,
+                                "issues": tier_issues,
+                            }
+                        )
 
                         if tier_issues:
                             for issue in tier_issues:
@@ -184,7 +193,10 @@ def _check_ollama_model(base_url: str, model_name: str) -> bool:
     try:
         result = subprocess.run(
             ["curl", "-sf", f"{base_url}/api/tags"],
-            timeout=5, capture_output=True, text=True, check=False,
+            timeout=5,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if result.returncode != 0:
             return False
@@ -275,9 +287,7 @@ class TierRunner:
             str(max_iter),
         ]
 
-        print(
-            f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} runs)..."
-        )
+        print(f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} runs)...")
         start = time.time()
         try:
             result = subprocess.run(
@@ -292,8 +302,11 @@ class TierRunner:
             elapsed = time.time() - start
             print(f"      ⚠️  Tier 1 timed out after {elapsed:.0f}s")
             return TierResult(
-                attempted=True, skipped=False, model=model,
-                ollama_url=ollama_url, duration_sec=elapsed,
+                attempted=True,
+                skipped=False,
+                model=model,
+                ollama_url=ollama_url,
+                duration_sec=elapsed,
                 final_status="FAIL",
                 error_messages=["Tier 1 timed out after 300s"],
             )
@@ -351,13 +364,17 @@ class TierRunner:
         """
         from . import TierResult
 
-        model = getattr(config, "sentinel_tier2_model", "") or "claude-sonnet-4-20250514"
+        model = (
+            getattr(config, "sentinel_tier2_model", "") or "claude-sonnet-4-20250514"
+        )
         max_iter = getattr(config, "sentinel_tier2_max_iterations", 10)
         max_budget = getattr(config, "sentinel_tier2_max_budget_usd", 2.0)
         max_duration = getattr(config, "sentinel_tier2_max_duration_min", 10)
 
         if "ANTHROPIC_API_KEY" not in os.environ:
-            print("      ⚠️  Tier 2: ANTHROPIC_API_KEY not set — skipping (not exhausted)")
+            print(
+                "      ⚠️  Tier 2: ANTHROPIC_API_KEY not set — skipping (not exhausted)"
+            )
             return TierResult(
                 attempted=False,
                 skipped=True,
@@ -393,8 +410,11 @@ class TierRunner:
             elapsed = time.time() - start
             print(f"      ⚠️  Tier 2 timed out after {elapsed:.0f}s")
             return TierResult(
-                attempted=True, skipped=False, model=model,
-                duration_sec=elapsed, final_status="FAIL",
+                attempted=True,
+                skipped=False,
+                model=model,
+                duration_sec=elapsed,
+                final_status="FAIL",
                 error_messages=[f"Tier 2 timed out after {timeout_sec}s"],
             )
         elapsed = time.time() - start
@@ -430,7 +450,6 @@ class TierRunner:
             final_status=final_status,
             error_messages=[result.stderr.strip()] if result.stderr.strip() else [],
         )
-
 
     def run_tiered(
         self,
@@ -468,7 +487,9 @@ class TierRunner:
         if not tiers_path.exists():
             print(f"      ❌ Tiers file not found: {tiers_path}")
             return TierResult(
-                attempted=False, skipped=True, tier_name="tiered",
+                attempted=False,
+                skipped=True,
+                tier_name="tiered",
                 error_messages=[f"Tiers file not found: {tiers_path}"],
                 final_status="FAIL",
             )
@@ -479,7 +500,9 @@ class TierRunner:
         except Exception as exc:
             print(f"      ❌ Failed to parse tiers file: {exc}")
             return TierResult(
-                attempted=False, skipped=True, tier_name="tiered",
+                attempted=False,
+                skipped=True,
+                tier_name="tiered",
                 error_messages=[f"Invalid tiers file: {exc}"],
                 final_status="FAIL",
             )
@@ -487,7 +510,9 @@ class TierRunner:
         if not tiers:
             print("      ❌ Tiers file has no tiers defined")
             return TierResult(
-                attempted=False, skipped=True, tier_name="tiered",
+                attempted=False,
+                skipped=True,
+                tier_name="tiered",
                 error_messages=["Tiers file has no tiers defined"],
                 final_status="FAIL",
             )
@@ -500,7 +525,9 @@ class TierRunner:
             if start_idx is None:
                 print(f"      ❌ min_tier '{min_tier}' not found in {tiers_path}")
                 return TierResult(
-                    attempted=False, skipped=True, tier_name="tiered",
+                    attempted=False,
+                    skipped=True,
+                    tier_name="tiered",
                     error_messages=[f"min_tier '{min_tier}' not found in {tiers_path}"],
                     final_status="FAIL",
                 )
@@ -517,6 +544,7 @@ class TierRunner:
         # prevents 65-task wave plans from burning 65 × per-task-cap = $325+ silently.
         from sentinel.budget_tracker import get_tracker
         from sentinel import handoff as _handoff
+
         global_tracker = get_tracker()
 
         # Surface global budget state once per sentinel run for visibility
@@ -535,7 +563,9 @@ class TierRunner:
                 f"or use the Claude Code handoff tier."
             )
             return TierResult(
-                attempted=False, skipped=True, tier_name="global_budget_halt",
+                attempted=False,
+                skipped=True,
+                tier_name="global_budget_halt",
                 error_messages=["global cumulative budget exhausted"],
                 final_status="FAIL",
             )
@@ -543,8 +573,10 @@ class TierRunner:
         total_start = time.time()
         total_cost = 0.0
         last_result = None
-        skipped_tiers: list[tuple[str, str]] = []  # (tier_name, reason) — for end-of-run summary
-        tier_history: list[Dict[str, Any]] = []  # Phase B: passed to handoff request if reached
+        skipped_tiers: list[tuple[str, str]] = (
+            []
+        )  # (tier_name, reason) — for end-of-run summary
+        tier_history: list[dict] = []  # Phase B: passed to handoff request if reached
 
         for tier_idx, tier in enumerate(tiers):
             tier_name = tier.get("name", f"tier-{tier_idx}")
@@ -556,10 +588,14 @@ class TierRunner:
             # Budget guard (per-sentinel cap, original behavior preserved)
             elapsed_total = time.time() - total_start
             if total_cost >= max_cost:
-                print(f"      ⚠️  Per-sentinel budget exhausted (${total_cost:.2f} >= ${max_cost}) — stopping")
+                print(
+                    f"      ⚠️  Per-sentinel budget exhausted (${total_cost:.2f} >= ${max_cost}) — stopping"
+                )
                 break
             if elapsed_total >= max_duration * 60:
-                print(f"      ⚠️  Duration cap reached ({elapsed_total:.0f}s >= {max_duration * 60}s) — stopping")
+                print(
+                    f"      ⚠️  Duration cap reached ({elapsed_total:.0f}s >= {max_duration * 60}s) — stopping"
+                )
                 break
 
             # Global budget guard — would this tier likely push us over the global cap?
@@ -571,7 +607,9 @@ class TierRunner:
                     f"would exceed global budget (${global_tracker.cumulative_cost:.2f} + "
                     f"${projected_tier_cost:.2f} > ${global_tracker.budget_usd:.2f})"
                 )
-                skipped_tiers.append((tier_name, "would exceed global cumulative budget"))
+                skipped_tiers.append(
+                    (tier_name, "would exceed global cumulative budget")
+                )
                 continue
 
             # ---------------- Phase B: Claude Code handoff tier ----------------
@@ -586,6 +624,7 @@ class TierRunner:
                 #      every "Fix the auth bug" task landing in SENTINEL-Fix/)
                 import hashlib as _hashlib
                 import re as _re
+
                 task_id = None
                 m = _re.match(r"^(T\d{1,4})\b", (objective or "").strip())
                 if m:
@@ -596,7 +635,9 @@ class TierRunner:
                         task_id = m2.group(1)
                 if not task_id:
                     # Hash-based ID — deterministic per objective, no collision
-                    digest = _hashlib.sha1((objective or "EMPTY").encode("utf-8")).hexdigest()[:8]
+                    digest = _hashlib.sha1(
+                        (objective or "EMPTY").encode("utf-8")
+                    ).hexdigest()[:8]
                     task_id = f"OBJ-{digest}"
                     print(
                         f"      ⚠️  No T### task ID in objective — using hash-derived id "
@@ -629,38 +670,61 @@ class TierRunner:
                     task_id, project_root, timeout_sec=handoff_timeout
                 )
                 if completion is None:
-                    print(f"         ❌ Handoff timed out after {handoff_timeout}s — escalating")
-                    tier_history.append({
-                        "tier": tier_name, "type": "handoff",
-                        "result": "timeout", "duration_sec": handoff_timeout,
-                    })
+                    print(
+                        f"         ❌ Handoff timed out after {handoff_timeout}s — escalating"
+                    )
+                    tier_history.append(
+                        {
+                            "tier": tier_name,
+                            "type": "handoff",
+                            "result": "timeout",
+                            "duration_sec": handoff_timeout,
+                        }
+                    )
                     last_result = TierResult(
-                        attempted=True, skipped=False, tier_name=tier_name,
-                        tier_index=tier_idx, model="claude-code-handoff",
-                        duration_sec=handoff_timeout, final_status="FAIL",
+                        attempted=True,
+                        skipped=False,
+                        tier_name=tier_name,
+                        tier_index=tier_idx,
+                        model="claude-code-handoff",
+                        duration_sec=handoff_timeout,
+                        final_status="FAIL",
                         error_messages=[f"handoff timeout after {handoff_timeout}s"],
                     )
                     continue
                 # Handoff completed — record it. Cost is $0 from dev-kid's perspective
                 # (Claude Code subscription absorbs it).
                 global_tracker.record(0.0, time.time() - total_start, task_id)
-                tier_history.append({
-                    "tier": tier_name, "type": "handoff",
-                    "result": "complete", "succeeded": completion.get("succeeded"),
-                })
+                tier_history.append(
+                    {
+                        "tier": tier_name,
+                        "type": "handoff",
+                        "result": "complete",
+                        "succeeded": completion.get("succeeded"),
+                    }
+                )
                 last_result = TierResult(
-                    attempted=True, skipped=False,
-                    tier_name=tier_name, tier_index=tier_idx,
+                    attempted=True,
+                    skipped=False,
+                    tier_name=tier_name,
+                    tier_index=tier_idx,
                     model="claude-code-handoff",
-                    iterations=1, cost_usd=0.0,
+                    iterations=1,
+                    cost_usd=0.0,
                     duration_sec=time.time() - total_start,
                     final_status="PASS" if completion.get("succeeded") else "FAIL",
-                    error_messages=[completion.get("notes", "")] if not completion.get("succeeded") else [],
+                    error_messages=(
+                        [completion.get("notes", "")]
+                        if not completion.get("succeeded")
+                        else []
+                    ),
                 )
                 if completion.get("succeeded"):
-                    print(f"         ✅ Handoff completed by Claude Code (free tier — $0)")
+                    print(
+                        "         ✅ Handoff completed by Claude Code (free tier — $0)"
+                    )
                     return last_result
-                print(f"         ❌ Handoff reported failure — escalating to next tier")
+                print("         ❌ Handoff reported failure — escalating to next tier")
                 continue
             # ----------------- end Phase B handoff dispatch --------------------
 
@@ -679,13 +743,27 @@ class TierRunner:
             # Per-role provider-key validation — report exactly which role(s) need which
             # missing provider so the user knows why a tier was skipped.
             env = {**os.environ}
-            ollama_url = getattr(config, "sentinel_tier1_ollama_url", "http://localhost:11434")
-            roles_needing_ollama = [r for r, m in models.items() if m and m.startswith("ollama/")]
-            roles_needing_google = [r for r, m in models.items() if m and m.startswith("google/")]
-            roles_needing_openai = [r for r, m in models.items() if m and m.startswith("openai/")]
-            roles_needing_groq = [r for r, m in models.items() if m and m.startswith("groq/")]
-            roles_needing_cerebras = [r for r, m in models.items() if m and m.startswith("cerebras/")]
-            roles_needing_anthropic = [r for r, m in models.items() if m and m.startswith("anthropic/")]
+            ollama_url = getattr(
+                config, "sentinel_tier1_ollama_url", "http://localhost:11434"
+            )
+            roles_needing_ollama = [
+                r for r, m in models.items() if m and m.startswith("ollama/")
+            ]
+            roles_needing_google = [
+                r for r, m in models.items() if m and m.startswith("google/")
+            ]
+            roles_needing_openai = [
+                r for r, m in models.items() if m and m.startswith("openai/")
+            ]
+            roles_needing_groq = [
+                r for r, m in models.items() if m and m.startswith("groq/")
+            ]
+            roles_needing_cerebras = [
+                r for r, m in models.items() if m and m.startswith("cerebras/")
+            ]
+            roles_needing_anthropic = [
+                r for r, m in models.items() if m and m.startswith("anthropic/")
+            ]
             has_google_key = bool(
                 os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
             )
@@ -733,15 +811,16 @@ class TierRunner:
                 continue
 
             # Write per-tier ralph.config.yaml so micro-agent uses the right models
-            tier_config_file = _write_tier_config(
-                tier, ollama_url, project_root
-            )
+            tier_config_file = _write_tier_config(tier, ollama_url, project_root)
 
             base_cmd = [
                 "micro-agent",
-                "--prompt", objective,
-                "--test", test_cmd,
-                "--max-runs", str(max_iter),
+                "--prompt",
+                objective,
+                "--test",
+                test_cmd,
+                "--max-runs",
+                str(max_iter),
             ]
 
             # micro-agent v0.1.5 unconditionally enters interactiveMode() which calls
@@ -756,28 +835,40 @@ class TierRunner:
             # command or pipeline. Use the wrapper. If stdin IS a TTY (operator
             # ran `dev-kid execute` directly in a terminal), pass-through native.
             import shlex
+
             if sys.stdin.isatty() or shutil.which("script") is None:
                 cmd = base_cmd
             else:
                 cmd_str = " ".join(shlex.quote(c) for c in base_cmd)
                 cmd = ["script", "-qfc", cmd_str, "/dev/null"]
 
-            print(f"      🔧 [{tier_idx + 1}/{len(tiers)}] {tier_name} ({artisan_model}, max {max_iter} runs)...")
+            print(
+                f"      🔧 [{tier_idx + 1}/{len(tiers)}] {tier_name} ({artisan_model}, max {max_iter} runs)..."
+            )
             tier_start = time.time()
             try:
                 result = subprocess.run(
-                    cmd, env=env,
+                    cmd,
+                    env=env,
                     timeout=max(10, min(300, (max_duration * 60) - elapsed_total + 30)),
-                    capture_output=True, text=True, check=False,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                     cwd=str(project_root),
                 )
             except subprocess.TimeoutExpired:
                 tier_elapsed = time.time() - tier_start
-                print(f"      ⚠️  {tier_name} timed out after {tier_elapsed:.0f}s — escalating")
+                print(
+                    f"      ⚠️  {tier_name} timed out after {tier_elapsed:.0f}s — escalating"
+                )
                 last_result = TierResult(
-                    attempted=True, skipped=False, tier_name=tier_name,
-                    tier_index=tier_idx, model=artisan_model,
-                    duration_sec=tier_elapsed, final_status="FAIL",
+                    attempted=True,
+                    skipped=False,
+                    tier_name=tier_name,
+                    tier_index=tier_idx,
+                    model=artisan_model,
+                    duration_sec=tier_elapsed,
+                    final_status="FAIL",
                     error_messages=[f"{tier_name} timed out"],
                 )
                 continue
@@ -811,7 +902,9 @@ class TierRunner:
             # #5 — a paid tier that reports $0 almost always means cost couldn't
             # be parsed from (PTY-noisy) stdout. Warn so the operator knows the
             # cumulative budget figure may understate real spend.
-            is_paid_tier = bool(artisan_model) and not artisan_model.startswith("ollama")
+            is_paid_tier = bool(artisan_model) and not artisan_model.startswith(
+                "ollama"
+            )
             if is_paid_tier and tier_cost == 0.0:
                 print(
                     f"      ⚠️  {tier_name}: paid model reported $0.00 cost — "
@@ -825,14 +918,17 @@ class TierRunner:
             warn_msg = global_tracker.warn_if_approaching()
             if warn_msg:
                 print(f"      {warn_msg}")
-            tier_history.append({
-                "tier": tier_name, "type": "micro-agent",
-                "model": artisan_model,
-                "iterations": parsed.get("iterations", 0),
-                "cost_usd": tier_cost,
-                "duration_sec": tier_elapsed,
-                "passed": passed,
-            })
+            tier_history.append(
+                {
+                    "tier": tier_name,
+                    "type": "micro-agent",
+                    "model": artisan_model,
+                    "iterations": parsed.get("iterations", 0),
+                    "cost_usd": tier_cost,
+                    "duration_sec": tier_elapsed,
+                    "passed": passed,
+                }
+            )
 
             # Surface output for observability
             if result.stderr.strip():
@@ -843,8 +939,10 @@ class TierRunner:
                     print(f"      │ {tier_name} stdout: {line}")
 
             last_result = TierResult(
-                attempted=True, skipped=False,
-                tier_name=tier_name, tier_index=tier_idx,
+                attempted=True,
+                skipped=False,
+                tier_name=tier_name,
+                tier_index=tier_idx,
                 model=artisan_model,
                 iterations=parsed.get("iterations", 0),
                 cost_usd=tier_cost,
@@ -884,8 +982,11 @@ class TierRunner:
         if last_result is None:
             print("      ❌ All tiers skipped — no providers available")
             return TierResult(
-                attempted=False, skipped=True, tier_name="tiered",
-                duration_sec=total_elapsed, final_status="FAIL",
+                attempted=False,
+                skipped=True,
+                tier_name="tiered",
+                duration_sec=total_elapsed,
+                final_status="FAIL",
                 error_messages=["All tiers skipped — no providers available"],
             )
 
@@ -933,9 +1034,7 @@ def _extract_winning_model(stdout: str) -> str:
     return ""
 
 
-def _write_tier_config(
-    tier: dict, ollama_url: str, project_root: Path
-) -> str | None:
+def _write_tier_config(tier: dict, ollama_url: str, project_root: Path) -> str | None:
     """Write a temporary ralph.config.yaml for the given tier.
 
     micro-agent discovers ralph.config.yaml in the project directory and uses
@@ -969,8 +1068,6 @@ def _write_tier_config(
             entry["baseUrl"] = ollama_url
         yaml_models[role] = entry
 
-    config = {"models": yaml_models}
-
     config_path = project_root / "ralph.config.yaml"
     try:
         # Simple YAML serialization (no PyYAML dependency needed)
@@ -978,7 +1075,9 @@ def _write_tier_config(
         for role, entry in yaml_models.items():
             lines.append(f"  {role}:")
             for k, v in entry.items():
-                lines.append(f"    {k}: '{v}'" if isinstance(v, str) else f"    {k}: {v}")
+                lines.append(
+                    f"    {k}: '{v}'" if isinstance(v, str) else f"    {k}: {v}"
+                )
 
         config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return str(config_path)

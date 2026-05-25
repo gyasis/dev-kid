@@ -5,8 +5,6 @@ Test script for execute_task() method in WaveExecutor
 
 import json
 import os
-import subprocess
-import sys
 from pathlib import Path
 from wave_executor import WaveExecutor
 
@@ -30,14 +28,14 @@ def test_execute_task_registration():
         "task_id": "TEST-001",
         "instruction": "Test task with constitution rules",
         "agent_role": "test-agent",
-        "constitution_rules": ["no_destructive_ops", "verify_before_commit"]
+        "constitution_rules": ["no_destructive_ops", "verify_before_commit"],
     }
 
     # Create test task without constitution rules
     task_without_rules = {
         "task_id": "TEST-002",
         "instruction": "Test task without constitution rules",
-        "agent_role": "test-agent"
+        "agent_role": "test-agent",
     }
 
     # Initialize executor (will print warning if no constitution file, which is OK)
@@ -67,34 +65,34 @@ def test_execute_task_registration():
         # Check TEST-001
         if "TEST-001" in registry.get("tasks", {}):
             task_data = registry["tasks"]["TEST-001"]
-            print(f"✅ TEST-001 found in registry")
+            print("✅ TEST-001 found in registry")
             print(f"   Command: {task_data.get('command')}")
-            rules = task_data.get('constitution_rules', [])
+            rules = task_data.get("constitution_rules", [])
             print(f"   Constitution rules: {rules}")
 
             if len(rules) == 2:
-                print(f"   ✅ Correct number of constitution rules")
+                print("   ✅ Correct number of constitution rules")
             else:
                 print(f"   ❌ Expected 2 rules, got {len(rules)}")
         else:
-            print(f"❌ TEST-001 not found in registry")
+            print("❌ TEST-001 not found in registry")
 
         print()
 
         # Check TEST-002
         if "TEST-002" in registry.get("tasks", {}):
             task_data = registry["tasks"]["TEST-002"]
-            print(f"✅ TEST-002 found in registry")
+            print("✅ TEST-002 found in registry")
             print(f"   Command: {task_data.get('command')}")
-            rules = task_data.get('constitution_rules', [])
+            rules = task_data.get("constitution_rules", [])
             print(f"   Constitution rules: {rules}")
 
             if len(rules) == 0:
-                print(f"   ✅ No constitution rules (as expected)")
+                print("   ✅ No constitution rules (as expected)")
             else:
                 print(f"   ⚠️  Unexpected rules: {rules}")
         else:
-            print(f"❌ TEST-002 not found in registry")
+            print("❌ TEST-002 not found in registry")
     else:
         print("⚠️  Registry file not found - watchdog may not be installed")
         print("   This is OK if running outside dev-kid project")

@@ -22,14 +22,15 @@ from typing import Optional
 
 from .sql_utils import strip_jinja, try_import_sqlglot
 
-
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ColumnDef:
     """Represents a single column in a table schema."""
+
     name: str
     data_type: str
     nullable: bool = True
@@ -39,9 +40,10 @@ class ColumnDef:
 @dataclass
 class SchemaChange:
     """Represents a single schema change between pre- and post-wave states."""
+
     file_path: str
     table_name: str
-    change_type: str          # COLUMN_REMOVED | COLUMN_ADDED | TYPE_CHANGED | TABLE_DROPPED | TABLE_ADDED
+    change_type: str  # COLUMN_REMOVED | COLUMN_ADDED | TYPE_CHANGED | TABLE_DROPPED | TABLE_ADDED
     column_name: Optional[str] = None
     old_value: Optional[str] = None
     new_value: Optional[str] = None
@@ -52,6 +54,7 @@ class SchemaChange:
 @dataclass
 class SchemaDiffReport:
     """Result of comparing pre- and post-wave SQL schema snapshots."""
+
     wave_id: int
     has_breaking_changes: bool
     changes: list[SchemaChange] = field(default_factory=list)
@@ -63,7 +66,8 @@ class SchemaDiffReport:
             if c.is_breaking:
                 affected = (
                     f"\n   Affected downstream models: {', '.join(c.affected_models)}"
-                    if c.affected_models else ""
+                    if c.affected_models
+                    else ""
                 )
                 lines.append(
                     f"   {c.file_path}: {c.table_name}.{c.column_name} {c.change_type}"
@@ -107,11 +111,17 @@ _PRIMARY_KEY_REGEX = re.compile(r"\bPRIMARY\s+KEY\b", re.IGNORECASE)
 def _is_narrowing_type_change(old_type: str, new_type: str) -> bool:
     """Return True if changing from old_type to new_type is a narrowing (breaking) change."""
     narrowing_pairs = [
-        ("bigint", "int"), ("bigint", "smallint"), ("bigint", "tinyint"),
-        ("int", "smallint"), ("int", "tinyint"),
-        ("decimal", "int"), ("numeric", "int"),
-        ("double", "float"), ("double precision", "float"),
-        ("text", "varchar"), ("text", "char"),
+        ("bigint", "int"),
+        ("bigint", "smallint"),
+        ("bigint", "tinyint"),
+        ("int", "smallint"),
+        ("int", "tinyint"),
+        ("decimal", "int"),
+        ("numeric", "int"),
+        ("double", "float"),
+        ("double precision", "float"),
+        ("text", "varchar"),
+        ("text", "char"),
     ]
     old_norm = old_type.lower().split("(")[0].strip()
     new_norm = new_type.lower().split("(")[0].strip()
@@ -153,7 +163,9 @@ class DDLParser:
         return self._parse_with_regex(cleaned)
 
     @staticmethod
-    def _parse_with_sqlglot(sql: str, sqlglot_mod: object, exp: object) -> dict[str, list[ColumnDef]]:
+    def _parse_with_sqlglot(
+        sql: str, sqlglot_mod: object, exp: object
+    ) -> dict[str, list[ColumnDef]]:
         """Parse using sqlglot AST."""
         result: dict[str, list[ColumnDef]] = {}
         try:
@@ -169,11 +181,13 @@ class DDLParser:
                         continue
                     # Build fully-qualified name (catalog.schema.table) preserving all parts
                     _parts = [
-                        p for p in [
+                        p
+                        for p in [
                             getattr(table_node, "catalog", None),
                             getattr(table_node, "db", None),
                             table_node.name,
-                        ] if p
+                        ]
+                        if p
                     ]
                     table_name = ".".join(_parts)
                     if not table_name:
@@ -193,12 +207,14 @@ class DDLParser:
                             isinstance(c, exp.PrimaryKeyColumnConstraint)  # type: ignore[attr-defined]
                             for c in col_def.find_all(exp.ColumnConstraint)  # type: ignore[attr-defined]
                         )
-                        cols.append(ColumnDef(
-                            name=name,
-                            data_type=dtype,
-                            nullable=not not_null,
-                            is_pk=is_pk,
-                        ))
+                        cols.append(
+                            ColumnDef(
+                                name=name,
+                                data_type=dtype,
+                                nullable=not not_null,
+                                is_pk=is_pk,
+                            )
+                        )
                     if cols:
                         result[table_name] = cols
         except Exception:
@@ -231,7 +247,9 @@ class DDLParser:
             pk_cols: set[str] = set()
             pk_table = re.search(r"PRIMARY\s+KEY\s*\(([^)]+)\)", body, re.IGNORECASE)
             if pk_table:
-                pk_cols = {c.strip().strip('"\'`') for c in pk_table.group(1).split(",")}
+                pk_cols = {
+                    c.strip().strip("\"'`") for c in pk_table.group(1).split(",")
+                }
 
             cols: list[ColumnDef] = []
             # Split on commas that are NOT inside parentheses (e.g. DECIMAL(10,2))
@@ -239,24 +257,27 @@ class DDLParser:
             _depth = 0
             _cur: list[str] = []
             for _ch in body:
-                if _ch == '(':
+                if _ch == "(":
                     _depth += 1
                     _cur.append(_ch)
-                elif _ch == ')':
+                elif _ch == ")":
                     _depth -= 1
                     _cur.append(_ch)
-                elif _ch == ',' and _depth == 0:
-                    _parts.append(''.join(_cur))
+                elif _ch == "," and _depth == 0:
+                    _parts.append("".join(_cur))
                     _cur = []
                 else:
                     _cur.append(_ch)
             if _cur:
-                _parts.append(''.join(_cur))
+                _parts.append("".join(_cur))
             for raw_line in _parts:
                 raw_line = raw_line.strip()
                 # Skip constraint lines
-                if re.match(r"(?:PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|KEY|CONSTRAINT)\b",
-                            raw_line, re.IGNORECASE):
+                if re.match(
+                    r"(?:PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|KEY|CONSTRAINT)\b",
+                    raw_line,
+                    re.IGNORECASE,
+                ):
                     continue
                 m2 = _COL_REGEX.match(raw_line)
                 if not m2:
@@ -266,7 +287,11 @@ class DDLParser:
                 nullable_str = (m2.group(3) or "").upper()
                 nullable = "NOT NULL" not in nullable_str
                 is_pk = col_name in pk_cols or bool(_PRIMARY_KEY_REGEX.search(raw_line))
-                cols.append(ColumnDef(name=col_name, data_type=dtype, nullable=nullable, is_pk=is_pk))
+                cols.append(
+                    ColumnDef(
+                        name=col_name, data_type=dtype, nullable=nullable, is_pk=is_pk
+                    )
+                )
 
             if cols:
                 result[table_name] = cols
@@ -277,6 +302,7 @@ class DDLParser:
 # ---------------------------------------------------------------------------
 # Schema Snapshot
 # ---------------------------------------------------------------------------
+
 
 class SchemaSnapshot:
     """Captures and persists pre-wave SQL schema state."""
@@ -311,7 +337,10 @@ class SchemaSnapshot:
         for file_path in sql_files:
             result = subprocess.run(
                 ["git", "show", f"HEAD:{file_path}"],
-                capture_output=True, text=True, check=False, timeout=15,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15,
             )
             if result.returncode != 0:
                 # New file not yet committed — empty pre-state
@@ -321,21 +350,28 @@ class SchemaSnapshot:
             tables = parser.parse_ddl(result.stdout)
             snapshot[file_path] = {
                 table_name: [
-                    [col.name, col.data_type, col.nullable, col.is_pk]
-                    for col in cols
+                    [col.name, col.data_type, col.nullable, col.is_pk] for col in cols
                 ]
                 for table_name, cols in tables.items()
             }
 
         out_file = snapshot_path / f"wave_{wave_id}_pre.json"
         out_file.write_text(
-            json.dumps({"wave_id": wave_id, "captured_at": _time.strftime("%Y-%m-%dT%H:%M:%S"),
-                        "files": snapshot}, indent=2),
+            json.dumps(
+                {
+                    "wave_id": wave_id,
+                    "captured_at": _time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "files": snapshot,
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
 
     @classmethod
-    def load_pre_wave(cls, wave_id: int, snapshot_dir: str = DEFAULT_SNAPSHOT_DIR) -> dict:
+    def load_pre_wave(
+        cls, wave_id: int, snapshot_dir: str = DEFAULT_SNAPSHOT_DIR
+    ) -> dict:
         """Load a previously captured pre-wave snapshot.
 
         Returns empty dict if snapshot not found.
@@ -353,6 +389,7 @@ class SchemaSnapshot:
 # ---------------------------------------------------------------------------
 # Schema Diff
 # ---------------------------------------------------------------------------
+
 
 class SchemaDiff:
     """Compares pre-wave and post-wave SQL schema snapshots."""
@@ -379,7 +416,11 @@ class SchemaDiff:
         changes: list[SchemaChange] = []
 
         for file_path in sql_files:
-            current_content = Path(file_path).read_text(encoding="utf-8") if Path(file_path).exists() else ""
+            current_content = (
+                Path(file_path).read_text(encoding="utf-8")
+                if Path(file_path).exists()
+                else ""
+            )
             post_tables = parser.parse_ddl(current_content)
             # Lookup snapshot entry: try exact key first, then basename fallback
             _snap_entry = pre_snapshot.get(file_path)
@@ -397,19 +438,27 @@ class SchemaDiff:
             # Detect dropped tables
             for tbl in pre_tables:
                 if tbl not in post_tables:
-                    changes.append(SchemaChange(
-                        file_path=file_path, table_name=tbl,
-                        change_type="TABLE_DROPPED", is_breaking=True,
-                        affected_models=AffectedModelFinder.find_affected(tbl, ""),
-                    ))
+                    changes.append(
+                        SchemaChange(
+                            file_path=file_path,
+                            table_name=tbl,
+                            change_type="TABLE_DROPPED",
+                            is_breaking=True,
+                            affected_models=AffectedModelFinder.find_affected(tbl, ""),
+                        )
+                    )
 
             # Detect added tables
             for tbl in post_tables:
                 if tbl not in pre_tables:
-                    changes.append(SchemaChange(
-                        file_path=file_path, table_name=tbl,
-                        change_type="TABLE_ADDED", is_breaking=False,
-                    ))
+                    changes.append(
+                        SchemaChange(
+                            file_path=file_path,
+                            table_name=tbl,
+                            change_type="TABLE_ADDED",
+                            is_breaking=False,
+                        )
+                    )
                     continue
 
                 pre_cols = {c.name: c for c in pre_tables[tbl]}
@@ -419,22 +468,33 @@ class SchemaDiff:
                 for col_name, col in pre_cols.items():
                     if col_name not in post_cols:
                         affected = AffectedModelFinder.find_affected(tbl, col_name)
-                        changes.append(SchemaChange(
-                            file_path=file_path, table_name=tbl,
-                            change_type="COLUMN_REMOVED", column_name=col_name,
-                            old_value=col.data_type, new_value=None,
-                            is_breaking=True, affected_models=affected,
-                        ))
+                        changes.append(
+                            SchemaChange(
+                                file_path=file_path,
+                                table_name=tbl,
+                                change_type="COLUMN_REMOVED",
+                                column_name=col_name,
+                                old_value=col.data_type,
+                                new_value=None,
+                                is_breaking=True,
+                                affected_models=affected,
+                            )
+                        )
 
                 # Added columns (non-breaking)
                 for col_name, col in post_cols.items():
                     if col_name not in pre_cols:
-                        changes.append(SchemaChange(
-                            file_path=file_path, table_name=tbl,
-                            change_type="COLUMN_ADDED", column_name=col_name,
-                            old_value=None, new_value=col.data_type,
-                            is_breaking=False,
-                        ))
+                        changes.append(
+                            SchemaChange(
+                                file_path=file_path,
+                                table_name=tbl,
+                                change_type="COLUMN_ADDED",
+                                column_name=col_name,
+                                old_value=None,
+                                new_value=col.data_type,
+                                is_breaking=False,
+                            )
+                        )
 
                 # Type changes
                 for col_name in pre_cols:
@@ -443,26 +503,36 @@ class SchemaDiff:
                         new_t = post_cols[col_name].data_type
                         if old_t.lower() != new_t.lower():
                             is_breaking = _is_narrowing_type_change(old_t, new_t)
-                            changes.append(SchemaChange(
-                                file_path=file_path, table_name=tbl,
-                                change_type="TYPE_CHANGED", column_name=col_name,
-                                old_value=old_t, new_value=new_t,
-                                is_breaking=is_breaking,
-                            ))
+                            changes.append(
+                                SchemaChange(
+                                    file_path=file_path,
+                                    table_name=tbl,
+                                    change_type="TYPE_CHANGED",
+                                    column_name=col_name,
+                                    old_value=old_t,
+                                    new_value=new_t,
+                                    is_breaking=is_breaking,
+                                )
+                            )
 
         has_breaking = any(c.is_breaking for c in changes)
-        return SchemaDiffReport(wave_id=wave_id, has_breaking_changes=has_breaking, changes=changes)
+        return SchemaDiffReport(
+            wave_id=wave_id, has_breaking_changes=has_breaking, changes=changes
+        )
 
 
 # ---------------------------------------------------------------------------
 # Affected Model Finder
 # ---------------------------------------------------------------------------
 
+
 class AffectedModelFinder:
     """Scans dbt model files to find downstream models referencing a column."""
 
     @staticmethod
-    def find_affected(table_name: str, column_name: str, models_dir: str = "models") -> list[str]:
+    def find_affected(
+        table_name: str, column_name: str, models_dir: str = "models"
+    ) -> list[str]:
         """Return model names that reference table_name and column_name.
 
         Args:
@@ -482,7 +552,11 @@ class AffectedModelFinder:
             rf"""source\s*\(\s*['"][^'"]+['"]\s*,\s*['"]{re.escape(table_name)}['"]\s*\))""",
             re.IGNORECASE,
         )
-        col_pattern = re.compile(rf"\b{re.escape(column_name)}\b", re.IGNORECASE) if column_name else None
+        col_pattern = (
+            re.compile(rf"\b{re.escape(column_name)}\b", re.IGNORECASE)
+            if column_name
+            else None
+        )
 
         affected: list[str] = []
         for sql_file in models_path.rglob("*.sql"):

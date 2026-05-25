@@ -30,17 +30,19 @@ class WaveHaltError(Exception):
 class ChangeRadiusEvaluator:
     """Evaluates whether sentinel's changes exceed the configured budget."""
 
-    def __init__(self, config: 'SentinelConfig') -> None:
-        self._max_files = getattr(config, 'sentinel_radius_max_files', 3)
-        self._max_lines = getattr(config, 'sentinel_radius_max_lines', 150)
-        self._allow_interface = getattr(config, 'sentinel_radius_allow_interface_changes', False)
+    def __init__(self, config: "SentinelConfig") -> None:
+        self._max_files = getattr(config, "sentinel_radius_max_files", 3)
+        self._max_lines = getattr(config, "sentinel_radius_max_lines", 150)
+        self._allow_interface = getattr(
+            config, "sentinel_radius_allow_interface_changes", False
+        )
 
     def evaluate(
         self,
         files_changed: list[dict],
-        interface_reports: list['InterfaceChangeReport'],
+        interface_reports: list["InterfaceChangeReport"],
         execution_plan: dict,
-    ) -> 'ChangeRadiusReport':
+    ) -> "ChangeRadiusReport":
         """Evaluate the three-axis change radius.
 
         Args:
@@ -55,7 +57,7 @@ class ChangeRadiusEvaluator:
 
         files_count = len(files_changed)
         lines_total = sum(
-            fc.get('lines_added', 0) + fc.get('lines_removed', 0)
+            fc.get("lines_added", 0) + fc.get("lines_removed", 0)
             for fc in files_changed
         )
         interface_changes_count = sum(
@@ -63,21 +65,23 @@ class ChangeRadiusEvaluator:
             for r in interface_reports
         )
 
-        changed_paths = {fc['path'] for fc in files_changed}
+        changed_paths = {fc["path"] for fc in files_changed}
 
         # Detect cross-wave files: files owned by tasks in *other* waves
-        cross_wave_files = self._find_cross_wave_conflicts(changed_paths, execution_plan)
+        cross_wave_files = self._find_cross_wave_conflicts(
+            changed_paths, execution_plan
+        )
 
         violations: list[str] = []
 
         if files_count > self._max_files:
-            violations.append('files')
+            violations.append("files")
         if lines_total > self._max_lines:
-            violations.append('lines')
+            violations.append("lines")
         if interface_changes_count > 0 and not self._allow_interface:
-            violations.append('interface')
+            violations.append("interface")
         if cross_wave_files:
-            violations.append('cross_wave')
+            violations.append("cross_wave")
 
         budget_exceeded = bool(violations)
 
@@ -100,10 +104,10 @@ class ChangeRadiusEvaluator:
     ) -> set[str]:
         """Return subset of changed_paths that appear in other waves' file_locks."""
         cross_wave: set[str] = set()
-        waves = execution_plan.get('execution_plan', {}).get('waves', [])
+        waves = execution_plan.get("execution_plan", {}).get("waves", [])
         for wave in waves:
-            for task in wave.get('tasks', []):
-                for lock in task.get('file_locks', []):
+            for task in wave.get("tasks", []):
+                for lock in task.get("file_locks", []):
                     if lock in changed_paths:
                         cross_wave.add(lock)
         return cross_wave
@@ -113,21 +117,21 @@ class CascadeAnalyzer:
     """Annotates pending tasks in tasks.md with cascade warnings."""
 
     _WARNING_PATTERN = (
-        '  > **[SENTINEL CASCADE WARNING - {timestamp}]**\n'
-        '  > Sentinel for {sentinel_id} modified: {changed_files_str}'
-        '{interface_str}\n'
-        '  > Verify your implementation against the updated interface '
-        'before marking complete.\n'
-        '  > See: `.claude/sentinel/{sentinel_id}/summary.md`'
+        "  > **[SENTINEL CASCADE WARNING - {timestamp}]**\n"
+        "  > Sentinel for {sentinel_id} modified: {changed_files_str}"
+        "{interface_str}\n"
+        "  > Verify your implementation against the updated interface "
+        "before marking complete.\n"
+        "  > See: `.claude/sentinel/{sentinel_id}/summary.md`"
     )
 
     def annotate_tasks(
         self,
         affected_task_ids: list[str],
         sentinel_id: str,
-        interface_changes: list['InterfaceChangeReport'],
-        tasks_file: Path = Path('tasks.md'),
-    ) -> list['CascadeAnnotation']:
+        interface_changes: list["InterfaceChangeReport"],
+        tasks_file: Path = Path("tasks.md"),
+    ) -> list["CascadeAnnotation"]:
         """Append cascade warnings to pending tasks in tasks.md.
 
         Only targets tasks whose line starts with '- [ ]' (incomplete).
@@ -147,21 +151,21 @@ class CascadeAnalyzer:
         if not tasks_file.exists():
             return []
 
-        content = tasks_file.read_text(encoding='utf-8')
+        content = tasks_file.read_text(encoding="utf-8")
         lines = content.splitlines(keepends=True)
 
-        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # Build interface change summary
         changed_files = [r.file_path for r in interface_changes]
-        changed_files_str = ', '.join(f'`{f}`' for f in changed_files) or 'unknown'
+        changed_files_str = ", ".join(f"`{f}`" for f in changed_files) or "unknown"
 
         iface_names = []
         for r in interface_changes:
             iface_names.extend(r.breaking_changes)
             iface_names.extend(r.non_breaking_changes)
 
-        interface_str = ''
+        interface_str = ""
         if iface_names:
             interface_str = f' (interface changes: {", ".join(iface_names)})'
 
@@ -177,26 +181,28 @@ class CascadeAnalyzer:
 
         for task_id in affected_task_ids:
             # Word-boundary match so "T1" doesn't also fire on "T12"/"T100".
-            id_pattern = re.compile(r'\b' + re.escape(task_id) + r'\b')
+            id_pattern = re.compile(r"\b" + re.escape(task_id) + r"\b")
             for i, line in enumerate(modified_lines):
                 # Match pending tasks referencing exactly this task_id
-                if line.startswith('- [ ]') and id_pattern.search(line):
+                if line.startswith("- [ ]") and id_pattern.search(line):
                     # Append warning after the task line
-                    modified_lines.insert(i + 1, warning_block + '\n')
-                    annotations.append(CascadeAnnotation(
-                        target_task_id=task_id,
-                        sentinel_id=sentinel_id,
-                        changed_files=changed_files,
-                        interface_changes=iface_names,
-                        warning_text=warning_block,
-                        applied_at=timestamp,
-                    ))
+                    modified_lines.insert(i + 1, warning_block + "\n")
+                    annotations.append(
+                        CascadeAnnotation(
+                            target_task_id=task_id,
+                            sentinel_id=sentinel_id,
+                            changed_files=changed_files,
+                            interface_changes=iface_names,
+                            warning_text=warning_block,
+                            applied_at=timestamp,
+                        )
+                    )
                     break  # Only annotate the first match per task_id
 
         if annotations:
             # Atomic write via temp file
-            temp = tasks_file.with_suffix('.tmp')
-            temp.write_text(''.join(modified_lines), encoding='utf-8')
+            temp = tasks_file.with_suffix(".tmp")
+            temp.write_text("".join(modified_lines), encoding="utf-8")
             temp.replace(tasks_file)
 
         return annotations
@@ -205,7 +211,7 @@ class CascadeAnalyzer:
         self,
         affected_tasks: list[str],
         sentinel_id: str,
-        interface_changes: list['InterfaceChangeReport'] | None = None,
+        interface_changes: list["InterfaceChangeReport"] | None = None,
     ) -> None:
         """Present cascade options to the user and wait for input.
 
@@ -217,7 +223,7 @@ class CascadeAnalyzer:
         Raises:
             WaveHaltError: If user selects 'r' or 'h'.
         """
-        affected_str = '\n'.join(f'  - {t}' for t in affected_tasks)
+        affected_str = "\n".join(f"  - {t}" for t in affected_tasks)
         print(f"\n⚠️  CASCADE WARNING — Sentinel {sentinel_id}")
         print(f"The following pending tasks may be affected:\n{affected_str}\n")
         print("Options:")
@@ -228,13 +234,13 @@ class CascadeAnalyzer:
         try:
             choice = input("Your choice [a/r/h]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
-            choice = 'h'
+            choice = "h"
 
-        if choice == 'h':
+        if choice == "h":
             raise WaveHaltError(
                 f"Wave halted by user (human-gated cascade from {sentinel_id})"
             )
-        elif choice == 'r':
+        elif choice == "r":
             if interface_changes is not None:
                 self.annotate_tasks(affected_tasks, sentinel_id, interface_changes)
             raise WaveHaltError(

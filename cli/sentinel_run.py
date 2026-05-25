@@ -36,7 +36,9 @@ def _git_branch() -> str:
     try:
         r = subprocess.run(
             ["git", "branch", "--show-current"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         return r.stdout.strip() if r.returncode == 0 else ""
     except Exception:
@@ -155,6 +157,7 @@ def load_config():
 
     try:
         from config_manager import ConfigManager
+
         mgr = ConfigManager()
         mgr.load()
         return mgr.schema
@@ -163,9 +166,7 @@ def load_config():
         return None
 
 
-def _build_task_dict(
-    task_id: str, instruction: str, file_locks: List[str]
-) -> dict:
+def _build_task_dict(task_id: str, instruction: str, file_locks: List[str]) -> dict:
     return {
         "task_id": task_id,
         "agent_role": "Developer",
@@ -198,14 +199,15 @@ def _run_single(runner, task: dict) -> str:
 def _print_result(task_id: str, result) -> None:
     icons = {"PASS": "✅", "SKIP": "⏭️", "FAIL": "❌", "ERROR": "💥"}
     icon = icons.get(result.result, "⚠️")
-    tier_used = (
-        getattr(result, "tier_name_used", None)
-        or (f"tier {result.tier_used}" if getattr(result, "tier_used", None) else "no-test")
+    tier_used = getattr(result, "tier_name_used", None) or (
+        f"tier {result.tier_used}" if getattr(result, "tier_used", None) else "no-test"
     )
     print(f"\n{icon} Sentinel {task_id}: {result.result} ({tier_used})")
     if getattr(result, "error_message", ""):
         print(f"   {result.error_message}")
-    manifest = Path.cwd() / ".claude" / "sentinel" / f"SENTINEL-{task_id}" / "manifest.json"
+    manifest = (
+        Path.cwd() / ".claude" / "sentinel" / f"SENTINEL-{task_id}" / "manifest.json"
+    )
     if manifest.exists():
         print(f"   Manifest: {manifest}")
         print(f"   Summary : {manifest.parent / 'summary.md'}")
@@ -221,40 +223,52 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "task_id", nargs="?", default=None,
+        "task_id",
+        nargs="?",
+        default=None,
         help="Task ID to run (e.g., T001). Omit with --list/--all/--pending/--completed.",
     )
     parser.add_argument(
-        "--files", nargs="*", default=None,
+        "--files",
+        nargs="*",
+        default=None,
         help="Override file_locks (default: extracted from task line)",
     )
     parser.add_argument(
-        "--instruction", default=None,
+        "--instruction",
+        default=None,
         help="Override instruction (default: read from tasks.md)",
     )
     parser.add_argument(
-        "--tasks-file", default=None,
+        "--tasks-file",
+        default=None,
         help="Path to tasks.md (default: auto-detect via speckit precedence)",
     )
     parser.add_argument(
-        "--allow-missing", action="store_true",
+        "--allow-missing",
+        action="store_true",
         help="Run even if the task isn't found in tasks.md (uses fallback instruction)",
     )
     # Batch / discovery modes
     parser.add_argument(
-        "--list", action="store_true", dest="list_only",
+        "--list",
+        action="store_true",
+        dest="list_only",
         help="List task IDs found in tasks.md and exit (no sentinel run).",
     )
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Run sentinel on every task in tasks.md (checked + unchecked).",
     )
     parser.add_argument(
-        "--pending", action="store_true",
+        "--pending",
+        action="store_true",
         help="Run sentinel only on unchecked [ ] tasks in tasks.md.",
     )
     parser.add_argument(
-        "--completed", action="store_true",
+        "--completed",
+        action="store_true",
         help="Run sentinel only on checked [x] tasks in tasks.md.",
     )
     args = parser.parse_args()
@@ -325,7 +339,9 @@ def main() -> int:
             task = _build_task_dict(task_id, instruction, file_locks)
             outcome = _run_single(runner, task)
             counts[outcome] = counts.get(outcome, 0) + 1
-            icon = {"PASS": "✅", "SKIP": "⏭️", "FAIL": "❌", "ERROR": "💥"}.get(outcome, "⚠️")
+            icon = {"PASS": "✅", "SKIP": "⏭️", "FAIL": "❌", "ERROR": "💥"}.get(
+                outcome, "⚠️"
+            )
             print(f"   {icon} {outcome}")
 
         print("\n━━━ Sentinel batch summary ━━━")

@@ -112,7 +112,7 @@ def create_github_issue(task: Task, wave_id: Optional[int] = None) -> Optional[i
         body += "_No files specified_\n"
 
     if task.dependencies:
-        body += f"\n### Dependencies\n"
+        body += "\n### Dependencies\n"
         for dep in task.dependencies:
             body += f"- Depends on #{dep}\n"
 
@@ -192,7 +192,7 @@ def sync_tasks_to_issues(dry_run: bool = False):
                 created += 1
 
     print("")
-    print(f"✅ Sync complete:")
+    print("✅ Sync complete:")
     print(f"   Created: {created}")
     print(f"   Skipped: {skipped}")
     print(f"   Total: {len(tasks)}")

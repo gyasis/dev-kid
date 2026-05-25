@@ -19,9 +19,10 @@ Task Timing Guidelines:
 import json
 import time
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict
 import sys
+
 
 class TaskWatchdog:
     """Monitors task execution and prevents loss during context compression"""
@@ -36,44 +37,41 @@ class TaskWatchdog:
         """Load task timer state from disk"""
         if self.state_file.exists():
             try:
-                self.state = json.loads(self.state_file.read_text(encoding='utf-8'))
+                self.state = json.loads(self.state_file.read_text(encoding="utf-8"))
             except json.JSONDecodeError as e:
-                print(f"⚠️  Warning: Corrupted watchdog state file")
+                print("⚠️  Warning: Corrupted watchdog state file")
                 print(f"   Error: {e}")
                 # Backup corrupted state
-                backup_path = self.state_file.with_suffix('.json.corrupted')
+                backup_path = self.state_file.with_suffix(".json.corrupted")
                 if self.state_file.exists():
                     import shutil
+
                     shutil.copy(self.state_file, backup_path)
                     print(f"   Corrupted state backed up to: {backup_path}")
                 # Reset to empty state
                 self.state = {
                     "running_tasks": {},
                     "completed_tasks": {},
-                    "warnings": []
+                    "warnings": [],
                 }
-                print(f"   Watchdog state reset. Previous tasks may be lost.")
+                print("   Watchdog state reset. Previous tasks may be lost.")
             except Exception as e:
                 print(f"❌ Error loading watchdog state: {e}")
                 self.state = {
                     "running_tasks": {},
                     "completed_tasks": {},
-                    "warnings": []
+                    "warnings": [],
                 }
         else:
-            self.state = {
-                "running_tasks": {},
-                "completed_tasks": {},
-                "warnings": []
-            }
+            self.state = {"running_tasks": {}, "completed_tasks": {}, "warnings": []}
 
     def save_state(self) -> None:
         """Persist state to disk (survives context compression)"""
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             # Atomic write: write to temp file, then rename
-            temp_file = self.state_file.with_suffix('.tmp')
-            temp_file.write_text(json.dumps(self.state, indent=2), encoding='utf-8')
+            temp_file = self.state_file.with_suffix(".tmp")
+            temp_file.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
             temp_file.rename(self.state_file)
         except Exception as e:
             print(f"⚠️  Warning: Failed to save watchdog state: {e}")
@@ -88,7 +86,7 @@ class TaskWatchdog:
             "description": description,
             "started_at": now,
             "last_checked": now,
-            "status": "running"
+            "status": "running",
         }
 
         print(f"⏱️  Started timer for {task_id}: {description}")
@@ -110,7 +108,7 @@ class TaskWatchdog:
             "started_at": task["started_at"],
             "completed_at": completed.isoformat(),
             "duration_seconds": duration,
-            "duration_human": self._format_duration(duration)
+            "duration_human": self._format_duration(duration),
         }
 
         print(f"✅ Completed {task_id} in {self._format_duration(duration)}")
@@ -152,10 +150,12 @@ class TaskWatchdog:
                     "description": task["description"],
                     "duration": self._format_duration(duration),
                     "timestamp": now.isoformat(),
-                    "message": "Task exceeds 15-minute guideline - investigate what's happening"
+                    "message": "Task exceeds 15-minute guideline - investigate what's happening",
                 }
                 warnings.append(warning)
-                print(f"⚠️  {task_id} running for {self._format_duration(duration)} (exceeds 15-min guideline)")
+                print(
+                    f"⚠️  {task_id} running for {self._format_duration(duration)} (exceeds 15-min guideline)"
+                )
                 print(f"   → Investigate: {task['description']}")
 
             # Check if task might be stalled (> 15 min since last check)
@@ -167,10 +167,12 @@ class TaskWatchdog:
                     "description": task["description"],
                     "time_since_check": self._format_duration(time_since_check),
                     "timestamp": now.isoformat(),
-                    "message": "No activity detected - task may be stalled"
+                    "message": "No activity detected - task may be stalled",
                 }
                 warnings.append(warning)
-                print(f"⚠️  {task_id} may be stalled (no check for {self._format_duration(time_since_check)})")
+                print(
+                    f"⚠️  {task_id} may be stalled (no check for {self._format_duration(time_since_check)})"
+                )
 
         self.state["warnings"] = warnings
         self.save_state()
@@ -187,8 +189,8 @@ class TaskWatchdog:
             description = task["description"]
 
             # Look for this task in tasks.md
-            for line in content.split('\n'):
-                if description in line and '[x]' in line:
+            for line in content.split("\n"):
+                if description in line and "[x]" in line:
                     # Task is marked complete!
                     print(f"✅ Detected completion of {task_id} in tasks.md")
                     self.complete_task(task_id)
@@ -196,17 +198,23 @@ class TaskWatchdog:
 
     def run_watchdog(self, duration_minutes: int = None) -> None:
         """Run watchdog in continuous mode"""
-        print(f"🐕 Task Watchdog started (checking every 5 minutes)")
+        print("🐕 Task Watchdog started (checking every 5 minutes)")
         print(f"   State file: {self.state_file}")
-        print(f"   Press Ctrl+C to stop\n")
+        print("   Press Ctrl+C to stop\n")
 
         iterations = 0
-        max_iterations = None if duration_minutes is None else (duration_minutes * 60) // self.check_interval
+        max_iterations = (
+            None
+            if duration_minutes is None
+            else (duration_minutes * 60) // self.check_interval
+        )
 
         try:
             while True:
                 self.load_state()
-                print(f"\n🔍 Watchdog check #{iterations + 1} - {datetime.now().strftime('%H:%M:%S')}")
+                print(
+                    f"\n🔍 Watchdog check #{iterations + 1} - {datetime.now().strftime('%H:%M:%S')}"
+                )
                 self.check_tasks()
 
                 print(f"   Running tasks: {len(self.state['running_tasks'])}")
@@ -218,11 +226,11 @@ class TaskWatchdog:
                     print(f"\n✅ Watchdog completed {iterations} checks")
                     break
 
-                print(f"\n💤 Next check in 5 minutes...")
+                print("\n💤 Next check in 5 minutes...")
                 time.sleep(self.check_interval)
 
         except KeyboardInterrupt:
-            print(f"\n\n🛑 Watchdog stopped by user")
+            print("\n\n🛑 Watchdog stopped by user")
             print(f"   Completed {iterations} checks")
             sys.exit(0)
 
@@ -263,42 +271,49 @@ class TaskWatchdog:
                 print(f"  {warning['type']}: {warning['task_id']}")
                 print(f"    {warning['description']}")
 
+
 def main():
     """Main entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Task Watchdog - Monitor task execution")
-    parser.add_argument('command', choices=['start', 'complete', 'check', 'report', 'run'],
-                       help='Command to execute')
-    parser.add_argument('--task-id', help='Task ID (for start/complete)')
-    parser.add_argument('--description', help='Task description (for start)')
-    parser.add_argument('--duration', type=int, help='Duration in minutes (for run)')
+    parser = argparse.ArgumentParser(
+        description="Task Watchdog - Monitor task execution"
+    )
+    parser.add_argument(
+        "command",
+        choices=["start", "complete", "check", "report", "run"],
+        help="Command to execute",
+    )
+    parser.add_argument("--task-id", help="Task ID (for start/complete)")
+    parser.add_argument("--description", help="Task description (for start)")
+    parser.add_argument("--duration", type=int, help="Duration in minutes (for run)")
 
     args = parser.parse_args()
 
     watchdog = TaskWatchdog()
     watchdog.load_state()
 
-    if args.command == 'start':
+    if args.command == "start":
         if not args.task_id or not args.description:
             print("❌ Error: --task-id and --description required for start")
             sys.exit(1)
         watchdog.start_task(args.task_id, args.description)
 
-    elif args.command == 'complete':
+    elif args.command == "complete":
         if not args.task_id:
             print("❌ Error: --task-id required for complete")
             sys.exit(1)
         watchdog.complete_task(args.task_id)
 
-    elif args.command == 'check':
+    elif args.command == "check":
         watchdog.check_tasks()
 
-    elif args.command == 'report':
+    elif args.command == "report":
         watchdog.report()
 
-    elif args.command == 'run':
+    elif args.command == "run":
         watchdog.run_watchdog(args.duration)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

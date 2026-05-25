@@ -72,7 +72,7 @@ class WaveExecutor:
                 )
             except Exception as e:
                 print(f"⚠️  Warning: Failed to load constitution: {e}")
-                print(f"   Constitution validation will be skipped")
+                print("   Constitution validation will be skipped")
                 self.constitution = None
         else:
             self.constitution: Optional[Constitution] = None
@@ -95,7 +95,9 @@ class WaveExecutor:
                 _data = _yaml.safe_load(yml_path.read_text(encoding="utf-8")) or {}
                 self.config = ConfigSchema.from_dict(_data)
             except ImportError:
-                print("⚠️  PyYAML not installed — falling back to ConfigManager for sentinel config")
+                print(
+                    "⚠️  PyYAML not installed — falling back to ConfigManager for sentinel config"
+                )
             except Exception as exc:
                 self._config_load_error = f"Failed to parse dev-kid.yml: {exc}"
                 print(f"⚠️  {self._config_load_error}")
@@ -105,7 +107,9 @@ class WaveExecutor:
                 _mgr.load()
                 self.config = _mgr.schema
             except Exception as exc:
-                self._config_load_error = self._config_load_error or f"ConfigManager failed: {exc}"
+                self._config_load_error = (
+                    self._config_load_error or f"ConfigManager failed: {exc}"
+                )
                 print(f"⚠️  Config not loaded: {self._config_load_error}")
                 self.config = None
 
@@ -125,7 +129,7 @@ class WaveExecutor:
             backup_path = self.plan_file.with_suffix(".json.corrupted")
             self.plan_file.rename(backup_path)
             print(f"   Corrupted file backed up to: {backup_path}")
-            print(f"   Re-run orchestrator to generate new execution plan")
+            print("   Re-run orchestrator to generate new execution plan")
             sys.exit(1)
         except Exception as e:
             print(f"❌ Error reading {self.plan_file}: {e}")
@@ -143,13 +147,15 @@ class WaveExecutor:
             content = self.tasks_file.read_text(encoding="utf-8")
         except FileNotFoundError:
             print(f"⚠️  tasks.md missing or broken symlink: {self.tasks_file}")
-            print(f"    Diagnose with: dev-kid spec-resolve")
+            print("    Diagnose with: dev-kid spec-resolve")
             sys.exit(2)
         except PermissionError as e:
             print(f"⚠️  Cannot read tasks.md ({e}).")
             sys.exit(2)
         except Exception as e:
-            print(f"⚠️  Unexpected error reading tasks.md ({e}). Halting to avoid silent misroute.")
+            print(
+                f"⚠️  Unexpected error reading tasks.md ({e}). Halting to avoid silent misroute."
+            )
             sys.exit(2)
         for task in tasks:
             task_desc = task["instruction"]
@@ -160,7 +166,12 @@ class WaveExecutor:
             for line in content.split("\n"):
                 # Strict-then-loose: prefer task-id anchored line; fall back to substring.
                 hit = False
-                if task_id and (f"] {task_id} " in line or f"] {task_id}:" in line or line.lstrip().startswith(f"- [x] {task_id}") or line.lstrip().startswith(f"- [ ] {task_id}")):
+                if task_id and (
+                    f"] {task_id} " in line
+                    or f"] {task_id}:" in line
+                    or line.lstrip().startswith(f"- [x] {task_id}")
+                    or line.lstrip().startswith(f"- [ ] {task_id}")
+                ):
                     hit = True
                 elif task_desc in line:
                     hit = True
@@ -250,15 +261,25 @@ class WaveExecutor:
                     raise WaveHaltError(msg)
                 icons = {"PASS": "✅", "SKIP": "⏭️", "FAIL": "❌", "ERROR": "💥"}
                 icon = icons.get(result.result, "⚠️")
-                tier_info = result.tier_name_used or f"tier {result.tier_used}" if result.tier_used else "no-test"
+                tier_info = (
+                    result.tier_name_used or f"tier {result.tier_used}"
+                    if result.tier_used
+                    else "no-test"
+                )
                 print(f"      {icon} {task_id}: {result.result} ({tier_info})")
             print("   ✅ Sentinel validation complete")
         elif not _SENTINEL_AVAILABLE:
-            print("   ⚠️  Step 2b: sentinel module not importable — skipping (see error above)")
+            print(
+                "   ⚠️  Step 2b: sentinel module not importable — skipping (see error above)"
+            )
         elif self.config is None:
-            print(f"   ⚠️  Step 2b: sentinel skipped — config not loaded ({self._config_load_error or 'unknown reason'})")
+            print(
+                f"   ⚠️  Step 2b: sentinel skipped — config not loaded ({self._config_load_error or 'unknown reason'})"
+            )
         elif not getattr(self.config, "sentinel_enabled", False):
-            print("   ℹ️  Step 2b: sentinel explicitly disabled in dev-kid.yml (sentinel.enabled: false)")
+            print(
+                "   ℹ️  Step 2b: sentinel explicitly disabled in dev-kid.yml (sentinel.enabled: false)"
+            )
 
         # Step 3: Constitution validation
         print("   Step 3: constitution-validator checks output files...")
@@ -275,7 +296,7 @@ class WaveExecutor:
                 violations = self.constitution.validate_output(modified_files)
 
                 if violations:
-                    print(f"\n❌ Constitution Violations Found:")
+                    print("\n❌ Constitution Violations Found:")
                     for v in violations:
                         print(f"   {v.file}:{v.line} - {v.rule}: {v.message}")
                     print("\n🚫 Checkpoint BLOCKED due to constitution violations")
@@ -427,7 +448,9 @@ class WaveExecutor:
                 # task formats. Without this fallback supporting both, the
                 # mark-complete step silently no-ops when execution_plan's
                 # `instruction` field drifts from the literal tasks.md line.
-                elif (f"] {task_id} " in line or f"] {task_id}:" in line) and "- [ ]" in line:
+                elif (
+                    f"] {task_id} " in line or f"] {task_id}:" in line
+                ) and "- [ ]" in line:
                     lines[i] = line.replace("- [ ]", "- [x]", 1)
                     break
             self.tasks_file.write_text("\n".join(lines), encoding="utf-8")
@@ -551,17 +574,17 @@ class WaveExecutor:
                 self.execute_task(task)
 
         print(f"   ⏳ Wave {wave_id} in progress...")
-        print(f"")
-        print(f"   ┌─────────────────────────────────────────────────────┐")
-        print(f"   │  AGENT REQUIREMENT — mark tasks complete in tasks.md │")
-        print(f"   │                                                       │")
+        print("")
+        print("   ┌─────────────────────────────────────────────────────┐")
+        print("   │  AGENT REQUIREMENT — mark tasks complete in tasks.md │")
+        print("   │                                                       │")
         for t in tasks:
             print(
                 f"   │  [ ] → [x]  {t['task_id']}: {t['instruction'][:38]}{'...' if len(t['instruction']) > 38 else '':<{41 - min(len(t['instruction']),38)}}│"
             )
-        print(f"   │                                                       │")
-        print(f"   │  Wave checkpoint will HALT if any remain [ ]          │")
-        print(f"   └─────────────────────────────────────────────────────┘")
+        print("   │                                                       │")
+        print("   │  Wave checkpoint will HALT if any remain [ ]          │")
+        print("   └─────────────────────────────────────────────────────┘")
 
     def execute(self) -> None:
         """Execute all waves with checkpoints"""
@@ -614,16 +637,18 @@ class WaveExecutor:
             # EXIT HERE — hand control back to Claude to do the work.
             # Claude marks tasks [x] in tasks.md, then re-runs `dev-kid execute`
             # which will resume from this wave's checkpoint.
-            print(f"\n⏸️  Wave {wave_id} dispatched — implement tasks above, mark [x] in tasks.md")
-            print(f"   Then re-run: dev-kid execute")
-            print(f"   (Checkpoint will validate and proceed to next wave)")
+            print(
+                f"\n⏸️  Wave {wave_id} dispatched — implement tasks above, mark [x] in tasks.md"
+            )
+            print("   Then re-run: dev-kid execute")
+            print("   (Checkpoint will validate and proceed to next wave)")
             sys.exit(0)
 
         # All waves complete — final status
         print("\n✅ All waves complete!")
 
         # Proactive pre-compact check
-        print(f"\n🔍 Checking context health...")
+        print("\n🔍 Checking context health...")
         self.compactor.check_and_trigger(len(waves))
 
 

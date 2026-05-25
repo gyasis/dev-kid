@@ -23,11 +23,11 @@ if TYPE_CHECKING:
 # TypeScript / JavaScript patterns
 # ---------------------------------------------------------------------------
 TS_PATTERNS: list[str] = [
-    r'export\s+(?:async\s+)?function\s+(\w+)',
-    r'export\s+const\s+(\w+)\s*=',
-    r'export\s+(?:abstract\s+)?class\s+(\w+)',
-    r'export\s+(?:default\s+)?interface\s+(\w+)',
-    r'export\s+type\s+(\w+)',
+    r"export\s+(?:async\s+)?function\s+(\w+)",
+    r"export\s+const\s+(\w+)\s*=",
+    r"export\s+(?:abstract\s+)?class\s+(\w+)",
+    r"export\s+(?:default\s+)?interface\s+(\w+)",
+    r"export\s+type\s+(\w+)",
 ]
 _TS_COMPILED = [re.compile(p) for p in TS_PATTERNS]
 
@@ -35,10 +35,10 @@ _TS_COMPILED = [re.compile(p) for p in TS_PATTERNS]
 # Rust patterns
 # ---------------------------------------------------------------------------
 RUST_PATTERNS: list[str] = [
-    r'pub\s+(?:async\s+)?fn\s+(\w+)',
-    r'pub\s+struct\s+(\w+)',
-    r'pub\s+trait\s+(\w+)',
-    r'pub\s+enum\s+(\w+)',
+    r"pub\s+(?:async\s+)?fn\s+(\w+)",
+    r"pub\s+struct\s+(\w+)",
+    r"pub\s+trait\s+(\w+)",
+    r"pub\s+enum\s+(\w+)",
 ]
 _RUST_COMPILED = [re.compile(p) for p in RUST_PATTERNS]
 
@@ -48,14 +48,14 @@ class InterfaceDiff:
 
     # Map file extensions to a language label
     _EXT_MAP: dict[str, str] = {
-        '.py': 'python',
-        '.ts': 'typescript',
-        '.tsx': 'typescript',
-        '.js': 'javascript',
-        '.jsx': 'javascript',
-        '.rs': 'rust',
-        '.sql': 'sql',
-        '.yml': 'yaml',
+        ".py": "python",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".js": "javascript",
+        ".jsx": "javascript",
+        ".rs": "rust",
+        ".sql": "sql",
+        ".yml": "yaml",
     }
 
     def compare(
@@ -63,7 +63,7 @@ class InterfaceDiff:
         file_path: Path,
         pre_content: str,
         post_content: str,
-    ) -> 'InterfaceChangeReport':
+    ) -> "InterfaceChangeReport":
         """Compare public API between pre-run and post-run file content.
 
         Args:
@@ -77,7 +77,7 @@ class InterfaceDiff:
         from . import InterfaceChangeReport
 
         ext = Path(file_path).suffix.lower()
-        language = self._EXT_MAP.get(ext, 'unknown')
+        language = self._EXT_MAP.get(ext, "unknown")
 
         empty_report = InterfaceChangeReport(
             file_path=str(file_path),
@@ -86,17 +86,25 @@ class InterfaceDiff:
             non_breaking_changes=[],
             modified_signatures=[],
             is_breaking=False,
-            detection_method='none',
+            detection_method="none",
         )
 
-        if language == 'python':
-            return self._compare_python(str(file_path), pre_content, post_content, empty_report)
-        elif language in ('typescript', 'javascript'):
-            return self._compare_ts_js(str(file_path), language, pre_content, post_content, empty_report)
-        elif language == 'rust':
-            return self._compare_rust(str(file_path), pre_content, post_content, empty_report)
-        elif language == 'sql':
-            return self._compare_sql(str(file_path), pre_content, post_content, empty_report)
+        if language == "python":
+            return self._compare_python(
+                str(file_path), pre_content, post_content, empty_report
+            )
+        elif language in ("typescript", "javascript"):
+            return self._compare_ts_js(
+                str(file_path), language, pre_content, post_content, empty_report
+            )
+        elif language == "rust":
+            return self._compare_rust(
+                str(file_path), pre_content, post_content, empty_report
+            )
+        elif language == "sql":
+            return self._compare_sql(
+                str(file_path), pre_content, post_content, empty_report
+            )
 
         return empty_report
 
@@ -109,21 +117,27 @@ class InterfaceDiff:
         file_path: str,
         pre: str,
         post: str,
-        base: 'InterfaceChangeReport',
-    ) -> 'InterfaceChangeReport':
+        base: "InterfaceChangeReport",
+    ) -> "InterfaceChangeReport":
         """Python AST-based comparison."""
         from . import InterfaceChangeReport
 
         try:
             pre_syms = _extract_python_symbols(pre)
         except SyntaxError:
-            warnings.warn(f"SyntaxError in pre-content of {file_path}; skipping diff")
+            warnings.warn(
+                f"SyntaxError in pre-content of {file_path}; skipping diff",
+                stacklevel=2,
+            )
             return base
 
         try:
             post_syms = _extract_python_symbols(post)
         except SyntaxError:
-            warnings.warn(f"SyntaxError in post-content of {file_path}; skipping diff")
+            warnings.warn(
+                f"SyntaxError in post-content of {file_path}; skipping diff",
+                stacklevel=2,
+            )
             return base
 
         breaking: list[str] = []
@@ -131,39 +145,41 @@ class InterfaceDiff:
         modified_sigs: list[dict] = []
 
         # Check removed symbols (breaking)
-        for name, sig in pre_syms['functions'].items():
-            if name not in post_syms['functions']:
+        for name, sig in pre_syms["functions"].items():
+            if name not in post_syms["functions"]:
                 breaking.append(name)
-            elif post_syms['functions'][name] != sig:
-                modified_sigs.append({
-                    'name': name,
-                    'old_sig': sig,
-                    'new_sig': post_syms['functions'][name],
-                })
+            elif post_syms["functions"][name] != sig:
+                modified_sigs.append(
+                    {
+                        "name": name,
+                        "old_sig": sig,
+                        "new_sig": post_syms["functions"][name],
+                    }
+                )
 
-        for name in pre_syms['classes']:
-            if name not in post_syms['classes']:
+        for name in pre_syms["classes"]:
+            if name not in post_syms["classes"]:
                 breaking.append(name)
 
         # Check added symbols (non-breaking)
-        for name in post_syms['functions']:
-            if name not in pre_syms['functions']:
+        for name in post_syms["functions"]:
+            if name not in pre_syms["functions"]:
                 non_breaking.append(name)
 
-        for name in post_syms['classes']:
-            if name not in pre_syms['classes']:
+        for name in post_syms["classes"]:
+            if name not in pre_syms["classes"]:
                 non_breaking.append(name)
 
         is_breaking = bool(breaking or modified_sigs)
 
         return InterfaceChangeReport(
             file_path=file_path,
-            language='python',
+            language="python",
             breaking_changes=breaking,
             non_breaking_changes=non_breaking,
             modified_signatures=modified_sigs,
             is_breaking=is_breaking,
-            detection_method='ast',
+            detection_method="ast",
         )
 
     def _compare_ts_js(
@@ -172,8 +188,8 @@ class InterfaceDiff:
         language: str,
         pre: str,
         post: str,
-        base: 'InterfaceChangeReport',
-    ) -> 'InterfaceChangeReport':
+        base: "InterfaceChangeReport",
+    ) -> "InterfaceChangeReport":
         """TypeScript/JavaScript regex-based comparison."""
         from . import InterfaceChangeReport
 
@@ -191,7 +207,7 @@ class InterfaceDiff:
             non_breaking_changes=non_breaking,
             modified_signatures=[],  # regex cannot detect signature changes
             is_breaking=is_breaking,
-            detection_method='regex',
+            detection_method="regex",
         )
 
     def _compare_rust(
@@ -199,8 +215,8 @@ class InterfaceDiff:
         file_path: str,
         pre: str,
         post: str,
-        base: 'InterfaceChangeReport',
-    ) -> 'InterfaceChangeReport':
+        base: "InterfaceChangeReport",
+    ) -> "InterfaceChangeReport":
         """Rust regex-based comparison."""
         from . import InterfaceChangeReport
 
@@ -213,12 +229,12 @@ class InterfaceDiff:
 
         return InterfaceChangeReport(
             file_path=file_path,
-            language='rust',
+            language="rust",
             breaking_changes=breaking,
             non_breaking_changes=non_breaking,
             modified_signatures=[],
             is_breaking=is_breaking,
-            detection_method='regex',
+            detection_method="regex",
         )
 
     def _compare_sql(
@@ -226,30 +242,32 @@ class InterfaceDiff:
         file_path: str,
         pre: str,
         post: str,
-        base: 'InterfaceChangeReport',
-    ) -> 'InterfaceChangeReport':
+        base: "InterfaceChangeReport",
+    ) -> "InterfaceChangeReport":
         """SQL DDL schema diff via sql_schema_diff.DDLParser."""
         from . import InterfaceChangeReport
+
         try:
             from .sql_schema_diff import DDLParser
+
             parser = DDLParser()
             pre_tables = parser.parse_ddl(pre) if pre else {}
             post_tables = parser.parse_ddl(post) if post else {}
 
             pre_syms = set(pre_tables.keys())
             post_syms = set(post_tables.keys())
-            breaking = list(pre_syms - post_syms)     # removed tables
+            breaking = list(pre_syms - post_syms)  # removed tables
             non_breaking = list(post_syms - pre_syms)  # added tables
             is_breaking = bool(breaking)
 
             return InterfaceChangeReport(
                 file_path=file_path,
-                language='sql',
+                language="sql",
                 breaking_changes=breaking,
                 non_breaking_changes=non_breaking,
                 modified_signatures=[],
                 is_breaking=is_breaking,
-                detection_method='ddl_parser',
+                detection_method="ddl_parser",
             )
         except Exception:
             return base
@@ -259,7 +277,7 @@ class InterfaceDiff:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def get_pre_content(file_path: str, git_ref: str = 'HEAD') -> str:
+    def get_pre_content(file_path: str, git_ref: str = "HEAD") -> str:
         """Get file content at the given git ref.
 
         Args:
@@ -271,20 +289,21 @@ class InterfaceDiff:
         """
         try:
             result = subprocess.run(
-                ['git', 'show', f'{git_ref}:{file_path}'],
+                ["git", "show", f"{git_ref}:{file_path}"],
                 capture_output=True,
                 text=True,
                 check=False,
                 timeout=15,
             )
-            return result.stdout if result.returncode == 0 else ''
+            return result.stdout if result.returncode == 0 else ""
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-            return ''
+            return ""
 
 
 # ---------------------------------------------------------------------------
 # Symbol extraction helpers
 # ---------------------------------------------------------------------------
+
 
 def _extract_python_symbols(content: str) -> dict:
     """Parse public functions and classes from Python source via AST."""
@@ -294,14 +313,14 @@ def _extract_python_symbols(content: str) -> dict:
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not node.name.startswith('_'):
-                sig = ast.unparse(node).split('\n')[0]
+            if not node.name.startswith("_"):
+                sig = ast.unparse(node).split("\n")[0]
                 functions[node.name] = sig
         elif isinstance(node, ast.ClassDef):
-            if not node.name.startswith('_'):
+            if not node.name.startswith("_"):
                 classes[node.name] = [ast.unparse(b) for b in node.bases]
 
-    return {'functions': functions, 'classes': classes}
+    return {"functions": functions, "classes": classes}
 
 
 def _extract_ts_symbols(content: str) -> set[str]:
@@ -325,6 +344,7 @@ def _extract_rust_symbols(content: str) -> set[str]:
 # ---------------------------------------------------------------------------
 # Add TypeScript/JavaScript detection (T028 requirement)
 # ---------------------------------------------------------------------------
+
 
 def add_ts_patterns(additional_patterns: list[str]) -> None:
     """Extend TS_PATTERNS with additional patterns (used in tests/customisation)."""

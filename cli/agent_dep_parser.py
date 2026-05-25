@@ -108,9 +108,7 @@ def _normalize_tid(tid: str) -> str:
     return f"T{m.group(1).zfill(3)}"
 
 
-def _http_post_json(
-    url: str, payload: dict, headers: dict, timeout: int
-) -> dict:
+def _http_post_json(url: str, payload: dict, headers: dict, timeout: int) -> dict:
     """Shared HTTP POST helper. Returns parsed JSON body or raises RuntimeError."""
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers=headers)
@@ -123,13 +121,15 @@ def _http_post_json(
             detail = exc.read().decode("utf-8")[:400]
         except Exception:
             pass
-        raise RuntimeError(f"HTTP {exc.code} from {url}: {detail or exc.reason}")
+        raise RuntimeError(
+            f"HTTP {exc.code} from {url}: {detail or exc.reason}"
+        ) from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"Cannot reach {url}: {exc}")
+        raise RuntimeError(f"Cannot reach {url}: {exc}") from exc
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Non-JSON response from {url}: {exc}")
+        raise RuntimeError(f"Non-JSON response from {url}: {exc}") from exc
 
 
 def query_ollama(
@@ -397,10 +397,12 @@ def extract_deps_via_agent(
     prompt = PROMPT_TEMPLATE.format(tasks_content=content)
 
     try:
-        response = query_model(prompt, model=model, ollama_url=ollama_url, timeout=timeout)
+        response = query_model(
+            prompt, model=model, ollama_url=ollama_url, timeout=timeout
+        )
     except Exception as exc:
         print(f"   ⚠️  Agent parser LLM call failed: {exc}")
-        print(f"   ℹ️  Orchestration continues with regex-only parser")
+        print("   ℹ️  Orchestration continues with regex-only parser")
         return {}
 
     deps = parse_agent_output(response)
@@ -413,9 +415,13 @@ def extract_deps_via_agent(
             kept = [d for d in dep_ids if d in valid_task_ids]
             if kept:
                 filtered[task_id] = kept
-        dropped = sum(len(v) for v in deps.values()) - sum(len(v) for v in filtered.values())
+        dropped = sum(len(v) for v in deps.values()) - sum(
+            len(v) for v in filtered.values()
+        )
         if dropped:
-            print(f"   ℹ️  Agent parser: dropped {dropped} edge(s) referencing unknown task IDs")
+            print(
+                f"   ℹ️  Agent parser: dropped {dropped} edge(s) referencing unknown task IDs"
+            )
         deps = filtered
 
     try:
@@ -466,7 +472,12 @@ def main() -> int:
         use_cache=not args.no_cache,
     )
 
-    print(json.dumps({"edges": [{"from": k, "to": v} for k, vs in deps.items() for v in vs]}, indent=2))
+    print(
+        json.dumps(
+            {"edges": [{"from": k, "to": v} for k, vs in deps.items() for v in vs]},
+            indent=2,
+        )
+    )
     return 0
 
 

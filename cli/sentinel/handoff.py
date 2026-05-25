@@ -16,6 +16,7 @@ State directory: .claude/sentinel/SENTINEL-<TASK_ID>/handoff/
 The wave executor polls for `complete.json` (with a configurable timeout) before
 proceeding to the next task.
 """
+
 from __future__ import annotations
 
 import json
@@ -103,9 +104,7 @@ def write_handoff_complete(
     return complete_path
 
 
-def read_handoff_complete(
-    task_id: str, project_root: Path
-) -> Optional[Dict[str, Any]]:
+def read_handoff_complete(task_id: str, project_root: Path) -> Optional[Dict[str, Any]]:
     d = _handoff_dir(task_id, project_root)
     complete_path = d / "complete.json"
     if not complete_path.exists():
@@ -155,6 +154,7 @@ def sweep_stale_handoffs(
     Returns list of {task_id, original_path, archived_path} for any swept dirs.
     """
     import uuid as _uuid
+
     sentinel_root = project_root / ".claude" / "sentinel"
     if not sentinel_root.exists():
         return []
@@ -191,11 +191,13 @@ def sweep_stale_handoffs(
         archived = attic / archive_name
         try:
             handoff_dir.rename(archived)
-            swept.append({
-                "task_id": sentinel_dir.name.replace("SENTINEL-", "", 1),
-                "original_path": str(handoff_dir),
-                "archived_path": str(archived),
-            })
+            swept.append(
+                {
+                    "task_id": sentinel_dir.name.replace("SENTINEL-", "", 1),
+                    "original_path": str(handoff_dir),
+                    "archived_path": str(archived),
+                }
+            )
         except Exception:
             pass
     return swept

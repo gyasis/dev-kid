@@ -56,7 +56,9 @@ class ConfigSchema:
     sentinel_tier1_max_iterations: int = 5
 
     # Sentinel: Legacy Tier 2 (cloud) — only used when tiers_file is empty
-    sentinel_tier2_model: str = ""  # Set in dev-kid.yml, e.g. "claude-sonnet-4-20250514"
+    sentinel_tier2_model: str = (
+        ""  # Set in dev-kid.yml, e.g. "claude-sonnet-4-20250514"
+    )
     sentinel_tier2_max_iterations: int = 10
     sentinel_tier2_max_budget_usd: float = 2.0
     sentinel_tier2_max_duration_min: int = 10
@@ -67,13 +69,19 @@ class ConfigSchema:
     sentinel_radius_allow_interface_changes: bool = False
 
     # Sentinel: N-tier escalation (overrides tier1/tier2 when set)
-    sentinel_tiers_file: str = ""  # Path to ralph-tiers.json; empty = use legacy tier1/tier2
-    sentinel_min_tier: str = ""    # Skip tiers before this name (e.g. "azure-heavy" for weekend)
+    sentinel_tiers_file: str = (
+        ""  # Path to ralph-tiers.json; empty = use legacy tier1/tier2
+    )
+    sentinel_min_tier: str = (
+        ""  # Skip tiers before this name (e.g. "azure-heavy" for weekend)
+    )
     sentinel_max_total_cost_usd: float = 5.0
     sentinel_max_total_duration_min: int = 30
 
     # Sentinel: test command override (when auto-detect fails)
-    sentinel_test_command: str = ""  # e.g. "python -m pytest", "npm test", empty = auto-detect
+    sentinel_test_command: str = (
+        ""  # e.g. "python -m pytest", "npm test", empty = auto-detect
+    )
 
     # Sentinel: placeholder scanner
     sentinel_placeholder_fail_on_detect: bool = True

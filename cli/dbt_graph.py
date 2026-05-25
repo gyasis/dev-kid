@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-
 # ---------------------------------------------------------------------------
 # Regex patterns (used when manifest.json is absent)
 # ---------------------------------------------------------------------------
@@ -42,17 +41,19 @@ _UNIQUE_KEY_PATTERN = re.compile(r"unique_key\s*=\s*['\"](\w+)['\"]")
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DBTModel:
     """A single dbt model node."""
+
     name: str
     file_path: str
-    materialization: str = "view"       # table | view | incremental | ephemeral
+    materialization: str = "view"  # table | view | incremental | ephemeral
     has_description: bool = False
     has_unique_key: bool = False
-    upstream: list[str] = field(default_factory=list)      # model names only
+    upstream: list[str] = field(default_factory=list)  # model names only
     downstream: list[str] = field(default_factory=list)
-    source: str = "manifest"            # "manifest" | "regex_fallback"
+    source: str = "manifest"  # "manifest" | "regex_fallback"
 
 
 class DBTGraph:
@@ -149,9 +150,9 @@ class DBTGraph:
                 continue
 
             # Upstream refs
-            upstream_names: list[str] = list(dict.fromkeys(
-                m.group(1) for m in _REF_PATTERN.finditer(content)
-            ))
+            upstream_names: list[str] = list(
+                dict.fromkeys(m.group(1) for m in _REF_PATTERN.finditer(content))
+            )
 
             # Materialization
             config_m = _CONFIG_PATTERN.search(content)
@@ -166,7 +167,7 @@ class DBTGraph:
                 name=name,
                 file_path=rel_path,
                 materialization=materialization,
-                has_description=False,   # can't know without schema.yml
+                has_description=False,  # can't know without schema.yml
                 has_unique_key=has_unique_key,
                 upstream=upstream_names,
                 source="regex_fallback",
@@ -195,6 +196,7 @@ class DBTGraph:
 # ---------------------------------------------------------------------------
 # Topological sort (wave assignment)
 # ---------------------------------------------------------------------------
+
 
 class DBTTopologicalSort:
     """Assigns wave numbers to tasks based on the dbt dependency graph."""
@@ -260,11 +262,12 @@ class DBTTopologicalSort:
 # Cycle detector
 # ---------------------------------------------------------------------------
 
+
 class CycleDetector:
     """Detects cycles in a dbt dependency graph using DFS."""
 
     WHITE = 0  # unvisited
-    GRAY = 1   # in current DFS path
+    GRAY = 1  # in current DFS path
     BLACK = 2  # fully processed
 
     @classmethod

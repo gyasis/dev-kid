@@ -19,9 +19,9 @@ class ContextCompactor:
     """Manages proactive context compression between waves"""
 
     def __init__(self):
-        self.agent_state_file = Path('.claude/AGENT_STATE.json')
-        self.activity_stream = Path('.claude/activity_stream.md')
-        self.system_bus = Path('.claude/system_bus.json')
+        self.agent_state_file = Path(".claude/AGENT_STATE.json")
+        self.activity_stream = Path(".claude/activity_stream.md")
+        self.system_bus = Path(".claude/system_bus.json")
         self.persona_threshold = 5  # Trigger pre-compact if 5+ personas active
 
     def count_active_personas(self) -> int:
@@ -33,12 +33,12 @@ class ContextCompactor:
             with open(self.agent_state_file) as f:
                 state = json.load(f)
 
-            agents = state.get('agents', {})
+            agents = state.get("agents", {})
             active_count = 0
 
             for _, agent_data in agents.items():
-                status = agent_data.get('status', 'idle')
-                if status in ['active', 'running', 'in_progress']:
+                status = agent_data.get("status", "idle")
+                if status in ["active", "running", "in_progress"]:
                     active_count += 1
 
             return active_count
@@ -56,15 +56,24 @@ class ContextCompactor:
         try:
             content = self.activity_stream.read_text()
             # Count unique subagent types in recent activity (last 20 lines)
-            lines = content.split('\n')[-20:]
+            lines = content.split("\n")[-20:]
             personas = set()
 
             for line in lines:
-                if 'subagent_type' in line or 'Task tool' in line:
+                if "subagent_type" in line or "Task tool" in line:
                     # Extract persona name from line
-                    for keyword in ['python-pro', 'sql-pro', 'debugger', 'frontend-developer',
-                                   'backend-architect', 'data-scientist', 'security-auditor',
-                                   'performance-engineer', 'test-automator', 'deployment-engineer']:
+                    for keyword in [
+                        "python-pro",
+                        "sql-pro",
+                        "debugger",
+                        "frontend-developer",
+                        "backend-architect",
+                        "data-scientist",
+                        "security-auditor",
+                        "performance-engineer",
+                        "test-automator",
+                        "deployment-engineer",
+                    ]:
                         if keyword in line.lower():
                             personas.add(keyword)
 
@@ -91,7 +100,9 @@ class ContextCompactor:
         persona_count = max(state_count, task_count)
 
         if persona_count >= self.persona_threshold:
-            reason = f"{persona_count} personas active (threshold: {self.persona_threshold})"
+            reason = (
+                f"{persona_count} personas active (threshold: {self.persona_threshold})"
+            )
             return (True, persona_count, reason)
 
         return (False, persona_count, "Below threshold")
@@ -107,16 +118,16 @@ class ContextCompactor:
         Returns:
             True if successful, False otherwise
         """
-        precompact_hook = Path('.claude/hooks/pre-compact.sh')
+        precompact_hook = Path(".claude/hooks/pre-compact.sh")
 
         if not precompact_hook.exists():
             print(f"⚠️  PreCompact hook not found at {precompact_hook}")
             return False
 
-        print(f"\n🔄 Proactive Pre-Compact Triggered")
+        print("\n🔄 Proactive Pre-Compact Triggered")
         print(f"   Wave: {wave_id}")
         print(f"   Active personas: {persona_count}")
-        print(f"   Reason: Multi-agent coordination requires context management")
+        print("   Reason: Multi-agent coordination requires context management")
 
         # Log to activity stream
         self._log_to_activity_stream(wave_id, persona_count)
@@ -132,7 +143,7 @@ class ContextCompactor:
                 "wave_id": wave_id,
                 "persona_count": persona_count,
                 "timestamp": datetime.now().isoformat(),
-                "trigger": "multi_persona_detection"
+                "trigger": "multi_persona_detection",
             }
 
             # Execute hook
@@ -141,12 +152,12 @@ class ContextCompactor:
                 input=json.dumps(event_data),
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             if result.returncode == 0:
-                print(f"   ✅ Pre-compact successful")
-                print(f"   💾 State backed up before potential compression")
+                print("   ✅ Pre-compact successful")
+                print("   💾 State backed up before potential compression")
                 return True
             else:
                 print(f"   ⚠️  Pre-compact hook returned: {result.returncode}")
@@ -154,7 +165,7 @@ class ContextCompactor:
                 return False
 
         except subprocess.TimeoutExpired:
-            print(f"   ❌ Pre-compact hook timed out")
+            print("   ❌ Pre-compact hook timed out")
             return False
         except Exception as e:
             print(f"   ❌ Failed to trigger pre-compact: {e}")
@@ -166,14 +177,16 @@ class ContextCompactor:
             return
 
         try:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             log_entry = f"\n### {timestamp} - Proactive Pre-Compact\n"
             log_entry += f"- Wave: {wave_id}\n"
             log_entry += f"- Active personas: {persona_count}\n"
-            log_entry += f"- Trigger: Multi-agent coordination detected\n"
-            log_entry += f"- Action: State backup initiated before potential compression\n"
+            log_entry += "- Trigger: Multi-agent coordination detected\n"
+            log_entry += (
+                "- Action: State backup initiated before potential compression\n"
+            )
 
-            with open(self.activity_stream, 'a') as f:
+            with open(self.activity_stream, "a") as f:
                 f.write(log_entry)
 
         except Exception as e:
@@ -188,16 +201,18 @@ class ContextCompactor:
             with open(self.system_bus) as f:
                 bus = json.load(f)
 
-            bus['events'].append({
-                'timestamp': datetime.now().isoformat(),
-                'agent': 'context-compactor',
-                'event_type': 'proactive_precompact',
-                'wave_id': wave_id,
-                'persona_count': persona_count,
-                'trigger': 'multi_persona_detection'
-            })
+            bus["events"].append(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "agent": "context-compactor",
+                    "event_type": "proactive_precompact",
+                    "wave_id": wave_id,
+                    "persona_count": persona_count,
+                    "trigger": "multi_persona_detection",
+                }
+            )
 
-            with open(self.system_bus, 'w') as f:
+            with open(self.system_bus, "w") as f:
                 json.dump(bus, f, indent=2)
 
         except Exception as e:
@@ -219,7 +234,9 @@ class ContextCompactor:
         else:
             # Only log if personas detected but below threshold
             if persona_count > 0:
-                print(f"   ℹ️  {persona_count} personas active (threshold: {self.persona_threshold}) - no pre-compact needed")
+                print(
+                    f"   ℹ️  {persona_count} personas active (threshold: {self.persona_threshold}) - no pre-compact needed"
+                )
 
 
 def main():
@@ -227,28 +244,30 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Context Compactor")
-    parser.add_argument('command', choices=['check', 'trigger', 'count'],
-                       help='Command to execute')
-    parser.add_argument('--wave-id', type=int, default=0,
-                       help='Wave ID for trigger command')
+    parser.add_argument(
+        "command", choices=["check", "trigger", "count"], help="Command to execute"
+    )
+    parser.add_argument(
+        "--wave-id", type=int, default=0, help="Wave ID for trigger command"
+    )
 
     args = parser.parse_args()
 
     compactor = ContextCompactor()
 
-    if args.command == 'check':
+    if args.command == "check":
         should, count, reason = compactor.should_precompact()
         print(f"Should pre-compact: {should}")
         print(f"Persona count: {count}")
         print(f"Reason: {reason}")
 
-    elif args.command == 'trigger':
+    elif args.command == "trigger":
         compactor.trigger_precompact(args.wave_id, 5)
 
-    elif args.command == 'count':
+    elif args.command == "count":
         count = compactor.count_active_personas()
         print(f"Active personas: {count}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

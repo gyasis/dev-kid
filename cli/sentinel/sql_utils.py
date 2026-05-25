@@ -10,7 +10,6 @@ import re
 import warnings
 from typing import Any, Optional, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Jinja stripping
 # ---------------------------------------------------------------------------
@@ -49,6 +48,7 @@ def strip_jinja(sql: str) -> str:
 # Optional sqlglot import
 # ---------------------------------------------------------------------------
 
+
 def try_import_sqlglot() -> Tuple[Optional[Any], Optional[Any]]:
     """Attempt to import sqlglot and its expressions module.
 
@@ -59,6 +59,7 @@ def try_import_sqlglot() -> Tuple[Optional[Any], Optional[Any]]:
     try:
         import sqlglot
         import sqlglot.expressions as exp
+
         return sqlglot, exp
     except ImportError:
         warnings.warn(

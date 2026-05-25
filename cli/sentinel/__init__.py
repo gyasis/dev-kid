@@ -10,49 +10,52 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Tier results
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TierResult:
     """Result of running one tier of the micro-agent test loop."""
+
     attempted: bool = False
     skipped: bool = False
-    tier_name: str = ''               # e.g. "local-quick", "azure-heavy"
-    tier_index: int = -1              # 0-based index in the tiers list
+    tier_name: str = ""  # e.g. "local-quick", "azure-heavy"
+    tier_index: int = -1  # 0-based index in the tiers list
     model: str | None = None
     ollama_url: str | None = None
     iterations: int = 0
     cost_usd: float = 0.0
     duration_sec: float = 0.0
-    final_status: str | None = None   # "PASS" | "FAIL" | None
+    final_status: str | None = None  # "PASS" | "FAIL" | None
     error_messages: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
-        return self.final_status == 'PASS'
+        return self.final_status == "PASS"
 
     @property
     def failed(self) -> bool:
-        return self.final_status == 'FAIL'
+        return self.final_status == "FAIL"
 
 
 # ---------------------------------------------------------------------------
 # Sentinel result
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SentinelResult:
     """Final result returned by SentinelRunner.run()."""
+
     task_id: str
     sentinel_id: str
-    result: str = 'PASS'          # "PASS" | "FAIL" | "ERROR" | "SKIP"
+    result: str = "PASS"  # "PASS" | "FAIL" | "ERROR" | "SKIP"
     should_halt_wave: bool = False
-    error_message: str = ''
+    error_message: str = ""
     tier_used: int = 0
-    tier_name_used: str = ''      # e.g. "azure-heavy"
+    tier_name_used: str = ""  # e.g. "azure-heavy"
     # N-tier results list (used when tiers_file is configured)
     tier_results: list[TierResult] = field(default_factory=list)
     # Legacy fields — populated for backward compat with manifest writer
@@ -70,13 +73,15 @@ class SentinelResult:
 # Placeholder violation
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PlaceholderViolation:
     """A detected placeholder pattern in a production file."""
+
     file_path: str
-    line_number: int          # 1-based
-    matched_pattern: str      # Regex pattern string that matched
-    matched_text: str         # Actual text that matched
+    line_number: int  # 1-based
+    matched_pattern: str  # Regex pattern string that matched
+    matched_text: str  # Actual text that matched
     context_lines: list[str] = field(default_factory=list)  # ±2 surrounding lines
 
 
@@ -84,25 +89,31 @@ class PlaceholderViolation:
 # Interface change report
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InterfaceChangeReport:
     """Public API surface changes between two file versions."""
+
     file_path: str
-    language: str                       # "python" | "typescript" | "javascript" | "rust" | "unknown"
-    breaking_changes: list[str] = field(default_factory=list)      # Removed/renamed symbols
+    language: str  # "python" | "typescript" | "javascript" | "rust" | "unknown"
+    breaking_changes: list[str] = field(default_factory=list)  # Removed/renamed symbols
     non_breaking_changes: list[str] = field(default_factory=list)  # Added symbols
-    modified_signatures: list[dict] = field(default_factory=list)  # [{name, old_sig, new_sig}]
+    modified_signatures: list[dict] = field(
+        default_factory=list
+    )  # [{name, old_sig, new_sig}]
     is_breaking: bool = False
-    detection_method: str = 'none'      # "ast" | "regex" | "none"
+    detection_method: str = "none"  # "ast" | "regex" | "none"
 
 
 # ---------------------------------------------------------------------------
 # Change radius report
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ChangeRadiusReport:
     """Three-axis budget evaluation result."""
+
     files_changed_count: int = 0
     lines_changed_total: int = 0
     interface_changes_count: int = 0
@@ -111,44 +122,54 @@ class ChangeRadiusReport:
     allow_interface_changes: bool = False
     cross_wave_files: list[str] = field(default_factory=list)
     budget_exceeded: bool = False
-    violations: list[str] = field(default_factory=list)  # ["files", "lines", "interface", "cross_wave"]
+    violations: list[str] = field(
+        default_factory=list
+    )  # ["files", "lines", "interface", "cross_wave"]
 
 
 # ---------------------------------------------------------------------------
 # Cascade annotation
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CascadeAnnotation:
     """A compatibility warning appended to a pending task."""
+
     target_task_id: str
     sentinel_id: str
     changed_files: list[str] = field(default_factory=list)
     interface_changes: list[str] = field(default_factory=list)
-    warning_text: str = ''
-    applied_at: str = ''  # ISO 8601 timestamp
+    warning_text: str = ""
+    applied_at: str = ""  # ISO 8601 timestamp
 
 
 # ---------------------------------------------------------------------------
 # Manifest data and paths
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ManifestData:
     """Full data for writing a Change Manifest."""
+
     task_id: str
     sentinel_id: str
-    result: str                          # "PASS" | "FAIL" | "ERROR" | "SKIP"
-    timestamp: str                       # ISO 8601
+    result: str  # "PASS" | "FAIL" | "ERROR" | "SKIP"
+    timestamp: str  # ISO 8601
     tier_used: int
     tier1_result: TierResult = field(default_factory=TierResult)
     tier2_result: TierResult = field(default_factory=TierResult)
     placeholder_violations: list = field(default_factory=list)
-    files_changed: list[dict] = field(default_factory=list)     # [{path, lines_added, lines_removed}]
-    interface_changes: dict = field(default_factory=dict)       # {breaking:[], non_breaking:[], is_breaking: bool}
+    files_changed: list[dict] = field(
+        default_factory=list
+    )  # [{path, lines_added, lines_removed}]
+    interface_changes: dict = field(
+        default_factory=dict
+    )  # {breaking:[], non_breaking:[], is_breaking: bool}
     tests_fixed: list[str] = field(default_factory=list)
     tests_still_failing: list[str] = field(default_factory=list)
-    fix_reason: str = ''
+    fix_reason: str = ""
     cascade_triggered: bool = False
     cascade_tasks_annotated: list[str] = field(default_factory=list)
     radius: dict = field(default_factory=dict)
@@ -157,6 +178,7 @@ class ManifestData:
 @dataclass
 class ManifestPaths:
     """Absolute paths to the three manifest files."""
+
     manifest_json: Path
     diff_patch: Path
     summary_md: Path
@@ -175,13 +197,13 @@ except ImportError:
     SentinelConfig = object  # type: ignore[misc,assignment]
 
 __all__ = [
-    'TierResult',
-    'SentinelResult',
-    'PlaceholderViolation',
-    'InterfaceChangeReport',
-    'ChangeRadiusReport',
-    'CascadeAnnotation',
-    'ManifestData',
-    'ManifestPaths',
-    'SentinelConfig',
+    "TierResult",
+    "SentinelResult",
+    "PlaceholderViolation",
+    "InterfaceChangeReport",
+    "ChangeRadiusReport",
+    "CascadeAnnotation",
+    "ManifestData",
+    "ManifestPaths",
+    "SentinelConfig",
 ]
