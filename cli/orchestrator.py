@@ -193,6 +193,20 @@ class TaskOrchestrator:
         # Extract file references from description
         file_locks = self._extract_file_references(description)
 
+        # Observability (no-black-boxes): a task whose verb clearly changes code
+        # but resolves to ZERO detected files cannot be protected by file-lock
+        # collision safety — it may be scheduled in parallel with a colliding
+        # task and race-edit the same file. Surface it loudly rather than
+        # silently treating the task as conflict-free.
+        if not file_locks and re.search(self._ACTION_VERBS, description, re.IGNORECASE):
+            snippet = description[:70] + ("…" if len(description) > 70 else "")
+            print(
+                f"⚠️  T{task_id:03d}: names no detectable file — file-lock safety "
+                f"can't protect it; it may run parallel to a colliding task. "
+                f"Wrap paths in backticks, e.g. `src/file.py`.  [{snippet}]",
+                file=sys.stderr,
+            )
+
         # Extract dependencies — forward verbs only ("this task needs X first").
         # Reverse verbs (blocks / before) produce edges to OTHER tasks, so they
         # go through a separate extractor + are merged in analyze_dependencies.
@@ -232,14 +246,38 @@ class TaskOrchestrator:
         for file in file_locks:
             self.file_to_tasks[file].append(task.id)
 
+    # Known extensionless filenames the dot-gated regexes miss entirely
+    # (no `.ext` → no match, even when backticked). Collisions on these used
+    # to be undetectable. Whole-word matched, so backtick or bare both hit.
+    _KNOWN_EXTENSIONLESS = (
+        r"Makefile|Dockerfile|Containerfile|Procfile|Rakefile|Gemfile|"
+        r"Vagrantfile|Jenkinsfile|Brewfile|CODEOWNERS|LICENSE|NOTICE"
+    )
+
+    # Verbs that signal a task actually changes code. Used by the
+    # observability warning when such a task resolves to zero file locks.
+    _ACTION_VERBS = (
+        r"\b(?:implement|add|create|update|build|write|modify|fix|refactor|"
+        r"edit|delete|remove|rename|move|wire|integrate|patch|extend|"
+        r"scaffold|introduce|register|replace)\b"
+    )
+
     def _extract_file_references(self, description: str) -> List[str]:
-        """Extract file paths from task description"""
+        """Extract file paths from a task description.
+
+        File-lock detection is the orchestrator's ONLY signal for same-file
+        collisions, so it deliberately errs toward OVER-detection: a false
+        lock merely serializes two tasks (safe/slower), while a MISSED lock
+        lets them run in the same wave and race-edit the file (unsafe).
+        """
         import re
 
-        # Match patterns like: file.py, path/to/file.ts, `src/component.tsx`
+        # Match patterns like: file.py, path/to/file.ts, `src/component.tsx`,
+        # `app.svelte` (long ext), and extensionless files like `Makefile`.
         patterns = [
-            r"`([^`]+\.[a-zA-Z]+)`",  # backtick-wrapped paths
-            r"\b([\w/.-]+\.[a-zA-Z]{2,4})\b",  # plain file paths
+            r"`([^`]+\.[a-zA-Z0-9]+)`",  # backtick-wrapped paths (any ext length)
+            r"\b([\w/.-]+\.[a-zA-Z]{2,10})\b",  # bare file paths (ext 2-10 chars)
+            r"\b(" + self._KNOWN_EXTENSIONLESS + r")\b",  # extensionless known files
         ]
 
         files = []
@@ -269,9 +307,7 @@ class TaskOrchestrator:
         # Arrow forms: "T005 → T018" or "T005 -> T018" inside a task bullet.
         # Heuristic: arrow usually means "predecessor → current task", so if
         # T005 → appears in T018's block, T018 depends on T005.
-        arrow_matches = re.findall(
-            r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE
-        )
+        arrow_matches = re.findall(r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE)
         return [f"T{m.zfill(3)}" for m in matches + arrow_matches]
 
     def _extract_blocks(self, description: str) -> List[str]:
@@ -433,7 +469,7 @@ class TaskOrchestrator:
         deps: Dict[str, List[str]] = defaultdict(list)
 
         section_header_re = re.compile(
-            r"^\s*(#{1,6})\s*Dependencies\b.*$"     # heading form
+            r"^\s*(#{1,6})\s*Dependencies\b.*$"  # heading form
             r"|^\s*\*\*Dependencies\*\*\s*:?\s*$",  # bold form
             re.IGNORECASE,
         )
@@ -491,7 +527,8 @@ class TaskOrchestrator:
                 r"|comes\s+before"
                 r"|completes\s+before"
                 r"|precedes)\b(.*)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if narrative:
                 source_num = narrative.group(1)
@@ -506,7 +543,8 @@ class TaskOrchestrator:
             fwd_narrative = re.match(
                 r"T(\d{1,4}).*?\b(?:must\s+(?:complete|be\s+done|land)\s+after"
                 r"|must\s+follow)\b(.*)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if fwd_narrative:
                 task_num = fwd_narrative.group(1)
@@ -521,7 +559,8 @@ class TaskOrchestrator:
                 r"T(\d{1,4})\s*[:\-]?\s*"
                 r"(?:requires|depends\s+on|after|needs|->|→)?\s*"
                 r"((?:T\d{1,4}\s*,?\s*)+)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if fwd:
                 _record_forward(fwd.group(1), fwd.group(2))
@@ -530,7 +569,8 @@ class TaskOrchestrator:
             # --- Structured reverse: T<a> blocks/before T<b>[, T<c>...] ---
             rev = re.match(
                 r"T(\d{1,4})\s+(?:blocks|before)\s+((?:T\d{1,4}\s*,?\s*)+)$",
-                stripped, re.IGNORECASE,
+                stripped,
+                re.IGNORECASE,
             )
             if rev:
                 _record_reverse(rev.group(1), rev.group(2))
@@ -659,7 +699,9 @@ class TaskOrchestrator:
         added = 0
         for task_id, dep_ids in agent_deps.items():
             for dep in dep_ids:
-                if dep not in graph[task_id] and not self._would_create_cycle(graph, task_id, dep):
+                if dep not in graph[task_id] and not self._would_create_cycle(
+                    graph, task_id, dep
+                ):
                     graph[task_id].add(dep)
                     added += 1
         if added:
@@ -702,12 +744,13 @@ class TaskOrchestrator:
             # Reuse sentinel tier1 model as sensible default
             model = self._read_yml_value("sentinel.tier1", "model") or "qwen3-coder:30b"
         if not url:
-            url = self._read_yml_value("sentinel.tier1", "ollama_url") or "http://localhost:11434"
+            url = (
+                self._read_yml_value("sentinel.tier1", "ollama_url")
+                or "http://localhost:11434"
+            )
         return (model, url)
 
-    def _read_yml_bool(
-        self, section: str, key: str, default: bool = False
-    ) -> bool:
+    def _read_yml_bool(self, section: str, key: str, default: bool = False) -> bool:
         try:
             yml_path = Path("dev-kid.yml")
             if not yml_path.exists():
@@ -791,15 +834,26 @@ class TaskOrchestrator:
         if pending_tasks == [] and len(self.tasks) > 0:
             if os.environ.get("ALLOW_EMPTY_WAVES") != "1":
                 import sys
+
                 print()
-                print("⚠️  All", len(self.tasks), "tasks in tasks.md are already marked [x].")
+                print(
+                    "⚠️  All",
+                    len(self.tasks),
+                    "tasks in tasks.md are already marked [x].",
+                )
                 print()
                 print("   This usually means ONE of:")
-                print("     (a) Feature is genuinely complete — set ALLOW_EMPTY_WAVES=1 to acknowledge.")
-                print("     (b) Wrong tasks.md is loaded — devkid resolved to a stale/wrong spec.")
+                print(
+                    "     (a) Feature is genuinely complete — set ALLOW_EMPTY_WAVES=1 to acknowledge."
+                )
+                print(
+                    "     (b) Wrong tasks.md is loaded — devkid resolved to a stale/wrong spec."
+                )
                 print()
                 print("   Diagnose:")
-                print("     dev-kid spec-resolve            # show which tasks.md was picked + why")
+                print(
+                    "     dev-kid spec-resolve            # show which tasks.md was picked + why"
+                )
                 print("     ls -la tasks.md                  # check symlink target")
                 print("     cat .specify/feature.json        # check speckit pointer")
                 print()
@@ -883,20 +937,21 @@ class TaskOrchestrator:
                     "wave_position": wave_id,
                     "can_test_now": True,  # deps satisfied by wave ordering
                     "test_hint": (
-                        "isolated-unit" if not has_deps
-                        else "integration-post-deps"
+                        "isolated-unit" if not has_deps else "integration-post-deps"
                     ),
                 }
-                task_dicts.append({
-                    "task_id": t.id,
-                    "agent_role": "Developer",
-                    "instruction": t.description,
-                    "file_locks": t.file_locks,
-                    "constitution_rules": t.constitution_rules,
-                    "testability": testability,
-                    "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
-                    "dependencies": deps,
-                })
+                task_dicts.append(
+                    {
+                        "task_id": t.id,
+                        "agent_role": "Developer",
+                        "instruction": t.description,
+                        "file_locks": t.file_locks,
+                        "constitution_rules": t.constitution_rules,
+                        "testability": testability,
+                        "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
+                        "dependencies": deps,
+                    }
+                )
 
             # Create wave
             wave = Wave(
@@ -1307,8 +1362,7 @@ class TaskOrchestrator:
                 import sys as _sys
 
                 _sys.path.insert(0, str(Path(__file__).parent))
-                from dbt_graph import (CycleDetector, DBTGraph,
-                                       DBTTopologicalSort)
+                from dbt_graph import CycleDetector, DBTGraph, DBTTopologicalSort
 
                 graph = DBTGraph().load(".")
                 print(f"   🌿 dbt project detected — applying DAG-aware wave ordering")
