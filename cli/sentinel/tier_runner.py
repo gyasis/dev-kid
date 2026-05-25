@@ -302,6 +302,15 @@ class TierRunner:
         parsed = _parse_micro_agent_output(result.stdout)
         final_status = "PASS" if result.returncode == 0 else "FAIL"
 
+        # #6 — confirm micro-agent's success with an independent test re-run.
+        if final_status == "PASS":
+            confirmed, confirm_tail = _run_test_command(test_cmd, Path.cwd())
+            if not confirmed:
+                final_status = "FAIL"
+                print("      ⚠️  Tier 1 exited 0 but independent test re-run FAILED")
+                for line in confirm_tail:
+                    print(f"      │ verify: {line}")
+
         # Surface micro-agent output for observability
         if result.stderr.strip():
             for line in result.stderr.strip().splitlines()[-5:]:
@@ -392,6 +401,15 @@ class TierRunner:
 
         parsed = _parse_micro_agent_output(result.stdout)
         final_status = "PASS" if result.returncode == 0 else "FAIL"
+
+        # #6 — confirm micro-agent's success with an independent test re-run.
+        if final_status == "PASS":
+            confirmed, confirm_tail = _run_test_command(test_cmd, Path.cwd())
+            if not confirmed:
+                final_status = "FAIL"
+                print("      ⚠️  Tier 2 exited 0 but independent test re-run FAILED")
+                for line in confirm_tail:
+                    print(f"      │ verify: {line}")
 
         # Surface micro-agent output for observability
         if result.stderr.strip():
@@ -774,8 +792,33 @@ class TierRunner:
             tier_elapsed = time.time() - tier_start
             parsed = _parse_micro_agent_output(result.stdout)
             tier_cost = parsed.get("cost_usd", 0.0)
-            total_cost += tier_cost
             passed = result.returncode == 0
+
+            # #6 — don't trust micro-agent's exit code alone. Independently
+            # re-run the test command to confirm the tree is actually green
+            # before checkpointing the wave as PASS.
+            if passed:
+                confirmed, confirm_tail = _run_test_command(test_cmd, project_root)
+                if not confirmed:
+                    passed = False
+                    print(
+                        f"      ⚠️  {tier_name}: micro-agent exited 0 but independent "
+                        f"test re-run FAILED — treating as FAIL"
+                    )
+                    for line in confirm_tail:
+                        print(f"      │ verify: {line}")
+
+            # #5 — a paid tier that reports $0 almost always means cost couldn't
+            # be parsed from (PTY-noisy) stdout. Warn so the operator knows the
+            # cumulative budget figure may understate real spend.
+            is_paid_tier = bool(artisan_model) and not artisan_model.startswith("ollama")
+            if is_paid_tier and tier_cost == 0.0:
+                print(
+                    f"      ⚠️  {tier_name}: paid model reported $0.00 cost — "
+                    f"likely a parse miss; cumulative budget may understate spend"
+                )
+
+            total_cost += tier_cost
 
             # Record this tier's cost into the global cumulative budget tracker
             global_tracker.record(tier_cost, tier_elapsed, None)
@@ -944,6 +987,57 @@ def _write_tier_config(
         return None
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences and bare carriage returns.
+
+    micro-agent is run under a `script -qfc` pseudo-TTY (to defeat an EINVAL
+    crash in non-TTY contexts), which injects ANSI color codes and `\\r`
+    progress redraws into stdout. Left in place, those break the metric regexes
+    below — so cost/iterations silently parse as 0, the cumulative BudgetTracker
+    records $0 for paid tiers, and the global budget ceiling never trips.
+    """
+    return _ANSI_RE.sub("", text or "").replace("\r", "\n")
+
+
+def _run_test_command(test_cmd: str, project_root: Path) -> tuple[bool, list[str]]:
+    """Independently run the test command to confirm a green tree.
+
+    Used to verify micro-agent's self-reported success: a tier is only PASS if
+    the test command actually exits 0 on a fresh run. No shell=True — the
+    command is tokenised with shlex.
+
+    Returns:
+        (passed, last_output_lines)
+    """
+    import shlex
+
+    try:
+        argv = shlex.split(test_cmd)
+        if not argv:
+            return True, []  # nothing to run → don't block
+        proc = subprocess.run(
+            argv,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=300,
+        )
+        combined = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
+        return proc.returncode == 0, combined[-5:]
+    except subprocess.TimeoutExpired:
+        return False, ["independent test re-run timed out after 300s"]
+    except FileNotFoundError as exc:
+        # Can't run it ourselves (e.g. needs a shell builtin) — don't override
+        # micro-agent's verdict; just note it.
+        return True, [f"could not independently re-run test ({exc}) — trusting tier"]
+    except Exception as exc:
+        return True, [f"independent test re-run error ({exc}) — trusting tier"]
+
+
 def _parse_micro_agent_output(stdout: str) -> dict:
     """Extract summary metrics from micro-agent stdout.
 
@@ -959,6 +1053,9 @@ def _parse_micro_agent_output(stdout: str) -> dict:
         Dict with 'iterations', 'cost_usd', 'duration_sec' (zero-values if not found).
     """
     result = {"iterations": 0, "cost_usd": 0.0, "duration_sec": 0.0}
+
+    # Strip PTY/ANSI noise first so the regexes can actually match.
+    stdout = _strip_ansi(stdout)
 
     iter_match = re.search(r"Iterations:\s*(\d+)", stdout, re.IGNORECASE)
     if iter_match:
