@@ -9,6 +9,7 @@ Also contains ChangeRadiusEvaluator for three-axis budget enforcement.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -175,9 +176,11 @@ class CascadeAnalyzer:
         modified_lines = list(lines)
 
         for task_id in affected_task_ids:
+            # Word-boundary match so "T1" doesn't also fire on "T12"/"T100".
+            id_pattern = re.compile(r'\b' + re.escape(task_id) + r'\b')
             for i, line in enumerate(modified_lines):
-                # Match pending tasks containing the task_id
-                if line.startswith('- [ ]') and task_id in line:
+                # Match pending tasks referencing exactly this task_id
+                if line.startswith('- [ ]') and id_pattern.search(line):
                     # Append warning after the task line
                     modified_lines.insert(i + 1, warning_block + '\n')
                     annotations.append(CascadeAnnotation(

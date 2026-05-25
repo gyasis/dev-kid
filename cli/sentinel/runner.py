@@ -163,7 +163,13 @@ class SentinelRunner:
         sql_files = [f for f in files if f.suffix in (".sql", ".yml", ".yaml")]
         if sql_files and self._config is not None:
             try:
-                from ..constitution_parser import Constitution
+                # `sentinel` is loaded as a TOP-LEVEL package (cli/ is on sys.path
+                # via `python3 cli/wave_executor.py`), so a `..` relative import
+                # reaches beyond the top-level package and raises ImportError —
+                # which the broad except below silently swallowed, disabling the
+                # whole SQL/dbt constitution scan. Use the absolute import that
+                # matches how wave_executor.py imports its siblings.
+                from constitution_parser import Constitution
 
                 constitution_path = (
                     self._project_root / "memory-bank" / "shared" / ".constitution.md"
@@ -367,6 +373,41 @@ class SentinelRunner:
 
         return result_obj
 
+    def _compute_files_changed(self, files: list) -> list[dict]:
+        """Return [{path, lines_added, lines_removed}] using real git diff --numstat.
+
+        Shared by the change-radius evaluator and the manifest writer so both see
+        the same line counts. Files with no diff (or git errors) report 0/0 but
+        are still listed if they exist on disk.
+        """
+        import subprocess
+
+        files_changed: list[dict] = []
+        for f in files:
+            if not f.exists():
+                continue
+            rel = str(f.relative_to(self._project_root)) if f.is_absolute() else str(f)
+            added, removed = 0, 0
+            try:
+                diff_stat = subprocess.run(
+                    ["git", "diff", "--numstat", "HEAD", "--", rel],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=10,
+                    cwd=str(self._project_root),
+                )
+                if diff_stat.returncode == 0 and diff_stat.stdout.strip():
+                    parts = diff_stat.stdout.strip().split()
+                    added = int(parts[0]) if parts and parts[0].isdigit() else 0
+                    removed = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+            except Exception:
+                pass
+            files_changed.append(
+                {"path": rel, "lines_added": added, "lines_removed": removed}
+            )
+        return files_changed
+
     def _safe_write_manifest(
         self,
         result_obj: "SentinelResult",
@@ -432,17 +473,10 @@ class SentinelRunner:
                 continue
 
         # --- Change radius evaluation ---
-        files_changed = [
-            {
-                "path": str(
-                    f.relative_to(self._project_root) if f.is_absolute() else f
-                ),
-                "lines_added": 0,
-                "lines_removed": 0,
-            }
-            for f in files
-            if f.exists()
-        ]
+        # Use REAL git diff line counts so the max_lines budget axis actually
+        # fires. Previously this was hardcoded to zeros, which silently disabled
+        # the line-radius guard (only file-count / interface / cross-wave worked).
+        files_changed = self._compute_files_changed(files)
 
         # Load execution plan for cross-wave detection (best-effort)
         execution_plan: dict = {}
@@ -474,13 +508,29 @@ class SentinelRunner:
         # --- Cascade analysis ---
         result_obj.cascade_triggered = True
 
-        # Find pending tasks in other waves that may be affected
+        # Find tasks that are genuinely affected, not every other task in the
+        # plan (which produced noisy, irrelevant cascade warnings). A task is
+        # affected if it either:
+        #   (a) locks a file the sentinel changed (file overlap), or
+        #   (b) declares a dependency on the sentinel's task.
+        changed_paths = {fc["path"] for fc in files_changed}
+        my_id = result_obj.task_id
         affected_ids: list[str] = []
         try:
             for wave in execution_plan.get("execution_plan", {}).get("waves", []):
                 for t in wave.get("tasks", []):
-                    if t.get("task_id") != result_obj.task_id:
-                        affected_ids.append(t["task_id"])
+                    tid = t.get("task_id")
+                    if not tid or tid == my_id:
+                        continue
+                    locks = set(t.get("file_locks", []) or [])
+                    deps = set(
+                        t.get("depends_on", [])
+                        or t.get("dependencies", [])
+                        or t.get("after", [])
+                        or []
+                    )
+                    if (locks & changed_paths) or (my_id in deps):
+                        affected_ids.append(tid)
         except Exception:
             pass
 
@@ -517,7 +567,6 @@ class SentinelRunner:
             task: Original task dict (for instruction / parent context).
             files: Resolved file paths that were scanned / modified.
         """
-        import subprocess
         from datetime import datetime, timezone
 
         from . import ManifestData, TierResult
@@ -527,35 +576,9 @@ class SentinelRunner:
         output_dir = self._project_root / ".claude" / "sentinel" / sentinel_id
         writer = ManifestWriter(output_dir)
 
-        # Collect git diff stats for each file (lines added/removed)
-        files_changed: list[dict] = []
-        for f in files:
-            rel = str(f.relative_to(self._project_root)) if f.is_absolute() else str(f)
-            try:
-                diff_stat = subprocess.run(
-                    ["git", "diff", "--numstat", "HEAD", "--", rel],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    timeout=10,
-                    cwd=str(self._project_root),
-                )
-                if diff_stat.returncode == 0 and diff_stat.stdout.strip():
-                    parts = diff_stat.stdout.strip().split()
-                    added = int(parts[0]) if parts[0].isdigit() else 0
-                    removed = int(parts[1]) if parts[1].isdigit() else 0
-                    files_changed.append(
-                        {"path": rel, "lines_added": added, "lines_removed": removed}
-                    )
-                elif f.exists():
-                    files_changed.append(
-                        {"path": rel, "lines_added": 0, "lines_removed": 0}
-                    )
-            except Exception:
-                if f.exists():
-                    files_changed.append(
-                        {"path": rel, "lines_added": 0, "lines_removed": 0}
-                    )
+        # Collect git diff stats for each file (lines added/removed) — same
+        # source the change-radius evaluator uses, so manifest and budget agree.
+        files_changed = self._compute_files_changed(files)
 
         tier1 = result_obj.tier1_result or TierResult()
         tier2 = result_obj.tier2_result or TierResult()
