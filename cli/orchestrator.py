@@ -833,8 +833,12 @@ class TaskOrchestrator:
         # Bypass: --allow-empty (set ALLOW_EMPTY_WAVES=1 in env).
         if pending_tasks == [] and len(self.tasks) > 0:
             if os.environ.get("ALLOW_EMPTY_WAVES") != "1":
-                import sys
-
+                # Note: sys imported at module top (line 9). The previous local
+                # `import sys` here shadowed it across the whole function,
+                # turning any later sys.exit(...) reached without crossing this
+                # branch into an UnboundLocalError (surfaced in gentle-eye
+                # dogfood 2026-05-26 when create_waves hit the circular-dep
+                # handler without pending_tasks ever being empty).
                 print()
                 print(
                     "⚠️  All",

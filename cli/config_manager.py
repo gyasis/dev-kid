@@ -159,6 +159,30 @@ class ConfigSchema:
         radius = sentinel.get("change_radius", {})
         placeholder = sentinel.get("placeholder", {})
 
+        # ANTIPATTERN GUARD (added 2026-05-26 after a 45-min wasted run):
+        # `ollama_url` MUST be nested under `sentinel.tier1.ollama_url`. A
+        # mis-placed top-level `sentinel.ollama_url` is silently ignored and the
+        # runtime falls back to localhost:11434, skipping EVERY local ollama tier
+        # and escalating straight to paid/handoff. Warn loudly so the model
+        # setup is respected, not silently dropped.
+        import sys as _sys
+        if "ollama_url" in sentinel and "ollama_url" not in tier1:
+            print(
+                "⚠️  dev-kid.yml: `sentinel.ollama_url` is IGNORED — the runtime reads "
+                "`sentinel.tier1.ollama_url`. Your ollama URL is being dropped and "
+                "will fall back to localhost:11434 (every local tier skipped). "
+                "Move it under a `tier1:` block.",
+                file=_sys.stderr,
+            )
+        _resolved_ollama = tier1.get("ollama_url", "http://localhost:11434")
+        if "localhost" in _resolved_ollama and sentinel.get("tiers_file"):
+            print(
+                f"⚠️  dev-kid.yml: tier1 ollama_url resolved to {_resolved_ollama} "
+                "but a tiers_file is set — if your ollama models live on a LAN/remote "
+                "host, local tiers will be SKIPPED. Set sentinel.tier1.ollama_url.",
+                file=_sys.stderr,
+            )
+
         return cls(
             task_watchdog_minutes=task_orch.get("task_watchdog_minutes", 7),
             wave_size=task_orch.get("wave_size", 5),

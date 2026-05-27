@@ -180,6 +180,47 @@ def sentinel_health_check(config) -> dict:
     }
 
 
+def _run_streaming_tee(cmd, env, timeout, log_path, prefix="      │ ma: "):
+    """Run cmd streaming stdout+stderr LIVE — tee each line to log_path AND echo
+    to console in real time. Makes micro-agent observable instead of a black box
+    (origin 2026-05-26 — capture_output=True hid all output for up to 300s).
+
+    Returns (returncode, combined_output_str). Raises subprocess.TimeoutExpired
+    on timeout (so callers' existing except blocks keep working).
+    """
+    import threading
+    proc = subprocess.Popen(
+        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1,
+    )
+    timed_out = {"v": False}
+
+    def _killer():
+        timed_out["v"] = True
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+    timer = threading.Timer(timeout, _killer)
+    timer.start()
+    lines = []
+    try:
+        with open(log_path, "w", encoding="utf-8", buffering=1) as lf:
+            for line in proc.stdout:  # streams as micro-agent emits
+                lines.append(line)
+                lf.write(line)
+                lf.flush()
+                # echo to console live (trimmed) so the wave run is watchable
+                print(f"{prefix}{line.rstrip()[:200]}", flush=True)
+        proc.wait()
+    finally:
+        timer.cancel()
+    if timed_out["v"]:
+        raise subprocess.TimeoutExpired(cmd, timeout, output="".join(lines))
+    return proc.returncode, "".join(lines)
+
+
 def _check_ollama_model(base_url: str, model_name: str) -> bool:
     """Check whether a specific model is available in Ollama.
 
@@ -292,18 +333,25 @@ class TierRunner:
         cwd = Path.cwd()
         wrote_config = _ensure_legacy_tier_config("ollama", model, ollama_url, cwd)
 
-        print(f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} runs)...")
+        # Observable run: stream micro-agent's terminal output LIVE (tee to log).
+        log_dir = cwd / ".claude" / "sentinel"
+        log_dir.mkdir(parents=True, exist_ok=True)
         start = time.time()
+        log_path = log_dir / f"micro-agent-tier1-{int(start)}.log"
+        print(f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} runs)...")
+        print(f"      📂 live: tail -f {log_path}")
+
+        class _Res:
+            stdout = ""
+            stderr = ""
+            returncode = 1
+
+        result = _Res()
         try:
-            result = subprocess.run(
-                cmd,
-                env=env,
-                timeout=300,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
+            rc, combined = _run_streaming_tee(cmd, env, 300, log_path)
+            result.returncode = rc
+            result.stdout = combined
+        except subprocess.TimeoutExpired as exc:
             elapsed = time.time() - start
             print(f"      ⚠️  Tier 1 timed out after {elapsed:.0f}s")
             return TierResult(
@@ -849,49 +897,54 @@ class TierRunner:
             # Write per-tier ralph.config.yaml so micro-agent uses the right models
             tier_config_file = _write_tier_config(tier, ollama_url, project_root)
 
-            base_cmd = [
-                "micro-agent",
-                "--prompt",
-                objective,
-                "--test",
-                test_cmd,
-                "--max-runs",
-                str(max_iter),
+            # HEADLESS via ma-loop (ralph-loop.mjs) — NOT plain `micro-agent`.
+            # `micro-agent` (builder.io bin) enters an interactive onboarding TUI
+            # ("Want to set up a new project?") and HANGS 300s/tier in a non-TTY
+            # context. `ma-loop run` is the headless tiered runner (proven 2026-05-27
+            # smoke: SUCCESS 6.5s, clean streaming logs). It takes a real <target>
+            # file + -o objective; extract the target path from the objective
+            # (the task's `affecting \`path\`` / first source-path token).
+            import re as _re
+            _m = _re.search(r'`([^`]+\.\w+)`', objective) or _re.search(
+                r'\b([\w./-]+\.(?:rs|py|ts|js|go|java|md|toml|json))\b', objective
+            )
+            target = _m.group(1) if _m else "."
+            cmd = [
+                "ma-loop", "run", target,
+                "-o", objective,
+                "-t", test_cmd,
+                "-f", "cargo",
+                "-i", str(max_iter),
+                "--no-adversarial",
             ]
-
-            # micro-agent v0.1.5 unconditionally enters interactiveMode() which calls
-            # @clack/prompts → uv_tty_init. When dev-kid is invoked from a non-TTY
-            # context (Claude Code slash command, CI runner, captured subprocess),
-            # uv_tty_init returns EINVAL and micro-agent crashes immediately with
-            # 0 iterations. Wrap with `script -qfc` to provide a pseudo-TTY so
-            # micro-agent's interactive prompts succeed.
-            # See: https://github.com/BuilderIO/micro-agent/issues — TTY init failure
-            #
-            # Detection: if stdin is not a TTY, we're being called from a slash
-            # command or pipeline. Use the wrapper. If stdin IS a TTY (operator
-            # ran `dev-kid execute` directly in a terminal), pass-through native.
-            import shlex
-
-            if sys.stdin.isatty() or shutil.which("script") is None:
-                cmd = base_cmd
-            else:
-                cmd_str = " ".join(shlex.quote(c) for c in base_cmd)
-                cmd = ["script", "-qfc", cmd_str, "/dev/null"]
+            if tier_config_file:
+                cmd += ["-c", str(tier_config_file)]
 
             print(
                 f"      🔧 [{tier_idx + 1}/{len(tiers)}] {tier_name} ({artisan_model}, max {max_iter} runs)..."
             )
+            print(f"      🎯 target={target}")
             tier_start = time.time()
+            _log_dir = Path(project_root) / ".claude" / "sentinel"
+            _log_dir.mkdir(parents=True, exist_ok=True)
+            _log_path = _log_dir / f"ma-loop-{tier_name}-{int(tier_start)}.log"
+            print(f"      📂 live: tail -f {_log_path}")
+
+            class _Res:
+                stdout = ""
+                stderr = ""
+                returncode = 1
+
+            result = _Res()
             try:
-                result = subprocess.run(
-                    cmd,
-                    env=env,
-                    timeout=max(10, min(300, (max_duration * 60) - elapsed_total + 30)),
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=str(project_root),
+                _timeout = max(10, min(300, (max_duration * 60) - elapsed_total + 30))
+                _rc, _out = _run_streaming_tee(
+                    cmd, {**env, "OLLAMA_BASE_URL": ollama_url}, _timeout, _log_path
                 )
+                result.returncode = _rc
+                result.stdout = _out
+                # keep the legacy except path happy if it referenced .stderr
+                _legacy_unused = True  # noqa
             except subprocess.TimeoutExpired:
                 tier_elapsed = time.time() - tier_start
                 print(
