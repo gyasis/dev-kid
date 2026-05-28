@@ -28,6 +28,8 @@ class Task:
     blocks_tasks: List[str] = field(default_factory=list)
     constitution_rules: List[str] = field(default_factory=list)
     completed: bool = False
+    # [S] marker: author-denoted real+compilable sentinel test-point (predicate B).
+    sentinel_point: bool = False
 
 
 @dataclass
@@ -186,6 +188,12 @@ class TaskOrchestrator:
         completed = "[x]" in first_line
         description = first_line.split("]", 1)[1].strip()
 
+        # [S] marker: the task-author denotes a real+compilable sentinel test-point
+        # (predicate B). Strip it so the instruction passed downstream stays clean.
+        sentinel_point = bool(re.search(r"\[S\]", first_line))
+        if sentinel_point:
+            description = re.sub(r"\s*\[S\]", "", description, count=1)
+
         # Full task block — used for dep extraction so sub-bullets and
         # second-line "Dependencies:" / "Requires:" hints are honored.
         full_text = "\n".join(task_lines)
@@ -231,6 +239,7 @@ class TaskOrchestrator:
             blocks_tasks=blocks_tasks,
             constitution_rules=constitution_rules,
             completed=completed,
+            sentinel_point=sentinel_point,
         )
 
         self.tasks.append(task)
@@ -950,6 +959,7 @@ class TaskOrchestrator:
                         "agent_role": "Developer",
                         "instruction": t.description,
                         "file_locks": t.file_locks,
+                        "sentinel_point": getattr(t, "sentinel_point", False),
                         "constitution_rules": t.constitution_rules,
                         "testability": testability,
                         "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
@@ -1100,11 +1110,54 @@ class TaskOrchestrator:
         granularity, n = self._load_sentinel_granularity()
         sentinel_lines_to_append: List[str] = []
 
+        # Opt-in: if ANY task anywhere carries an [S] marker, the whole run is in
+        # marker mode — only [S]-marked points get sentinels, and unmarked tasks
+        # (including entire skeleton waves) get none. Only a tasks.md with ZERO
+        # markers falls back to injection_granularity (backward-compatible).
+        markers_present = any(
+            t.get("sentinel_point") for w in waves for t in w.tasks
+        )
+
         for wave in waves:
             dev_tasks = list(wave.tasks)
             injected: List[Dict] = []
 
-            if granularity == "per-wave":
+            # Author-driven [S] markers take precedence (predicate B): place a
+            # sentinel ONLY at the real+compilable file-points the task-author
+            # marked, each covering the run of tasks since the previous sentinel.
+            # Tasks after the last marker in a wave stay uncovered (skeleton /
+            # prerequisites). Falls back to injection_granularity when no task in
+            # the wave is [S]-marked (backward-compatible).
+            if markers_present:
+                batch_start = 0
+                for i, task in enumerate(dev_tasks):
+                    injected.append(task)
+                    if task.get("sentinel_point"):
+                        batch = dev_tasks[batch_start : i + 1]
+                        covered = ", ".join(t["task_id"] for t in batch)
+                        sentinel_id = f"SENTINEL-{task['task_id']}"
+                        sentinel_instruction = (
+                            f"Sentinel validation for {covered}: verify implementations pass tests"
+                        )
+                        sentinel_task = {
+                            "task_id": sentinel_id,
+                            "agent_role": "Sentinel",
+                            "instruction": sentinel_instruction,
+                            "file_locks": list(task.get("file_locks", [])),
+                            "constitution_rules": [],
+                            "completion_handshake": (
+                                f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
+                            ),
+                            "dependencies": [t["task_id"] for t in batch],
+                            "parent_task_id": task["task_id"],
+                        }
+                        injected.append(sentinel_task)
+                        sentinel_lines_to_append.append(
+                            f"- [ ] {sentinel_id}: {sentinel_instruction}"
+                        )
+                        batch_start = i + 1
+
+            elif granularity == "per-wave":
                 # One sentinel at the end of the wave, covering all tasks
                 injected.extend(dev_tasks)
                 last_task = dev_tasks[-1]

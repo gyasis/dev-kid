@@ -4,6 +4,35 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ---
 
+## v2.4.0 — 2026-05-28
+
+Sentinel/orchestrator rework surfaced by dogfooding a Rust (`gentle-eye`) build.
+Full design + rationale: `docs/architecture/SENTINEL_ORCHESTRATOR_REWORK_2026-05-28.md`.
+
+### Removed
+
+- **Legacy `micro-agent` TUI tier path** (`TierRunner.run_tier1`/`run_tier2` +
+  `_ensure_legacy_tier_config`). It entered an interactive onboarding TUI and hung
+  ~300s/tier in non-TTY contexts. The headless `ma-loop run <target>` path
+  (`run_tiered`, added in c23c9e4) is now the sole executor; `runner.py` was
+  rewired to it. No-`tiers_file` projects now fail with actionable guidance instead
+  of routing into the hang. (−300 lines.)
+
+### Added
+
+- **`[S]` sentinel-point marker** (`cli/orchestrator.py`). A task line may carry
+  `[S]` (`- [ ] T### [S]: …`) to mark a real+compilable file-point. When any task
+  is `[S]`-marked, `_inject_sentinel_tasks` places sentinels **only** at marked
+  points (skeleton/stub tasks get none); zero markers → falls back to
+  `injection_granularity` (backward-compatible). Fixes the class where a sentinel
+  was placed on a non-compilable stub and halted the wave (`SENTINEL-T002`).
+- **Cross-file attribution + agent-mediated recovery** (`cli/sentinel/tier_runner.py`).
+  After a failed tier, `cargo check --message-format=json` attributes each error to
+  its originating file (rustc primary span). If the error originates in a
+  **dependency** rather than the file under repair, the agent fixes the dependency
+  (bounded `ma-loop`, ≤3 iters) and re-tests before escalating — instead of letting
+  the single-file fixer mangle a correct file. Cargo-specific for now.
+
 ## v2.3.0 — 2026-05-25
 
 Minor release. Reworks how `dev-kid init` deploys Claude Code hooks (copy →

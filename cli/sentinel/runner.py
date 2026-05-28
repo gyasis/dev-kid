@@ -319,34 +319,22 @@ class SentinelRunner:
                     )
                     print("      ❌ All tiers exhausted — wave will halt")
             else:
-                # ── Legacy 2-tier path: Ollama → Claude ──
-                t1 = runner.run_tier1(objective, test_cmd, self._config)
-                result_obj.tier1_result = t1
-
-                if t1.passed:
-                    result_obj.result = "PASS"
-                    result_obj.tier_used = 1
-                    print(f"      ✅ Tier 1 passed in {t1.iterations} iteration(s)")
-                else:
-                    print(
-                        f"      ⚠️  Tier 1 {'skipped' if t1.skipped else 'exhausted'} — escalating to Tier 2"
-                    )
-                    t2 = runner.run_tier2(objective, test_cmd, self._config)
-                    result_obj.tier2_result = t2
-
-                    if t2.passed:
-                        result_obj.result = "PASS"
-                        result_obj.tier_used = 2
-                        print(f"      ✅ Tier 2 passed in {t2.iterations} iteration(s)")
-                    else:
-                        result_obj.result = "FAIL"
-                        result_obj.should_halt_wave = True
-                        result_obj.tier_used = 2
-                        result_obj.error_message = (
-                            f"Both tiers exhausted for {task_id}. "
-                            "Manual intervention required."
-                        )
-                        print("      ❌ Both tiers exhausted — wave will halt")
+                # Legacy 2-tier micro-agent path REMOVED (2026-05-28): it entered
+                # micro-agent's interactive onboarding TUI and hung 300s/tier in a
+                # non-TTY context. The headless ma-loop path (run_tiered) requires a
+                # tiers_file. Fail clearly instead of hanging.
+                result_obj.result = "FAIL"
+                result_obj.should_halt_wave = True
+                result_obj.error_message = (
+                    f"No sentinel.tiers_file configured for {task_id}; the legacy "
+                    "micro-agent tier path has been removed (it hung in non-TTY). "
+                    "Set sentinel.tiers_file to a ralph-tiers.json (project-local or "
+                    "~/.dev-kid/ralph-tiers.json)."
+                )
+                print(
+                    "      ❌ No tiers_file — legacy micro-agent path removed; "
+                    "configure sentinel.tiers_file"
+                )
         except Exception as exc:
             # Distinguish expected test failures (should halt) from unexpected
             # errors (import errors, I/O errors, etc.) which are non-fatal.
