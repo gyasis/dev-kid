@@ -64,6 +64,17 @@ dependencies are green, so I am now safely fixable in isolation."*
 file**. Do **not** mark skeleton/glue/prerequisite tasks (module declarations,
 empty trait stubs) — they exist to make the tree resolve, not to pass tests.
 
+**Mode-agnostic — mark the file `dev-kid spec-resolve` reports.** `[S]` works
+identically in dev-kid **lite** (`.dk/tasks.md`) and **SpecKit**
+(`.specify/specs/{branch}/tasks.md`): detection is `re.search(r'\[S\]', line)`,
+so it ignores `[P]`/`[US#]` tags and both `- [ ] T### [S]:` (lite) and
+`- [ ] T001 [P] [S] [US1] …` (SpecKit) line shapes work. The one trap is
+*routing*: dev-kid resolves a canonical tasks.md via a priority chain, and editing
+the wrong file (e.g. repo-root in a lite project, which orchestrate *replaces*)
+means `[S]` never reaches the parser. Run **`dev-kid spec-resolve`** to see the
+exact file it will use, and mark `[S]` there. (Origin: 2026-05-28 dogfood — `[S]`
+edits to repo-root were silently ignored because lite resolves to `.dk/tasks.md`.)
+
 ---
 
 ## (c) Cross-file attribution + agent-mediated recovery
