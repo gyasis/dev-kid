@@ -22,6 +22,53 @@ if TYPE_CHECKING:
     from . import SentinelConfig, SentinelResult
 
 
+def _criterion_from_tasksmd(task: dict, project_root: Path) -> str:
+    """Extract the `> DONE:` completion criteria for a task from the resolved tasks.md.
+
+    Goal-as-Test (PRD maloop_unification U4): the criterion is the measurable goal
+    the generated test must encode. Matches the task's original id(s) on a
+    `- [ ]`/`- [x]` line, then collects the following indented `> ...` lines.
+    """
+    import re as _re
+    import sys as _sys
+
+    try:
+        _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from resolver import resolve_tasks_file
+
+        tf, _ = resolve_tasks_file()
+    except Exception:
+        tf = None
+    if not tf or not Path(tf).is_file():
+        return ""
+    ids = set()
+    tid = str(task.get("task_id", "")).replace("SENTINEL-", "")
+    if tid:
+        ids.add(tid)
+    m = _re.match(r"\s*(T\d+)", str(task.get("instruction", "")))
+    if m:
+        ids.add(m.group(1))
+    for dep in task.get("dependencies", []) or []:
+        ids.add(str(dep).replace("SENTINEL-", ""))
+    ids = {i for i in ids if i}
+    if not ids:
+        return ""
+    lines = Path(tf).read_text(encoding="utf-8", errors="ignore").split("\n")
+    crits: list[str] = []
+    for i, line in enumerate(lines):
+        if not _re.match(r"\s*- \[[ xX]\]", line):
+            continue
+        if not any(_re.search(rf"\b{_re.escape(i_)}\b", line) for i_ in ids):
+            continue
+        for j in range(i + 1, min(i + 8, len(lines))):
+            s = lines[j].strip()
+            if s.startswith(">"):
+                crits.append(s.lstrip("> ").strip())
+            elif s.startswith("- ["):
+                break
+    return "  ".join(crits)
+
+
 def detect_test_command(working_dir: Path, config: object = None) -> str | None:
     """Resolve the test command for a sentinel run.
 
@@ -291,12 +338,26 @@ class SentinelRunner:
                 "instruction", f"Verify task {task_id} output passes tests"
             )
 
+            # The file(s) MUST be handed to ma-loop (PRD maloop_unification U1) —
+            # without a concrete target it authors junk into the tree. file_locks
+            # carry the relative source paths; ma-loop runs with cwd=project_root.
+            target_files = [str(f) for f in file_locks if f and "." in str(f)]
+
+            # U4: the measurable goal — the task's `> DONE:` criterion — so ma-loop
+            # generates a STRONG behavioral test (not a trivial/compile-only one).
+            criterion = _criterion_from_tasksmd(task, self._project_root)
+
             tiers_file = getattr(self._config, "sentinel_tiers_file", "")
 
             if tiers_file:
                 # ── N-tier path: delegate to micro-agent --tier-config ──
                 tr = runner.run_tiered(
-                    objective, test_cmd, self._config, self._project_root
+                    objective,
+                    test_cmd,
+                    self._config,
+                    self._project_root,
+                    target_files=target_files,
+                    criterion=criterion or None,
                 )
                 result_obj.tier_results = [tr]
                 # Populate legacy fields for manifest backward compat

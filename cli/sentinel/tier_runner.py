@@ -285,6 +285,8 @@ class TierRunner:
         test_cmd: str,
         config: "SentinelConfig",
         project_root: Path,
+        target_files: "list | None" = None,
+        criterion: "str | None" = None,
     ) -> "TierResult":
         """Run micro-agent through N-tier escalation ladder.
 
@@ -659,11 +661,33 @@ class TierRunner:
             # smoke: SUCCESS 6.5s, clean streaming logs). It takes a real <target>
             # file + -o objective; extract the target path from the objective
             # (the task's `affecting \`path\`` / first source-path token).
+            # Target FILE for ma-loop. The file MUST be given (PRD maloop_unification
+            # U1): when target is "." the agent has nothing concrete to work on and
+            # authors junk across the tree. Prefer the explicit target_files the
+            # sentinel passes (from the task's file_locks); fall back to a path in
+            # the objective; if neither yields a real file → HARD BLOCKING FAIL.
             import re as _re
-            _m = _re.search(r'`([^`]+\.\w+)`', objective) or _re.search(
-                r'\b([\w./-]+\.(?:rs|py|ts|js|go|java|md|toml|json))\b', objective
-            )
-            target = _m.group(1) if _m else "."
+            if target_files:
+                target = target_files[0]
+            else:
+                _m = _re.search(r'`([^`]+\.\w+)`', objective) or _re.search(
+                    r'\b([\w./-]+\.(?:rs|py|ts|js|go|java|md|toml|json))\b', objective
+                )
+                target = _m.group(1) if _m else ""
+            if not target or target == ".":
+                print(
+                    "      🛑 BLOCKING: no target file for ma-loop (target='.') — the "
+                    "sentinel task must carry file_locks; refusing to run unconstrained."
+                )
+                return TierResult(
+                    attempted=False,
+                    skipped=False,
+                    tier_name="no-target-file",
+                    final_status="FAIL",
+                    error_messages=[
+                        "BLOCKING: no concrete target file for ma-loop (would author junk)"
+                    ],
+                )
             cmd = [
                 "ma-loop", "run", target,
                 "-o", objective,
@@ -672,6 +696,8 @@ class TierRunner:
                 "-i", str(max_iter),
                 "--no-adversarial",
             ]
+            if criterion:
+                cmd += ["--criterion", criterion]
             if tier_config_file:
                 cmd += ["-c", str(tier_config_file)]
 
