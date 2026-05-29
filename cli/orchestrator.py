@@ -1609,7 +1609,10 @@ def main():
         description="Task Orchestrator - Wave-based parallel execution"
     )
     parser.add_argument(
-        "--tasks-file", default="tasks.md", help="Path to tasks.md file"
+        "--tasks-file",
+        default=None,
+        help="Path to tasks.md file. If omitted, resolved via the shared "
+        "resolver (cli/resolver.py) and locked into .dk/context.json.",
     )
     parser.add_argument("--phase-id", default="default", help="Phase identifier")
     parser.add_argument(
@@ -1644,7 +1647,22 @@ def main():
         )
         sys.exit(2)
 
-    orchestrator = TaskOrchestrator(args.tasks_file, agent_parse=args.agent_parse)
+    tasks_file = args.tasks_file
+    if not tasks_file:
+        # Standalone invocation (no explicit --tasks-file from the bash wrapper):
+        # re-resolve fresh and lock the pointer so execute/sentinel/watchdog agree.
+        sys.path.insert(0, str(Path(__file__).parent))
+        from resolver import resolve_tasks_file, write_context
+
+        resolved, reason = resolve_tasks_file(prefer_context=False)
+        if resolved is None:
+            print(f"❌ Could not resolve tasks.md: {reason}")
+            sys.exit(2)
+        write_context(resolved, reason)
+        print(f"   ✓ tasks.md = {resolved}  ({reason})")
+        tasks_file = str(resolved)
+
+    orchestrator = TaskOrchestrator(tasks_file, agent_parse=args.agent_parse)
     orchestrator.execute(
         args.phase_id, verify=args.verify, verify_only=args.verify_only
     )

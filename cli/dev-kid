@@ -306,28 +306,19 @@ except Exception:
     echo -e "   ${GREEN}✓${NC} tasks.md = ${FOUND}"
     echo -e "      source: ${REASON}"
 
-    # Update the symlink only when needed. Fix #2: surface the destructive case loudly.
-    CURRENT_LINK=$(readlink tasks.md 2>/dev/null || echo "")
-    if [ ! -e "tasks.md" ]; then
-        echo -e "   ${YELLOW}ℹ${NC}  Creating tasks.md → $FOUND"
-        ln -sf "$FOUND" tasks.md
-    elif [ ! -L "tasks.md" ]; then
-        echo -e "   ${YELLOW}⚠${NC}  REPLACING plain-file tasks.md with symlink → $FOUND"
-        ln -sf "$FOUND" tasks.md
-    elif [ "$CURRENT_LINK" != "$FOUND" ]; then
-        if [ -n "$force_symlink" ]; then
-            echo -e "   ${YELLOW}⚠${NC}  --force-symlink: OVERWRITING tasks.md symlink ($CURRENT_LINK → $FOUND)"
-            ln -sf "$FOUND" tasks.md
-        else
-            # Should never reach here — priority-0 honors existing symlink.
-            # Kept as a defensive guard.
-            echo -e "   ${YELLOW}ℹ${NC}  tasks.md already symlinked to $CURRENT_LINK (matching resolver output)"
-        fi
-    fi
+    # Lock the resolved path into .dk/context.json — a PLAIN POINTER, not a symlink.
+    # (The old `ln -sf tasks.md → $FOUND` symlink rotted: git/auto-checkpoint
+    #  materialized it into a divergent real file, so spec-resolve and execute
+    #  read different files. A pointer file can't rot that way; all components
+    #  read it via cli/resolver.py.)
+    python3 "$DEV_KID_ROOT/cli/resolver.py" lock "$FOUND" "$REASON" 2>/dev/null \
+        && echo -e "   ${GREEN}✓${NC} locked → .dk/context.json (no symlink)" \
+        || echo -e "   ${YELLOW}⚠${NC}  could not write .dk/context.json (components fall back to resolver)"
 
-    # Run orchestrator. Flags compose: --agent-parse and --verify[-only] are
+    # Run orchestrator with the EXPLICIT resolved path so it never re-discovers a
+    # different file. Flags compose: --agent-parse and --verify[-only] are
     # independent and both may be passed.
-    local py_args=(--phase-id "$phase_id")
+    local py_args=(--tasks-file "$FOUND" --phase-id "$phase_id")
     [ -n "$agent_parse" ] && py_args+=(--agent-parse)
     [ -n "$verify_flag" ] && py_args+=("$verify_flag")
     python3 "$DEV_KID_ROOT/cli/orchestrator.py" "${py_args[@]}"
@@ -425,20 +416,27 @@ except Exception as e:
         echo "  .specify/feature.json: (absent)"
     fi
 
-    # current tasks.md symlink
+    # Legacy root tasks.md (no longer created/used — pointer model replaced it)
     if [ -L "tasks.md" ]; then
-        local CL
-        CL=$(readlink tasks.md)
-        if [ -f "$CL" ]; then
-            echo "  tasks.md symlink: → ${CL} (target exists)"
-        else
-            echo -e "  tasks.md symlink: → ${RED}${CL}${NC} (BROKEN — target missing)"
-        fi
+        echo "  tasks.md: (legacy symlink — harmless; pointer model ignores it)"
     elif [ -e "tasks.md" ]; then
-        echo "  tasks.md: (plain file, not a symlink — will be replaced on orchestrate)"
+        echo "  tasks.md: (plain file — NOT used; resolver uses .dk/context.json / the chain)"
     else
-        echo "  tasks.md: (absent — will be created on orchestrate)"
+        echo "  tasks.md: (absent — fine; no symlink is created anymore)"
     fi
+
+    # AUTHORITATIVE: the single shared resolver (cli/resolver.py) + the locked
+    # pointer are what orchestrate/execute/sentinel/watchdog actually use.
+    if [ -f ".dk/context.json" ]; then
+        local LOCKED
+        LOCKED=$(python3 -c "import json,sys;print(json.load(open('.dk/context.json')).get('tasks_file',''))" 2>/dev/null)
+        echo "  .dk/context.json: ${LOCKED:-(unreadable)}  (locked pointer — components use this)"
+    else
+        echo "  .dk/context.json: (absent — resolved fresh on next orchestrate)"
+    fi
+    echo
+    python3 "$DEV_KID_ROOT/cli/resolver.py" explain 2>/dev/null | sed 's/^/  /'
+    echo
 
     # Re-run resolution chain (READ-ONLY — no ln -sf)
     local FOUND="" REASON=""

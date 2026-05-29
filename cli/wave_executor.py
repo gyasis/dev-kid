@@ -5,15 +5,17 @@ Wave Executor - Executes waves from execution_plan.json with checkpoints
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from config_manager import ConfigManager, ConfigSchema
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
+from resolver import resolve_tasks_file
 
 # Sentinel runner (T009) — imported lazily to tolerate incomplete builds
 try:
@@ -60,7 +62,10 @@ class WaveExecutor:
     def __init__(self, plan_file: str = "execution_plan.json"):
         self.plan_file = Path(plan_file)
         self.plan = None
-        self.tasks_file = Path("tasks.md")
+        # Single shared resolver — reuse the path orchestrate locked into
+        # .dk/context.json so execute reads the SAME file (no symlink, no divergence).
+        resolved, _reason = resolve_tasks_file()
+        self.tasks_file = resolved if resolved else Path("tasks.md")
         self.project_root = Path.cwd()
 
         # Load constitution from memory-bank
@@ -158,30 +163,53 @@ class WaveExecutor:
             )
             sys.exit(2)
         for task in tasks:
-            task_desc = task["instruction"]
-            # Spec 002 audit fix #4 (related) — prefer task_id boundary match
-            # to avoid cross-spec substring collisions on shared phrases like
-            # "Create the data model" / "Add unit tests".
-            task_id = task.get("task_id", "")
-            for line in content.split("\n"):
-                # Strict-then-loose: prefer task-id anchored line; fall back to substring.
-                hit = False
-                if task_id and (
-                    f"] {task_id} " in line
-                    or f"] {task_id}:" in line
-                    or line.lstrip().startswith(f"- [x] {task_id}")
-                    or line.lstrip().startswith(f"- [ ] {task_id}")
+            found, complete = self._find_task_state(content, task)
+            if not found or not complete:
+                return False
+        return True
+
+    @staticmethod
+    def _orig_task_id(instruction: str) -> str:
+        """Extract the ORIGINAL tasks.md id embedded at the start of an instruction.
+
+        Orchestrate renumbers tasks internally (e.g. internal `T005`) while the
+        instruction text and the tasks.md line keep the authored id (e.g. `T210`).
+        """
+        m = re.match(r"\s*(T\d+)\b", instruction or "")
+        return m.group(1) if m else ""
+
+    def _find_task_state(self, content: str, task: Dict) -> Tuple[bool, bool]:
+        """Return (found, is_complete) for a task in tasks.md.
+
+        MARKER-AGNOSTIC and ID-ROBUST (audit fix 2026-05-29): matches a line by
+        the internal plan id OR the original authored id (from the instruction),
+        independent of any `[S]`/`[P]` marker on the line. Falls back to an
+        instruction substring. Previously the matcher used the internal id (which
+        differs from the file id) and a substring of the [S]-stripped instruction
+        (which the [S]-bearing line no longer contained) — so [S] sentinel tasks
+        could never be detected as complete and the wave re-dispatched forever.
+        """
+        task_desc = task.get("instruction", "")
+        ids = [i for i in (task.get("task_id", ""), self._orig_task_id(task_desc)) if i]
+        for line in content.split("\n"):
+            stripped = line.lstrip()
+            hit = False
+            for tid in ids:
+                if (
+                    f"] {tid} " in line
+                    or f"] {tid}:" in line
+                    or stripped.startswith(f"- [x] {tid} ")
+                    or stripped.startswith(f"- [ ] {tid} ")
+                    or stripped.startswith(f"- [x] {tid}:")
+                    or stripped.startswith(f"- [ ] {tid}:")
                 ):
                     hit = True
-                elif task_desc in line:
-                    hit = True
-                if hit:
-                    if "[x]" not in line:
-                        return False
                     break
-            else:
-                return False  # task not found at all
-        return True
+            if not hit and task_desc and task_desc in line:
+                hit = True
+            if hit:
+                return True, ("[x]" in line)
+        return False, False
 
     def verify_wave_completion(self, wave_id: int, tasks: List[Dict]) -> bool:
         """Verify all tasks in wave are marked complete in tasks.md"""
@@ -192,18 +220,14 @@ class WaveExecutor:
             return False
 
         for task in tasks:
-            task_desc = task["instruction"]
-            # Check if task line contains [x]
-            for line in content.split("\n"):
-                if task_desc in line:
-                    if "[x]" in line:
-                        print(f"   ✅ {task['task_id']}: Verified complete")
-                    else:
-                        print(f"   ❌ {task['task_id']}: NOT marked complete!")
-                        return False
-                    break
-            else:
+            found, complete = self._find_task_state(content, task)
+            if not found:
                 print(f"   ⚠️  {task['task_id']}: Task not found in tasks.md")
+                return False
+            if complete:
+                print(f"   ✅ {task['task_id']}: Verified complete")
+            else:
+                print(f"   ❌ {task['task_id']}: NOT marked complete!")
                 return False
 
         return True
