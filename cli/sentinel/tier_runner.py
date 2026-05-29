@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -818,6 +819,30 @@ class TierRunner:
                 }
             )
 
+            # Observability: index this ma-loop run into .dk/observability.db so an
+            # agent can SELECT the facts (files changed, test errors, tier, status)
+            # WITHOUT loading the verbose log; log_path points to the drill-down.
+            try:
+                from .observability import record_run as _obs_record
+
+                _obs_record(
+                    project_root=project_root,
+                    ts=datetime.now(timezone.utc).isoformat(),
+                    objective=objective,
+                    tier=tier_name,
+                    model=artisan_model,
+                    iterations=parsed.get("iterations", 0),
+                    cost_usd=tier_cost,
+                    duration_sec=tier_elapsed,
+                    status="PASS" if passed else "FAIL",
+                    returncode=result.returncode,
+                    files_changed=parsed.get("files_written", []),
+                    errors=parsed.get("errors", []),
+                    log_path=_log_path,
+                )
+            except Exception:
+                pass  # observability never breaks the run
+
             # Surface output for observability
             if result.stderr.strip():
                 for line in result.stderr.strip().splitlines()[-3:]:
@@ -1153,5 +1178,20 @@ def _parse_micro_agent_output(stdout: str) -> dict:
     dur_match = re.search(r"Duration:\s*([\d.]+)s", stdout, re.IGNORECASE)
     if dur_match:
         result["duration_sec"] = float(dur_match.group(1))
+
+    # Files the artisan wrote (per iteration), e.g.:
+    #   [artisan] Code written {"file":"src/foo.rs","size":2466}
+    files = re.findall(r'Code written\s*\{[^}]*"file":\s*"([^"]+)"', stdout)
+    result["files_written"] = list(dict.fromkeys(files))  # dedupe, keep order
+
+    # Test errors driving the loop: compiler error lines + failed-test summaries.
+    errors: list = []
+    for m in re.finditer(r"^\s*(error(?:\[E\d+\])?:.*)$", stdout, re.MULTILINE):
+        errors.append(m.group(1).strip())
+    for m in re.finditer(
+        r'Tests completed\s*(\{[^}]*"failed":\s*[1-9]\d*[^}]*\})', stdout
+    ):
+        errors.append("tests failed: " + m.group(1))
+    result["errors"] = errors[:50]  # cap to keep the row small
 
     return result
