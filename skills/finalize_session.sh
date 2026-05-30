@@ -88,8 +88,17 @@ EOF
 # Create symlink to latest
 ln -sf "$(basename $SNAPSHOT_FILE)" ".claude/session_snapshots/snapshot_latest.json"
 
+# Honor the auto-checkpoint toggle (project .devkid/config.json > global > on).
+# `dev-kid auto-checkpoint off` sets cli.auto_git_commit=false to suppress this.
+_AC=$(jq -r '.cli.auto_git_commit' .devkid/config.json 2>/dev/null)
+if [ -z "$_AC" ] || [ "$_AC" = "null" ]; then
+    _AC=$(jq -r '.cli.auto_git_commit' "${DEV_KID_GLOBAL_CONFIG:-$HOME/.config/dev-kid/config.json}" 2>/dev/null)
+fi
+
+if [ "$_AC" = "false" ]; then
+    echo "ℹ️  auto-checkpoint disabled (dev-kid config) — skipping git commit"
 # Create final checkpoint
-if checkpoint=$(find_skill "checkpoint.sh" 2>/dev/null); then
+elif checkpoint=$(find_skill "checkpoint.sh" 2>/dev/null); then
     "$checkpoint" "Session finalized - $COMPLETED/$TOTAL tasks complete"
 else
     # Fallback: create checkpoint manually
