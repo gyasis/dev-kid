@@ -28,6 +28,8 @@ class Task:
     blocks_tasks: List[str] = field(default_factory=list)
     constitution_rules: List[str] = field(default_factory=list)
     completed: bool = False
+    # [S] marker: author-denoted real+compilable sentinel test-point (predicate B).
+    sentinel_point: bool = False
 
 
 @dataclass
@@ -186,6 +188,12 @@ class TaskOrchestrator:
         completed = "[x]" in first_line
         description = first_line.split("]", 1)[1].strip()
 
+        # [S] marker: the task-author denotes a real+compilable sentinel test-point
+        # (predicate B). Strip it so the instruction passed downstream stays clean.
+        sentinel_point = bool(re.search(r"\[S\]", first_line))
+        if sentinel_point:
+            description = re.sub(r"\s*\[S\]", "", description, count=1)
+
         # Full task block — used for dep extraction so sub-bullets and
         # second-line "Dependencies:" / "Requires:" hints are honored.
         full_text = "\n".join(task_lines)
@@ -231,6 +239,7 @@ class TaskOrchestrator:
             blocks_tasks=blocks_tasks,
             constitution_rules=constitution_rules,
             completed=completed,
+            sentinel_point=sentinel_point,
         )
 
         self.tasks.append(task)
@@ -833,8 +842,12 @@ class TaskOrchestrator:
         # Bypass: --allow-empty (set ALLOW_EMPTY_WAVES=1 in env).
         if pending_tasks == [] and len(self.tasks) > 0:
             if os.environ.get("ALLOW_EMPTY_WAVES") != "1":
-                import sys
-
+                # Note: sys imported at module top (line 9). The previous local
+                # `import sys` here shadowed it across the whole function,
+                # turning any later sys.exit(...) reached without crossing this
+                # branch into an UnboundLocalError (surfaced in gentle-eye
+                # dogfood 2026-05-26 when create_waves hit the circular-dep
+                # handler without pending_tasks ever being empty).
                 print()
                 print(
                     "⚠️  All",
@@ -946,6 +959,7 @@ class TaskOrchestrator:
                         "agent_role": "Developer",
                         "instruction": t.description,
                         "file_locks": t.file_locks,
+                        "sentinel_point": getattr(t, "sentinel_point", False),
                         "constitution_rules": t.constitution_rules,
                         "testability": testability,
                         "completion_handshake": f"Upon success, update tasks.md line containing '{t.description}' to [x]",
@@ -1096,11 +1110,54 @@ class TaskOrchestrator:
         granularity, n = self._load_sentinel_granularity()
         sentinel_lines_to_append: List[str] = []
 
+        # Opt-in: if ANY task anywhere carries an [S] marker, the whole run is in
+        # marker mode — only [S]-marked points get sentinels, and unmarked tasks
+        # (including entire skeleton waves) get none. Only a tasks.md with ZERO
+        # markers falls back to injection_granularity (backward-compatible).
+        markers_present = any(
+            t.get("sentinel_point") for w in waves for t in w.tasks
+        )
+
         for wave in waves:
             dev_tasks = list(wave.tasks)
             injected: List[Dict] = []
 
-            if granularity == "per-wave":
+            # Author-driven [S] markers take precedence (predicate B): place a
+            # sentinel ONLY at the real+compilable file-points the task-author
+            # marked, each covering the run of tasks since the previous sentinel.
+            # Tasks after the last marker in a wave stay uncovered (skeleton /
+            # prerequisites). Falls back to injection_granularity when no task in
+            # the wave is [S]-marked (backward-compatible).
+            if markers_present:
+                batch_start = 0
+                for i, task in enumerate(dev_tasks):
+                    injected.append(task)
+                    if task.get("sentinel_point"):
+                        batch = dev_tasks[batch_start : i + 1]
+                        covered = ", ".join(t["task_id"] for t in batch)
+                        sentinel_id = f"SENTINEL-{task['task_id']}"
+                        sentinel_instruction = (
+                            f"Sentinel validation for {covered}: verify implementations pass tests"
+                        )
+                        sentinel_task = {
+                            "task_id": sentinel_id,
+                            "agent_role": "Sentinel",
+                            "instruction": sentinel_instruction,
+                            "file_locks": list(task.get("file_locks", [])),
+                            "constitution_rules": [],
+                            "completion_handshake": (
+                                f"Upon success, update tasks.md line containing '{sentinel_instruction}' to [x]"
+                            ),
+                            "dependencies": [t["task_id"] for t in batch],
+                            "parent_task_id": task["task_id"],
+                        }
+                        injected.append(sentinel_task)
+                        sentinel_lines_to_append.append(
+                            f"- [ ] {sentinel_id}: {sentinel_instruction}"
+                        )
+                        batch_start = i + 1
+
+            elif granularity == "per-wave":
                 # One sentinel at the end of the wave, covering all tasks
                 injected.extend(dev_tasks)
                 last_task = dev_tasks[-1]
@@ -1552,7 +1609,10 @@ def main():
         description="Task Orchestrator - Wave-based parallel execution"
     )
     parser.add_argument(
-        "--tasks-file", default="tasks.md", help="Path to tasks.md file"
+        "--tasks-file",
+        default=None,
+        help="Path to tasks.md file. If omitted, resolved via the shared "
+        "resolver (cli/resolver.py) and locked into .dk/context.json.",
     )
     parser.add_argument("--phase-id", default="default", help="Phase identifier")
     parser.add_argument(
@@ -1587,7 +1647,22 @@ def main():
         )
         sys.exit(2)
 
-    orchestrator = TaskOrchestrator(args.tasks_file, agent_parse=args.agent_parse)
+    tasks_file = args.tasks_file
+    if not tasks_file:
+        # Standalone invocation (no explicit --tasks-file from the bash wrapper):
+        # re-resolve fresh and lock the pointer so execute/sentinel/watchdog agree.
+        sys.path.insert(0, str(Path(__file__).parent))
+        from resolver import resolve_tasks_file, write_context
+
+        resolved, reason = resolve_tasks_file(prefer_context=False)
+        if resolved is None:
+            print(f"❌ Could not resolve tasks.md: {reason}")
+            sys.exit(2)
+        write_context(resolved, reason)
+        print(f"   ✓ tasks.md = {resolved}  ({reason})")
+        tasks_file = str(resolved)
+
+    orchestrator = TaskOrchestrator(tasks_file, agent_parse=args.agent_parse)
     orchestrator.execute(
         args.phase_id, verify=args.verify, verify_only=args.verify_only
     )

@@ -12,9 +12,16 @@ description: "Task list template for feature implementation"
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
-## Format: `[ID] [P?] [Story] Description`
+## Format: `[ID] [P?] [S?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
+- **[S]**: Sentinel test-point — this task finishes a real, **compilable** file, so
+  the orchestrator places a sentinel (test gate) here. **OMIT** on skeleton / glue /
+  prerequisite tasks (module declarations, empty trait stubs): those exist to make
+  the tree resolve, not to pass tests. Marking a stub re-introduces the wave-halt-on-
+  uncompilable-file class. The semantic of an `[S]` point is "all my dependencies are
+  green, so I am now safely fixable in isolation." See
+  `docs/architecture/SENTINEL_ORCHESTRATOR_REWORK_2026-05-28.md`.
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 

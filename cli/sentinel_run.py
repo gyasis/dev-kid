@@ -46,22 +46,18 @@ def _git_branch() -> str:
 
 
 def find_tasks_md() -> Optional[Path]:
-    """Locate tasks.md following the same precedence as `dev-kid orchestrate`."""
-    branch = _git_branch()
-    candidates = []
-    if branch:
-        candidates.append(Path(f".specify/specs/{branch}/tasks.md"))
-        candidates.append(Path(f"specs/{branch}/tasks.md"))
-    candidates.append(Path("tasks.md"))
-    for c in candidates:
-        if c.exists() and c.is_file():
-            return c
-    specs_root = Path("specs")
-    if specs_root.exists():
-        matches = sorted(specs_root.rglob("tasks.md"))
-        if matches:
-            return matches[0]
-    return None
+    """Locate tasks.md via the SINGLE shared resolver (cli/resolver.py).
+
+    Previously this had its own precedence that ignored `.dk/tasks.md` and the
+    `.dk/context.json` pointer — the divergence that let the sentinel validate a
+    different file than orchestrate/execute used. Now it delegates so every
+    component agrees on one path.
+    """
+    sys.path.insert(0, str(Path(__file__).parent))
+    from resolver import resolve_tasks_file
+
+    path, _reason = resolve_tasks_file()
+    return path
 
 
 def find_task_in_tasks_md(

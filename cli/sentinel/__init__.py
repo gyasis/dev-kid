@@ -2,7 +2,40 @@
 cli/sentinel/ — Integration Sentinel shared dataclasses
 
 All sentinel modules import these dataclasses from here.
-Populated here (T006) after the package skeleton is created (T001).
+
+===========================================================================
+SENTINEL CHECKPOINT PRINCIPLES (general — read before changing checkpoint logic)
+===========================================================================
+Hard-won from the gentle-eye Rust dogfood (2026-05-28). Full rationale:
+docs/architecture/SENTINEL_ORCHESTRATOR_REWORK_2026-05-28.md.
+
+P1 — A checkpoint validates a REAL, COMPLETE, COMPILABLE artifact, never a stub.
+   Placing a sentinel on a skeleton/stub/placeholder makes it gate on something
+   that *cannot* pass → the wave halts on a non-bug. Mark checkpoints (`[S]`) only
+   where a genuine, self-consistent file exists whose dependencies are already
+   green ("safely fixable in isolation"). This is predicate B.
+
+P2 — Intelligence in the AUTHOR, mechanism in the ORCHESTRATOR.
+   The task-authoring agent knows which outputs are real+complete file-points and
+   MARKS them (`[S]`). The orchestrator stays a dumb gather-and-mark process: it
+   reads the marker and places the sentinel — it does NOT try to infer
+   compilability itself. Keep that split.
+
+P3 — Attribute errors to their ORIGIN, not the artifact under repair.
+   A single-file fixer (ma-loop) must never mangle a correct file A to chase an
+   error that actually lives in dependency B. Parse the compiler's structured
+   output (rustc `--message-format=json` primary span) to find the originating
+   file; if it isn't the file under repair, the agent fixes the ORIGIN and
+   re-tests — it does not "fix" the symptom at the call site.
+
+P4 — Whole-suite vs per-unit gating is a DELIBERATE choice.
+   If the checkpoint test is whole-crate / whole-suite (`cargo check` on the whole
+   crate), intermediate checkpoints can't pass until the suite is complete. Pick
+   one on purpose: (a) gate only at completion, (b) make the test per-unit, or
+   (c) let P3 attribution build-forward the missing units (the failing checkpoint
+   routes fixes into the unbuilt dependencies). Don't place intermediate
+   whole-suite checkpoints and expect them to pass green on a partial tree.
+===========================================================================
 """
 
 from __future__ import annotations

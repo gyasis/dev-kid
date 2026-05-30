@@ -166,24 +166,38 @@ if [[ "$RUN_AFTER" == "false" ]]; then
     fi
 fi
 
-# Non-interactive bypass for CI
+# Non-interactive (--yes): POLL-AND-USE, don't block.
+# Proceed as long as >=1 tier is usable (escalation just has fewer rungs).
+# Only HARD-BLOCK when 0 tiers are ready (genuinely nothing to run).
+# WARN — louder the more tiers we're skipping — so reduced capability is visible.
+# (Origin: gentle-eye dogfood 2026-05-26 — old gate demanded 100% tiers + zero
+#  missing providers, blocking an 11/13-ready run over absent optional keys.)
 if [[ "$NON_INTERACTIVE" == "true" ]]; then
+    _ready="${TIERS_READY:-0}"
+    _total="${TIERS_TOTAL:-0}"
     if [[ "$ALL_READY" == "true" ]]; then
         echo "All providers ready. --yes flag set, proceeding..."
-        # Cache the success so subsequent waves don't re-check
-        mkdir -p "$PREFLIGHT_CACHE_DIR" 2>/dev/null && \
-            echo "$(echo "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GOOGLE_API_KEY:-}${OLLAMA_BASE_URL:-}" | md5sum | cut -d' ' -f1)" > "$PREFLIGHT_CACHE_FILE"
-        exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
+    elif [[ "$_ready" -ge 1 ]]; then
+        _skipped=$(( _total - _ready ))
+        # Warn proportionally: half-or-more tiers unavailable = loud warning.
+        if [[ "$_total" -gt 0 ]] && [[ $(( _ready * 2 )) -lt "$_total" ]]; then
+            echo "⚠️  WARNING: only ${_ready}/${_total} tiers ready — skipping ${_skipped} (majority)." >&2
+            echo "    Proceeding on reduced tiers; escalation depth is limited." >&2
+            [[ ${#MISSING_PROVIDERS[@]} -gt 0 ]] && echo "    Missing: ${MISSING_PROVIDERS[*]}" >&2
+        else
+            echo "ℹ️  ${_ready}/${_total} tiers ready (skipping ${_skipped}). --yes set, proceeding on ready tiers." >&2
+            [[ ${#MISSING_PROVIDERS[@]} -gt 0 ]] && echo "    Missing (non-blocking): ${MISSING_PROVIDERS[*]}" >&2
+        fi
     else
-        echo "❌ --yes flag passed but providers not ready (${TIERS_READY:-?}/${TIERS_TOTAL:-?})." >&2
-        echo "   Refusing to proceed in non-interactive mode with reduced tiers." >&2
-        echo >&2
-        echo "   Bypass options:" >&2
-        echo "     1. Set sentinel.enabled: false in dev-kid.yml (skips this gate entirely)" >&2
-        echo "     2. Pass --no-preflight to dev-kid execute (this run only)" >&2
-        echo "     3. Source provider keys: source ~/.env / export ANTHROPIC_API_KEY=..." >&2
+        echo "❌ --yes flag passed but ZERO tiers are ready (0/${_total})." >&2
+        echo "   Nothing to run. Source provider keys or fix ollama_url, then retry." >&2
+        echo "   (At least one tier — e.g. all-local — must be reachable.)" >&2
         exit 1
     fi
+    # Cache success so subsequent waves don't re-check.
+    mkdir -p "$PREFLIGHT_CACHE_DIR" 2>/dev/null && \
+        echo "$(echo "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GOOGLE_API_KEY:-}${OLLAMA_BASE_URL:-}" | md5sum | cut -d' ' -f1)" > "$PREFLIGHT_CACHE_FILE"
+    exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
 fi
 
 # Interactive: confirm even when all providers ready

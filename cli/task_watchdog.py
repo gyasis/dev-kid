@@ -23,13 +23,17 @@ from datetime import datetime
 from typing import Dict
 import sys
 
+sys.path.insert(0, str(Path(__file__).parent))
+from resolver import resolve_tasks_file  # noqa: E402
+
 
 class TaskWatchdog:
     """Monitors task execution and prevents loss during context compression"""
 
     def __init__(self, state_file: str = ".claude/task_timers.json"):
         self.state_file = Path(state_file)
-        self.tasks_file = Path("tasks.md")
+        resolved, _reason = resolve_tasks_file()
+        self.tasks_file = resolved if resolved else Path("tasks.md")
         self.state: Dict = {}
         self.check_interval = 300  # 5 minutes
 

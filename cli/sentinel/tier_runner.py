@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -180,6 +181,47 @@ def sentinel_health_check(config) -> dict:
     }
 
 
+def _run_streaming_tee(cmd, env, timeout, log_path, prefix="      │ ma: "):
+    """Run cmd streaming stdout+stderr LIVE — tee each line to log_path AND echo
+    to console in real time. Makes micro-agent observable instead of a black box
+    (origin 2026-05-26 — capture_output=True hid all output for up to 300s).
+
+    Returns (returncode, combined_output_str). Raises subprocess.TimeoutExpired
+    on timeout (so callers' existing except blocks keep working).
+    """
+    import threading
+    proc = subprocess.Popen(
+        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1,
+    )
+    timed_out = {"v": False}
+
+    def _killer():
+        timed_out["v"] = True
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+    timer = threading.Timer(timeout, _killer)
+    timer.start()
+    lines = []
+    try:
+        with open(log_path, "w", encoding="utf-8", buffering=1) as lf:
+            for line in proc.stdout:  # streams as micro-agent emits
+                lines.append(line)
+                lf.write(line)
+                lf.flush()
+                # echo to console live (trimmed) so the wave run is watchable
+                print(f"{prefix}{line.rstrip()[:200]}", flush=True)
+        proc.wait()
+    finally:
+        timer.cancel()
+    if timed_out["v"]:
+        raise subprocess.TimeoutExpired(cmd, timeout, output="".join(lines))
+    return proc.returncode, "".join(lines)
+
+
 def _check_ollama_model(base_url: str, model_name: str) -> bool:
     """Check whether a specific model is available in Ollama.
 
@@ -237,252 +279,14 @@ class TierRunner:
     def __init__(self, config: "SentinelConfig") -> None:
         self._config = config
 
-    def run_tier1(
-        self,
-        objective: str,
-        test_cmd: str,
-        config: "SentinelConfig",
-    ) -> "TierResult":
-        """Run micro-agent Tier 1 (local Ollama).
-
-        Skips if Ollama is not reachable — caller should escalate to Tier 2.
-
-        Args:
-            objective: The task description / fix objective.
-            test_cmd: Shell command to validate the fix (e.g. "python -m pytest").
-            config: SentinelConfig with tier1 settings.
-
-        Returns:
-            TierResult with attempted/skipped/passed flags.
-        """
-        from . import TierResult
-
-        ollama_url = getattr(
-            config, "sentinel_tier1_ollama_url", "http://localhost:11434"
-        )
-        model = getattr(config, "sentinel_tier1_model", "") or "qwen2.5-coder:latest"
-        max_iter = getattr(config, "sentinel_tier1_max_iterations", 5)
-
-        if not check_ollama_available(ollama_url):
-            print(
-                f"      ⚠️  Tier 1: Ollama not reachable at {ollama_url} — skipping to Tier 2"
-            )
-            return TierResult(
-                attempted=True,
-                skipped=True,
-                model=model,
-                ollama_url=ollama_url,
-                final_status=None,
-            )
-
-        env = {**os.environ, "OLLAMA_BASE_URL": ollama_url}
-
-        cmd = [
-            "micro-agent",
-            "--prompt",
-            objective,
-            "--test",
-            test_cmd,
-            "--max-runs",
-            str(max_iter),
-        ]
-
-        # #7 — make micro-agent actually use the configured tier1 model via
-        # ralph.config.yaml (it would otherwise use its built-in default).
-        cwd = Path.cwd()
-        wrote_config = _ensure_legacy_tier_config("ollama", model, ollama_url, cwd)
-
-        print(f"      🤖 Tier 1: micro-agent (ollama:{model}, max {max_iter} runs)...")
-        start = time.time()
-        try:
-            result = subprocess.run(
-                cmd,
-                env=env,
-                timeout=300,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            elapsed = time.time() - start
-            print(f"      ⚠️  Tier 1 timed out after {elapsed:.0f}s")
-            return TierResult(
-                attempted=True,
-                skipped=False,
-                model=model,
-                ollama_url=ollama_url,
-                duration_sec=elapsed,
-                final_status="FAIL",
-                error_messages=["Tier 1 timed out after 300s"],
-            )
-        finally:
-            if wrote_config:
-                Path(wrote_config).unlink(missing_ok=True)
-        elapsed = time.time() - start
-
-        parsed = _parse_micro_agent_output(result.stdout)
-        final_status = "PASS" if result.returncode == 0 else "FAIL"
-
-        # #6 — confirm micro-agent's success with an independent test re-run.
-        if final_status == "PASS":
-            confirmed, confirm_tail = _run_test_command(test_cmd, Path.cwd())
-            if not confirmed:
-                final_status = "FAIL"
-                print("      ⚠️  Tier 1 exited 0 but independent test re-run FAILED")
-                for line in confirm_tail:
-                    print(f"      │ verify: {line}")
-
-        # Surface micro-agent output for observability
-        if result.stderr.strip():
-            for line in result.stderr.strip().splitlines()[-5:]:
-                print(f"      │ stderr: {line}")
-        if final_status == "FAIL" and result.stdout.strip():
-            for line in result.stdout.strip().splitlines()[-5:]:
-                print(f"      │ stdout: {line}")
-
-        return TierResult(
-            attempted=True,
-            skipped=False,
-            model=model,
-            ollama_url=ollama_url,
-            iterations=parsed.get("iterations", 0),
-            cost_usd=parsed.get("cost_usd", 0.0),
-            duration_sec=parsed.get("duration_sec", elapsed),
-            final_status=final_status,
-            error_messages=[result.stderr.strip()] if result.stderr.strip() else [],
-        )
-
-    def run_tier2(
-        self,
-        objective: str,
-        test_cmd: str,
-        config: "SentinelConfig",
-    ) -> "TierResult":
-        """Run micro-agent Tier 2 (cloud Claude).
-
-        Requires ANTHROPIC_API_KEY in the environment.
-
-        Args:
-            objective: The task description / fix objective.
-            test_cmd: Shell command to validate the fix.
-            config: SentinelConfig with tier2 settings.
-
-        Returns:
-            TierResult with full result data.
-        """
-        from . import TierResult
-
-        model = (
-            getattr(config, "sentinel_tier2_model", "") or "claude-sonnet-4-20250514"
-        )
-        max_iter = getattr(config, "sentinel_tier2_max_iterations", 10)
-        max_budget = getattr(config, "sentinel_tier2_max_budget_usd", 2.0)
-        max_duration = getattr(config, "sentinel_tier2_max_duration_min", 10)
-
-        if "ANTHROPIC_API_KEY" not in os.environ:
-            print(
-                "      ⚠️  Tier 2: ANTHROPIC_API_KEY not set — skipping (not exhausted)"
-            )
-            return TierResult(
-                attempted=False,
-                skipped=True,
-                model=model,
-                error_messages=["ANTHROPIC_API_KEY not set — Tier 2 unavailable"],
-                final_status="FAIL",
-            )
-
-        cmd = [
-            "micro-agent",
-            "--prompt",
-            objective,
-            "--test",
-            test_cmd,
-            "--max-runs",
-            str(max_iter),
-        ]
-
-        # #7 — make micro-agent use the configured tier2 model via ralph.config.yaml.
-        cwd = Path.cwd()
-        wrote_config = _ensure_legacy_tier_config("anthropic", model, "", cwd)
-
-        print(
-            f"      🌩️  Tier 2: micro-agent ({model}, max {max_iter} runs, ${max_budget} budget)..."
-        )
-        start = time.time()
-        timeout_sec = int(max_duration * 60) + 60
-        try:
-            result = subprocess.run(
-                cmd,
-                timeout=timeout_sec,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            elapsed = time.time() - start
-            print(f"      ⚠️  Tier 2 timed out after {elapsed:.0f}s")
-            return TierResult(
-                attempted=True,
-                skipped=False,
-                model=model,
-                duration_sec=elapsed,
-                final_status="FAIL",
-                error_messages=[f"Tier 2 timed out after {timeout_sec}s"],
-            )
-        finally:
-            if wrote_config:
-                Path(wrote_config).unlink(missing_ok=True)
-        elapsed = time.time() - start
-
-        parsed = _parse_micro_agent_output(result.stdout)
-        final_status = "PASS" if result.returncode == 0 else "FAIL"
-
-        # #7 — make the configured per-tier budget meaningful: micro-agent has
-        # no pre-emptive cost cap, but warn loudly if this run overshot it so
-        # the operator notices instead of the value being silently dead config.
-        run_cost = parsed.get("cost_usd", 0.0)
-        if max_budget and run_cost > max_budget:
-            print(
-                f"      ⚠️  Tier 2 cost ${run_cost:.2f} exceeded its per-tier "
-                f"budget of ${max_budget:.2f} (cap is advisory — micro-agent "
-                f"has no pre-emptive budget; lower tier2.max_iterations to bound it)"
-            )
-
-        # #6 — confirm micro-agent's success with an independent test re-run.
-        if final_status == "PASS":
-            confirmed, confirm_tail = _run_test_command(test_cmd, Path.cwd())
-            if not confirmed:
-                final_status = "FAIL"
-                print("      ⚠️  Tier 2 exited 0 but independent test re-run FAILED")
-                for line in confirm_tail:
-                    print(f"      │ verify: {line}")
-
-        # Surface micro-agent output for observability
-        if result.stderr.strip():
-            for line in result.stderr.strip().splitlines()[-5:]:
-                print(f"      │ stderr: {line}")
-        if final_status == "FAIL" and result.stdout.strip():
-            for line in result.stdout.strip().splitlines()[-5:]:
-                print(f"      │ stdout: {line}")
-
-        return TierResult(
-            attempted=True,
-            skipped=False,
-            model=model,
-            ollama_url=None,
-            iterations=parsed.get("iterations", 0),
-            cost_usd=parsed.get("cost_usd", 0.0),
-            duration_sec=parsed.get("duration_sec", elapsed),
-            final_status=final_status,
-            error_messages=[result.stderr.strip()] if result.stderr.strip() else [],
-        )
-
     def run_tiered(
         self,
         objective: str,
         test_cmd: str,
         config: "SentinelConfig",
         project_root: Path,
+        target_files: "list | None" = None,
+        criterion: "str | None" = None,
     ) -> "TierResult":
         """Run micro-agent through N-tier escalation ladder.
 
@@ -603,6 +407,7 @@ class TierRunner:
             []
         )  # (tier_name, reason) — for end-of-run summary
         tier_history: list[dict] = []  # Phase B: passed to handoff request if reached
+        recovery_done = False  # Goal-2: at most one cross-file recovery hop per run
 
         for tier_idx, tier in enumerate(tiers):
             tier_name = tier.get("name", f"tier-{tier_idx}")
@@ -849,49 +654,78 @@ class TierRunner:
             # Write per-tier ralph.config.yaml so micro-agent uses the right models
             tier_config_file = _write_tier_config(tier, ollama_url, project_root)
 
-            base_cmd = [
-                "micro-agent",
-                "--prompt",
-                objective,
-                "--test",
-                test_cmd,
-                "--max-runs",
-                str(max_iter),
-            ]
-
-            # micro-agent v0.1.5 unconditionally enters interactiveMode() which calls
-            # @clack/prompts → uv_tty_init. When dev-kid is invoked from a non-TTY
-            # context (Claude Code slash command, CI runner, captured subprocess),
-            # uv_tty_init returns EINVAL and micro-agent crashes immediately with
-            # 0 iterations. Wrap with `script -qfc` to provide a pseudo-TTY so
-            # micro-agent's interactive prompts succeed.
-            # See: https://github.com/BuilderIO/micro-agent/issues — TTY init failure
-            #
-            # Detection: if stdin is not a TTY, we're being called from a slash
-            # command or pipeline. Use the wrapper. If stdin IS a TTY (operator
-            # ran `dev-kid execute` directly in a terminal), pass-through native.
-            import shlex
-
-            if sys.stdin.isatty() or shutil.which("script") is None:
-                cmd = base_cmd
+            # HEADLESS via ma-loop (ralph-loop.mjs) — NOT plain `micro-agent`.
+            # `micro-agent` (builder.io bin) enters an interactive onboarding TUI
+            # ("Want to set up a new project?") and HANGS 300s/tier in a non-TTY
+            # context. `ma-loop run` is the headless tiered runner (proven 2026-05-27
+            # smoke: SUCCESS 6.5s, clean streaming logs). It takes a real <target>
+            # file + -o objective; extract the target path from the objective
+            # (the task's `affecting \`path\`` / first source-path token).
+            # Target FILE for ma-loop. The file MUST be given (PRD maloop_unification
+            # U1): when target is "." the agent has nothing concrete to work on and
+            # authors junk across the tree. Prefer the explicit target_files the
+            # sentinel passes (from the task's file_locks); fall back to a path in
+            # the objective; if neither yields a real file → HARD BLOCKING FAIL.
+            import re as _re
+            if target_files:
+                target = target_files[0]
             else:
-                cmd_str = " ".join(shlex.quote(c) for c in base_cmd)
-                cmd = ["script", "-qfc", cmd_str, "/dev/null"]
+                _m = _re.search(r'`([^`]+\.\w+)`', objective) or _re.search(
+                    r'\b([\w./-]+\.(?:rs|py|ts|js|go|java|md|toml|json))\b', objective
+                )
+                target = _m.group(1) if _m else ""
+            if not target or target == ".":
+                print(
+                    "      🛑 BLOCKING: no target file for ma-loop (target='.') — the "
+                    "sentinel task must carry file_locks; refusing to run unconstrained."
+                )
+                return TierResult(
+                    attempted=False,
+                    skipped=False,
+                    tier_name="no-target-file",
+                    final_status="FAIL",
+                    error_messages=[
+                        "BLOCKING: no concrete target file for ma-loop (would author junk)"
+                    ],
+                )
+            cmd = [
+                "ma-loop", "run", target,
+                "-o", objective,
+                "-t", test_cmd,
+                "-f", "cargo",
+                "-i", str(max_iter),
+                "--no-adversarial",
+            ]
+            if criterion:
+                cmd += ["--criterion", criterion]
+            if tier_config_file:
+                cmd += ["-c", str(tier_config_file)]
 
             print(
                 f"      🔧 [{tier_idx + 1}/{len(tiers)}] {tier_name} ({artisan_model}, max {max_iter} runs)..."
             )
+            print(f"      🎯 target={target}")
             tier_start = time.time()
+            _log_dir = Path(project_root) / ".claude" / "sentinel"
+            _log_dir.mkdir(parents=True, exist_ok=True)
+            _log_path = _log_dir / f"ma-loop-{tier_name}-{int(tier_start)}.log"
+            print(f"      📂 live: tail -f {_log_path}")
+
+            class _Res:
+                stdout = ""
+                stderr = ""
+                returncode = 1
+
+            result = _Res()
             try:
-                result = subprocess.run(
-                    cmd,
-                    env=env,
-                    timeout=max(10, min(300, (max_duration * 60) - elapsed_total + 30)),
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=str(project_root),
+                _timeout = max(10, min(300, (max_duration * 60) - elapsed_total + 30))
+                _rc, _out = _run_streaming_tee(
+                    cmd, {**env, "OLLAMA_BASE_URL": ollama_url}, _timeout, _log_path
                 )
+                result.returncode = _rc
+                result.stdout = _out
+                # keep the legacy except path happy if it referenced .stderr
+                _legacy_unused = True  # noqa
             except subprocess.TimeoutExpired:
                 tier_elapsed = time.time() - tier_start
                 print(
@@ -935,6 +769,51 @@ class TierRunner:
                     for line in confirm_tail:
                         print(f"      │ verify: {line}")
 
+            # Goal-2 — agent-mediated cross-file attribution + recovery. If
+            # ma-loop couldn't make A green, the residual cargo error may
+            # originate in a DEPENDENCY file B, not target A — and letting
+            # ma-loop keep mangling A would be wrong. Attribute via cargo --json;
+            # if the primary error span is in another file, the AGENT fixes B (a
+            # bounded ma-loop on B) and re-tests before escalating. One hop/run.
+            if not passed and "cargo" in test_cmd.lower() and not recovery_done:
+                attrib = _attribute_cargo_errors(test_cmd, project_root, target)
+                external = attrib.get("external", {})
+                if external:
+                    recovery_done = True
+                    b_file = max(external, key=lambda f: len(external[f]))
+                    errs = external[b_file][:5]
+                    print(
+                        f"      🔀 attribution: {len(external[b_file])} error(s) "
+                        f"originate in '{b_file}', NOT target '{target}' — "
+                        f"agent-mediated dependency fix (not mangling {target})"
+                    )
+                    b_objective = (
+                        f"Fix `{b_file}`: it has compile errors that block "
+                        f"`{target}`. Make `{b_file}` compile and satisfy how "
+                        f"`{target}` uses it. Errors: {' | '.join(errs)}"
+                    )
+                    if _recover_external_file(
+                        b_file, b_objective, test_cmd, project_root,
+                        {**env, "OLLAMA_BASE_URL": ollama_url},
+                        tier, ollama_url, max_iter, _log_dir,
+                    ):
+                        passed, confirm_tail = _run_test_command(
+                            test_cmd, project_root
+                        )
+                        print(
+                            f"      {'✅' if passed else '⚠️ '} post-recovery "
+                            f"re-test of '{target}' tree: "
+                            f"{'GREEN' if passed else 'still failing'}"
+                        )
+                        if not passed:
+                            for line in confirm_tail[:5]:
+                                print(f"      │ verify: {line}")
+                    else:
+                        print(
+                            f"      ⚠️  dependency '{b_file}' not auto-fixable; "
+                            f"carrying attribution forward — escalating"
+                        )
+
             # #5 — a paid tier that reports $0 almost always means cost couldn't
             # be parsed from (PTY-noisy) stdout. Warn so the operator knows the
             # cumulative budget figure may understate real spend.
@@ -965,6 +844,30 @@ class TierRunner:
                     "passed": passed,
                 }
             )
+
+            # Observability: index this ma-loop run into .dk/observability.db so an
+            # agent can SELECT the facts (files changed, test errors, tier, status)
+            # WITHOUT loading the verbose log; log_path points to the drill-down.
+            try:
+                from .observability import record_run as _obs_record
+
+                _obs_record(
+                    project_root=project_root,
+                    ts=datetime.now(timezone.utc).isoformat(),
+                    objective=objective,
+                    tier=tier_name,
+                    model=artisan_model,
+                    iterations=parsed.get("iterations", 0),
+                    cost_usd=tier_cost,
+                    duration_sec=tier_elapsed,
+                    status="PASS" if passed else "FAIL",
+                    returncode=result.returncode,
+                    files_changed=parsed.get("files_written", []),
+                    errors=parsed.get("errors", []),
+                    log_path=_log_path,
+                )
+            except Exception:
+                pass  # observability never breaks the run
 
             # Surface output for observability
             if result.stderr.strip():
@@ -1122,31 +1025,6 @@ def _write_tier_config(tier: dict, ollama_url: str, project_root: Path) -> str |
         return None
 
 
-def _ensure_legacy_tier_config(
-    provider: str, model: str, ollama_url: str, cwd: Path
-) -> str | None:
-    """Write a ralph.config.yaml so a legacy tier uses its configured model.
-
-    The legacy run_tier1/run_tier2 paths previously passed no model to
-    micro-agent and wrote no config, so micro-agent fell back to its built-in
-    default model — the dev-kid.yml tier1/tier2 `model:` setting was silently
-    ignored. This writes the same ralph.config.yaml the N-tier path uses.
-
-    Respects an existing user ralph.config.yaml (returns None, writes nothing)
-    so we never clobber a hand-authored config.
-
-    Returns the path written (for the caller to clean up), or None.
-    """
-    if (cwd / "ralph.config.yaml").exists():
-        return None  # user has their own config — don't overwrite it
-    synthetic_tier = {
-        "models": {
-            role: f"{provider}/{model}" for role in ("artisan", "librarian", "critic")
-        }
-    }
-    return _write_tier_config(synthetic_tier, ollama_url, cwd)
-
-
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
@@ -1198,6 +1076,104 @@ def _run_test_command(test_cmd: str, project_root: Path) -> tuple[bool, list[str
         return True, [f"independent test re-run error ({exc}) — trusting tier"]
 
 
+def _attribute_cargo_errors(test_cmd: str, project_root: Path, target: str) -> dict:
+    """Bucket cargo errors by ORIGINATING file (rustc JSON primary span).
+
+    Runs a --message-format=json variant of the cargo test_cmd and splits error
+    diagnostics into those whose primary span is in `target` (the file ma-loop
+    is allowed to fix) vs those originating in OTHER files (a dependency B —
+    fixing target would be wrong). rustc's primary span points at the true
+    origin, so a missing-method error is attributed to where the item is
+    defined, not only the call site.
+
+    Returns {"own": [msg...], "external": {rel_file: [msg...]}, "clean": bool}.
+    Only meaningful for cargo test_cmds; callers gate on that.
+    """
+    json_cmd = test_cmd
+    if "--message-format" in json_cmd:
+        json_cmd = re.sub(r"--message-format[= ]\S+", "--message-format=json", json_cmd)
+    else:
+        json_cmd = f"{json_cmd} --message-format=json"
+    try:
+        proc = subprocess.run(
+            json_cmd, shell=True, cwd=str(project_root),
+            capture_output=True, text=True, timeout=180,
+        )
+    except Exception as exc:
+        return {"own": [], "external": {}, "clean": False, "note": str(exc)}
+
+    own: list[str] = []
+    external: dict[str, list[str]] = {}
+    tgt = target.lstrip("./")
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if obj.get("reason") != "compiler-message":
+            continue
+        msg = obj.get("message") or {}
+        if msg.get("level") != "error":
+            continue
+        text = (msg.get("message") or "").strip()
+        spans = msg.get("spans") or []
+        primary = next(
+            (s for s in spans if s.get("is_primary")), spans[0] if spans else None
+        )
+        if not primary:
+            own.append(text)  # unattributable → don't escalate to recovery
+            continue
+        fname = (primary.get("file_name") or "").lstrip("./")
+        if fname == tgt or fname.endswith("/" + tgt) or (tgt and tgt.endswith(fname)):
+            own.append(text)
+        elif fname:
+            external.setdefault(fname, []).append(text)
+        else:
+            own.append(text)
+    return {"own": own, "external": external, "clean": not own and not external}
+
+
+def _recover_external_file(
+    b_file: str,
+    objective: str,
+    test_cmd: str,
+    project_root: Path,
+    env: dict,
+    tier: dict,
+    ollama_url: str,
+    max_iter: int,
+    log_dir: Path,
+) -> bool:
+    """Agent-mediated cross-file fix: a bounded headless ma-loop on dependency B.
+
+    The single-file sentinel must not mangle target A to chase an error that
+    really lives in B; instead the agent re-points a short ma-loop at B. Caps
+    iterations (<=3) — a targeted dependency repair, not a full build.
+    """
+    cfg = _write_tier_config(tier, ollama_url, project_root)
+    cmd = [
+        "ma-loop", "run", b_file, "-o", objective, "-t", test_cmd,
+        "-f", "cargo", "-i", str(max(1, min(3, max_iter))), "--no-adversarial",
+    ]
+    if cfg:
+        cmd += ["-c", str(cfg)]
+    log_path = Path(log_dir) / f"ma-loop-recover-{Path(b_file).name}-{int(time.time())}.log"
+    try:
+        rc, _ = _run_streaming_tee(cmd, env, 180, log_path, prefix="      │ recover: ")
+        return rc == 0
+    except subprocess.TimeoutExpired:
+        return False
+    finally:
+        if cfg:
+            try:
+                Path(cfg).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
 def _parse_micro_agent_output(stdout: str) -> dict:
     """Extract summary metrics from micro-agent stdout.
 
@@ -1228,5 +1204,20 @@ def _parse_micro_agent_output(stdout: str) -> dict:
     dur_match = re.search(r"Duration:\s*([\d.]+)s", stdout, re.IGNORECASE)
     if dur_match:
         result["duration_sec"] = float(dur_match.group(1))
+
+    # Files the artisan wrote (per iteration), e.g.:
+    #   [artisan] Code written {"file":"src/foo.rs","size":2466}
+    files = re.findall(r'Code written\s*\{[^}]*"file":\s*"([^"]+)"', stdout)
+    result["files_written"] = list(dict.fromkeys(files))  # dedupe, keep order
+
+    # Test errors driving the loop: compiler error lines + failed-test summaries.
+    errors: list = []
+    for m in re.finditer(r"^\s*(error(?:\[E\d+\])?:.*)$", stdout, re.MULTILINE):
+        errors.append(m.group(1).strip())
+    for m in re.finditer(
+        r'Tests completed\s*(\{[^}]*"failed":\s*[1-9]\d*[^}]*\})', stdout
+    ):
+        errors.append("tests failed: " + m.group(1))
+    result["errors"] = errors[:50]  # cap to keep the row small
 
     return result
