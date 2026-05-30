@@ -89,6 +89,7 @@ CORE COMMANDS:
   verify                   Run anti-hallucination verification
   recall                   Resume from last snapshot
   finalize                 Create session snapshot and checkpoint
+  auto-checkpoint on|off|status [--global]   Toggle auto-commit on stop/finalize (project > global > on)
 
 ORCHESTRATION:
   waves                    Show current execution plan waves
@@ -172,6 +173,10 @@ cmd_init() {
 
     # Run init script
     "$DEV_KID_ROOT/scripts/init.sh" "$project_path"
+
+    # Opt this project IN to auto-checkpoint (overrides any global "off"). This is
+    # the "init re-enables it automatically" behavior.
+    _dk_write_auto_checkpoint true "$project_path/.devkid/config.json" 2>/dev/null || true
 
     # Lightweight mode: scaffold .dk/ marker dir with placeholder tasks.md
     if [ -n "$lightweight" ]; then
@@ -591,6 +596,58 @@ cmd_checkpoint() {
 
     # Trigger checkpoint skill
     "$DEV_KID_ROOT/skills/checkpoint.sh" "$message"
+}
+
+# --- auto-checkpoint toggle (project override > global default > on) ----------
+# Controls whether `dev-kid finalize` (and the Stop hook) auto-commits on stop.
+_dk_global_cfg() { echo "${DEV_KID_GLOBAL_CONFIG:-$HOME/.config/dev-kid/config.json}"; }
+
+# Resolve the effective auto-checkpoint setting: project wins, else global, else on.
+_dk_read_auto_checkpoint() {
+    local v
+    v=$(jq -r '.cli.auto_git_commit' .devkid/config.json 2>/dev/null)
+    if [ -z "$v" ] || [ "$v" = "null" ]; then
+        v=$(jq -r '.cli.auto_git_commit' "$(_dk_global_cfg)" 2>/dev/null)
+    fi
+    [ "$v" = "false" ] && echo false || echo true
+}
+
+# Write cli.auto_git_commit=$1 (true|false) into config $2 (creating it if absent).
+_dk_write_auto_checkpoint() {
+    local val="$1" cfg="$2" tmp
+    mkdir -p "$(dirname "$cfg")"
+    if [ -f "$cfg" ]; then
+        tmp=$(mktemp)
+        jq --argjson v "$val" '.cli = ((.cli // {}) + {auto_git_commit: $v})' "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+    else
+        printf '{\n  "cli": {\n    "auto_git_commit": %s\n  }\n}\n' "$val" > "$cfg"
+    fi
+}
+
+cmd_auto_checkpoint() {
+    local action="" scope_global=""
+    for a in "$@"; do
+        case "$a" in
+            --global) scope_global="1" ;;
+            *) [ -z "$action" ] && action="$a" ;;
+        esac
+    done
+    action="${action:-status}"
+    local cfg scope
+    if [ -n "$scope_global" ]; then cfg="$(_dk_global_cfg)"; scope="global"; else cfg=".devkid/config.json"; scope="project"; fi
+    case "$action" in
+        on|enable|true)
+            _dk_write_auto_checkpoint true "$cfg"
+            echo -e "${GREEN}✅ auto-checkpoint ON${NC} ($scope) — stop/finalize will auto-commit" ;;
+        off|disable|false)
+            _dk_write_auto_checkpoint false "$cfg"
+            echo -e "${YELLOW}🚫 auto-checkpoint OFF${NC} ($scope) — stop/finalize will NOT auto-commit" ;;
+        status)
+            local eff; eff=$(_dk_read_auto_checkpoint)
+            echo "auto-checkpoint: $([ "$eff" = false ] && echo OFF || echo ON)  (precedence: project > global > on)" ;;
+        *)
+            echo "usage: dev-kid auto-checkpoint on|off|status [--global]"; return 1 ;;
+    esac
 }
 
 cmd_micro_checkpoint() {
@@ -1123,6 +1180,7 @@ main() {
         budget-status)      cmd_budget_status "$@" ;;
         sync-memory)        cmd_sync_memory "$@" ;;
         checkpoint)         cmd_checkpoint "$@" ;;
+        auto-checkpoint)    cmd_auto_checkpoint "$@" ;;
         micro-checkpoint)   cmd_micro_checkpoint "$@" ;;
         context-check)      cmd_context_check "$@" ;;
         verify)             cmd_verify "$@" ;;
