@@ -14,6 +14,24 @@ cd dev-kid
 
 That's it! No `.sh` extension, no complex setup. One command installs everything.
 
+### Cross-machine / path resolution
+
+Dev-kid **self-locates** its install root (`DEV_KID_ROOT`) from the script's own real
+path, resolving any symlinks first (e.g. the `~/bin/dev-kid` shim). This means it works on
+any machine, any `$HOME`, any username — without hardcoded paths — so the same checkout runs
+identically across machines.
+
+If you ever need to point dev-kid at a non-standard location, set an explicit override:
+
+```bash
+export DEV_KID_ROOT=/custom/path/to/dev-kid
+```
+
+When unset, dev-kid derives the root automatically. (Historic bug: invoking dev-kid through
+the `~/bin` symlink resolved the root to `$HOME` instead of the install dir, so
+`scripts/init.sh` was looked up at `$HOME/scripts/init.sh` — fixed by resolving symlinks
+before deriving `DEV_KID_ROOT`.)
+
 ## 🎯 Two Ways to Use Dev-Kid
 
 Dev-kid is dual-mode — works **standalone** as a CLI tool OR through **Claude Code** as a set of slash-command skills.

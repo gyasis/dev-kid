@@ -4,7 +4,18 @@
 set -e
 
 VERSION="2.3.0"
-export DEV_KID_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve symlinks so DEV_KID_ROOT is correct no matter how dev-kid is invoked
+# (via a ~/bin symlink, by real path, or from a different machine's $HOME).
+# Pure-bash resolver (portable; `readlink -f` is GNU-only and breaks on macOS/BSD).
+_dk_src="${BASH_SOURCE[0]}"
+while [ -L "$_dk_src" ]; do
+  _dk_dir="$(cd -P "$(dirname "$_dk_src")" && pwd)"
+  _dk_src="$(readlink "$_dk_src")"
+  [ "${_dk_src#/}" = "$_dk_src" ] && _dk_src="$_dk_dir/$_dk_src"
+done
+# Honor an explicit override (e.g. `export DEV_KID_ROOT=/custom/path`); otherwise self-derive.
+export DEV_KID_ROOT="${DEV_KID_ROOT:-$(cd "$(dirname "$_dk_src")/.." && pwd)}"
+unset _dk_src _dk_dir
 
 # Color output
 RED='\033[0;31m'
