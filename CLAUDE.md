@@ -282,7 +282,7 @@ Dev-kid uses Claude Code's lifecycle hooks to automate state management across s
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-compact.sh"
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.sh"
           }
         ]
       }
@@ -292,7 +292,7 @@ Dev-kid uses Claude Code's lifecycle hooks to automate state management across s
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/task-completed.sh"
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/task-completed.sh"
           }
         ]
       }
