@@ -115,7 +115,7 @@ Hooks are configured in `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-compact.sh"
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.sh"
           }
         ]
       }
@@ -125,7 +125,7 @@ Hooks are configured in `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/task-completed.sh"
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/task-completed.sh"
           }
         ]
       }
@@ -467,7 +467,7 @@ You can create custom hooks by:
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/my-custom-hook.sh"
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/my-custom-hook.sh"
           }
         ]
       }

@@ -380,12 +380,12 @@ rm .claude/sentinel/allow-handoff       # disable
 ```json
 {
   "hooks": {
-    "PreCompact":  [{"hooks": [{"type": "command", "command": ".claude/hooks/pre-compact.sh"}]}],
-    "TaskCompleted": [{"hooks": [{"type": "command", "command": ".claude/hooks/task-completed.sh"}]}],
-    "PostToolUse": [{"hooks": [{"type": "command", "command": ".claude/hooks/post-tool-use.sh"}]}],
-    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": ".claude/hooks/user-prompt-submit.sh"}]}],
-    "SessionStart": [{"hooks": [{"type": "command", "command": ".claude/hooks/session-start.sh"}]}],
-    "SessionEnd": [{"hooks": [{"type": "command", "command": ".claude/hooks/session-end.sh"}]}]
+    "PreCompact":  [{"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.sh"}]}],
+    "TaskCompleted": [{"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/task-completed.sh"}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/post-tool-use.sh"}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/user-prompt-submit.sh"}]}],
+    "SessionStart": [{"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start.sh"}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-end.sh"}]}]
   },
   "hookSettings": {
     "timeout": 30000,
