@@ -217,20 +217,29 @@ EOF
 
 cmd_orchestrate() {
     # Parse flags: --agent-parse, --force-symlink (Spec 002 autonomy fix),
-    # --verify / --verify-only (Track B step verifier);
-    # phase id is the first non-flag arg.
+    # --verify / --verify-only (Track B step verifier),
+    # --tasks-file PATH (explicit tasks.md override — highest resolution priority),
+    # --phase-id ID (phase identifier);
+    # phase id is also accepted as the first non-flag positional arg.
     local agent_parse=""
     local force_symlink=""
     local verify_flag=""
     local phase_id=""
-    for arg in "$@"; do
-        case "$arg" in
+    local tasks_file_override=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
             --agent-parse)   agent_parse="--agent-parse" ;;
             --force-symlink) force_symlink="1" ;;
             --verify)        verify_flag="--verify" ;;
             --verify-only)   verify_flag="--verify-only" ;;
-            *) [ -z "$phase_id" ] && phase_id="$arg" ;;
+            --tasks-file)    tasks_file_override="$2"; shift ;;
+            --tasks-file=*)  tasks_file_override="${1#*=}" ;;
+            --phase-id)      phase_id="$2"; shift ;;
+            --phase-id=*)    phase_id="${1#*=}" ;;
+            --*)             echo -e "   ${YELLOW}⚠${NC}  unknown flag ignored: $1" ;;
+            *) [ -z "$phase_id" ] && phase_id="$1" ;;
         esac
+        shift
     done
     phase_id="${phase_id:-default}"
 
@@ -256,8 +265,21 @@ cmd_orchestrate() {
     FOUND=""
     REASON=""
 
+    # -1. Explicit --tasks-file override — highest priority, beats everything below.
+    #     (Also honored: DK_TASKS_FILE env var, same effect; flag wins if both set.)
+    TASKS_FILE_OVERRIDE="${tasks_file_override:-$DK_TASKS_FILE}"
+    if [ -n "$TASKS_FILE_OVERRIDE" ]; then
+        if [ -f "$TASKS_FILE_OVERRIDE" ]; then
+            FOUND="$TASKS_FILE_OVERRIDE"
+            REASON="--tasks-file override"
+        else
+            echo -e "   ${RED}❌${NC} --tasks-file path not found: $TASKS_FILE_OVERRIDE"
+            exit 2
+        fi
+    fi
+
     # 0. Honor existing symlink if it points at a real tasks.md (user gets the lever).
-    if [ -z "$force_symlink" ] && [ -L "tasks.md" ]; then
+    if [ -z "$FOUND" ] && [ -z "$force_symlink" ] && [ -L "tasks.md" ]; then
         EXISTING_LINK=$(readlink tasks.md 2>/dev/null || echo "")
         if [ -n "$EXISTING_LINK" ] && [ -f "$EXISTING_LINK" ]; then
             FOUND="$EXISTING_LINK"
