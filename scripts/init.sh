@@ -296,6 +296,16 @@ SPEC_TASKS=".specify/specs/${BRANCH}/tasks.md"
 SPEC_CONSTITUTION=".specify/memory/constitution.md"
 MEMORY_BANK_CONSTITUTION="memory-bank/shared/.constitution.md"
 
+# ===== AUTO-SYMLINK OFF-SWITCH (dev-kid) =====
+# Skip tasks.md auto-symlinking when ANY of these is true:
+#   - DEVKID_NO_AUTOSYMLINK=1 is exported
+#   - a .dk/no-autosymlink sentinel file exists in the repo
+#   - lightweight mode is active (.dk/tasks.md present) — dev-kid then drives the
+#     tasks file via .dk/context.json and must NOT clobber a deliberate symlink.
+if [ "${DEVKID_NO_AUTOSYMLINK:-}" = "1" ] || [ -f ".dk/no-autosymlink" ] || [ -f ".dk/tasks.md" ]; then
+    echo "🔕 dev-kid: tasks.md auto-symlink disabled (lightweight/off-switch) — leaving tasks.md as-is"
+else
+
 # ===== TASKS SYMLINKING =====
 
 # Backup existing tasks.md if it's a regular file with uncommitted changes
@@ -340,6 +350,7 @@ else
         echo "   Run /speckit.tasks to generate tasks for this feature"
     fi
 fi
+fi  # end auto-symlink off-switch guard
 
 # ===== CONSTITUTION SYMLINKING =====
 
