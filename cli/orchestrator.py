@@ -12,13 +12,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Set
 
+from task_matching import canon_id, parse_task_line
+
 
 @dataclass
 class Task:
     """Represents a single task"""
 
     id: str
-    description: str
+    # The authored tasks.md id (canonical `T###`) when the line carried one;
+    # "" for unlabelled (lightweight-mode) tasks that got a synthetic id.
+    # Under the Option-A fix `id == authored_id` whenever the line was labelled.
+    authored_id: str = ""
+    description: str = ""
     agent_role: str = "Developer"
     file_locks: List[str] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)
@@ -138,7 +144,12 @@ class TaskOrchestrator:
                 current_wave_idx = len(self._wave_phases) - 1
                 continue
 
-            is_task_line = line.startswith("- [ ]") or line.startswith("- [x]")
+            # lstrip() so indented `  - [ ]` sub-bullets parse as real tasks
+            # (issue #11 defect #5) instead of being swallowed as continuation.
+            lstripped = line.lstrip()
+            is_task_line = lstripped.startswith("- [ ]") or lstripped.startswith(
+                "- [x]"
+            )
             is_sentinel_line = (
                 "SENTINEL-" in line
             )  # managed by injection, never re-parsed
@@ -174,6 +185,46 @@ class TaskOrchestrator:
         # documented separately would otherwise be silently dropped.
         self._prose_deps = self._parse_dependency_section(content)
 
+        # Orchestrate-time ID invariant (issue #12 item 3): authored ids must be
+        # unique. Under Option A a duplicate authored id means two plan tasks
+        # share a key — resume/mark/verify would act on the wrong one. Fail
+        # loudly with the offending ids rather than silently mis-route.
+        self._validate_task_ids()
+
+    def _validate_task_ids(self) -> None:
+        """Fail fast on duplicate task ids; note gapped authored ids (informational)."""
+        seen: Dict[str, int] = defaultdict(int)
+        for t in self.tasks:
+            seen[t.id] += 1
+        dupes = sorted(tid for tid, count in seen.items() if count > 1)
+        if dupes:
+            print("❌ Error: duplicate task id(s) in tasks.md:", ", ".join(dupes))
+            print(
+                "   Each task needs a unique id (e.g. `- [ ] T020: ...`). "
+                "Fix the duplicates and re-run."
+            )
+            sys.exit(1)
+
+        # Informational: a gapped/group-numbered authored-id spec is exactly the
+        # shape that USED to trigger the silent skip (issue #11). It's now safe
+        # (authored id is the id), but surface it so the run is self-documenting.
+        authored = [t.authored_id for t in self.tasks if t.authored_id]
+        nums = []
+        for a in authored:
+            try:
+                nums.append(int(a[1:]))
+            except (ValueError, IndexError):
+                pass
+        if len(nums) >= 2 and sorted(nums) != list(
+            range(min(nums), min(nums) + len(nums))
+        ):
+            print(
+                "ℹ️  Gapped/group-numbered authored ids detected "
+                f"({len(nums)} ids, non-contiguous) — handled safely by the "
+                "authored-id matcher (issue #11/#12).",
+                file=sys.stderr,
+            )
+
     def _process_task(
         self, task_lines: List[str], task_id: int, wave_idx: int = -1
     ) -> None:
@@ -183,16 +234,38 @@ class TaskOrchestrator:
         no `## Wave N` header preceded this task (e.g. flat SpecKit list).
         """
 
-        # First line is the task description
+        # First line is the task description. Parse it with the ANCHORED,
+        # marker-aware matcher (issue #11/#12): completeness comes from the
+        # checkbox group (never `"[x]" in first_line`, which matches `[x]`
+        # anywhere in the text), and the authored id is read from the start of
+        # the post-checkbox text.
         first_line = task_lines[0]
-        completed = "[x]" in first_line
-        description = first_line.split("]", 1)[1].strip()
+        parsed = parse_task_line(first_line)
+        if parsed is not None:
+            completed = parsed.complete
+            description = parsed.rest
+            authored_id = parsed.authored_id or ""
+        else:
+            # Defensive: caller guarantees a task line, but never crash on a
+            # malformed one — fall back to the legacy split.
+            completed = first_line.lstrip().startswith("- [x]")
+            description = (
+                first_line.split("]", 1)[1].strip() if "]" in first_line else first_line
+            )
+            authored_id = ""
 
         # [S] marker: the task-author denotes a real+compilable sentinel test-point
         # (predicate B). Strip it so the instruction passed downstream stays clean.
         sentinel_point = bool(re.search(r"\[S\]", first_line))
         if sentinel_point:
             description = re.sub(r"\s*\[S\]", "", description, count=1)
+
+        # Option-A identity (issue #11/#12): the authored id IS the task id, so
+        # waves/deps/matching all reference the same namespace and the internal-
+        # vs-authored collision class disappears. Unlabelled lightweight-mode
+        # lines fall back to a synthetic ordinal id (contiguous for an
+        # all-unlabelled file → still collision-free).
+        identifier = authored_id if authored_id else f"T{task_id:03d}"
 
         # Full task block — used for dep extraction so sub-bullets and
         # second-line "Dependencies:" / "Requires:" hints are honored.
@@ -209,7 +282,7 @@ class TaskOrchestrator:
         if not file_locks and re.search(self._ACTION_VERBS, description, re.IGNORECASE):
             snippet = description[:70] + ("…" if len(description) > 70 else "")
             print(
-                f"⚠️  T{task_id:03d}: names no detectable file — file-lock safety "
+                f"⚠️  {identifier}: names no detectable file — file-lock safety "
                 f"can't protect it; it may run parallel to a colliding task. "
                 f"Wrap paths in backticks, e.g. `src/file.py`.  [{snippet}]",
                 file=sys.stderr,
@@ -232,7 +305,8 @@ class TaskOrchestrator:
             constitution_rules = [r.strip() for r in rules_str.split(",")]
 
         task = Task(
-            id=f"T{task_id:03d}",
+            id=identifier,
+            authored_id=authored_id,
             description=description,
             file_locks=file_locks,
             dependencies=dependencies,
@@ -308,16 +382,31 @@ class TaskOrchestrator:
         """
         import re
 
-        pattern = (
-            r"\b(?:after|depends\s+on|requires|needs|"
-            r"prerequisite\s+(?:for|of))\s+T(\d{1,4})\b"
+        # Capture the WHOLE id list after the verb so multi-predecessor clauses
+        # ("after T1, T10, T20") keep every id — issue #11 defect #7, where the
+        # old single-`T(\d+)` pattern dropped all but the first predecessor.
+        clause_re = re.compile(
+            r"\b(?:after|depends\s+on|requires|needs|prerequisite\s+(?:for|of))\s+"
+            r"(T\d{1,4}(?:\s*(?:,|and|&|\+|\s)\s*T\d{1,4})*)",
+            re.IGNORECASE,
         )
-        matches = re.findall(pattern, description, re.IGNORECASE)
+        deps: List[str] = []
+        for clause in clause_re.findall(description):
+            for d in re.findall(r"T(\d{1,4})", clause):
+                deps.append(canon_id("T" + d))
         # Arrow forms: "T005 → T018" or "T005 -> T018" inside a task bullet.
         # Heuristic: arrow usually means "predecessor → current task", so if
         # T005 → appears in T018's block, T018 depends on T005.
-        arrow_matches = re.findall(r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE)
-        return [f"T{m.zfill(3)}" for m in matches + arrow_matches]
+        for m in re.findall(r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE):
+            deps.append(canon_id("T" + m))
+        # Deduplicate, preserving first-seen order.
+        seen: Set[str] = set()
+        ordered: List[str] = []
+        for d in deps:
+            if d not in seen:
+                seen.add(d)
+                ordered.append(d)
+        return ordered
 
     def _extract_blocks(self, description: str) -> List[str]:
         """Extract reverse dependencies — T-IDs this task *blocks* (precedes).
@@ -956,6 +1045,10 @@ class TaskOrchestrator:
                 task_dicts.append(
                     {
                         "task_id": t.id,
+                        # First-class authored id (issue #11/#12 fix #1): persisted
+                        # so the executor matches tasks.md lines by the AUTHORED id
+                        # and never re-derives it from instruction text.
+                        "authored_id": t.authored_id,
                         "agent_role": "Developer",
                         "instruction": t.description,
                         "file_locks": t.file_locks,

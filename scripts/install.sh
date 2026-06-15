@@ -191,22 +191,19 @@ if [ -d "$INSTALL_DIR/templates/.claude/hooks" ]; then
     echo "✅ Hook templates made executable"
 fi
 
-# Deploy hooks globally to ~/.claude/hooks/ so any project can reference them
-GLOBAL_CLAUDE="$HOME/.claude"
-mkdir -p "$GLOBAL_CLAUDE/hooks"
-if [ -d "$INSTALL_DIR/templates/.claude/hooks" ]; then
-    cp "$INSTALL_DIR/templates/.claude/hooks"/*.sh "$GLOBAL_CLAUDE/hooks/"
-    chmod +x "$GLOBAL_CLAUDE/hooks"/*.sh 2>/dev/null || true
-    echo "✅ Hooks deployed globally to $GLOBAL_CLAUDE/hooks/"
-fi
-
-# Deploy settings.json globally if not already present
-if [ ! -f "$GLOBAL_CLAUDE/settings.json" ] && [ -f "$INSTALL_DIR/templates/.claude/settings.json" ]; then
-    cp "$INSTALL_DIR/templates/.claude/settings.json" "$GLOBAL_CLAUDE/settings.json"
-    echo "✅ settings.json deployed to $GLOBAL_CLAUDE/settings.json"
-elif [ -f "$INSTALL_DIR/templates/.claude/settings.json" ]; then
-    echo "ℹ️  $GLOBAL_CLAUDE/settings.json already exists — not overwriting"
-fi
+# NOTE (#9/#10/#11 audit): dev-kid hooks are PROJECT-scoped — `dev-kid init`
+# deploys them per-repo (.claude/hooks/ + .claude/settings.json registered with
+# ${CLAUDE_PROJECT_DIR}). We intentionally do NOT write to the global
+# ~/.claude/{hooks,settings.json} here:
+#   * A global settings.json with these hook registrations would fire
+#     ${CLAUDE_PROJECT_DIR}/.claude/hooks/*.sh in EVERY project — including
+#     non-dev-kid repos that have no such scripts — flooding "not found"
+#     errors on every tool call (the exact class of bug in #9).
+#   * Copying hook scripts into a shared global ~/.claude/hooks/ collides with
+#     the user's own global-hooks ecosystem and is unused by dev-kid (project
+#     hooks resolve via ${CLAUDE_PROJECT_DIR}, not the global dir).
+# If you genuinely want dev-kid hooks active everywhere, do it deliberately by
+# merging into ~/.claude/settings.json by hand — never auto-deployed by install.
 
 # Create symlink in PATH
 echo "   Creating symlink..."

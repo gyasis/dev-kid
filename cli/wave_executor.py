@@ -16,6 +16,7 @@ from config_manager import ConfigManager, ConfigSchema
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
 from resolver import resolve_tasks_file
+from task_matching import canon_id, find_task_line, parse_task_line
 
 # Sentinel runner (T009) — imported lazily to tolerate incomplete builds
 try:
@@ -162,6 +163,10 @@ class WaveExecutor:
                 f"⚠️  Unexpected error reading tasks.md ({e}). Halting to avoid silent misroute."
             )
             sys.exit(2)
+        # An empty / zero-task wave is NOT vacuously complete (issue #11 defect
+        # #6) — treating it as done would run a checkpoint/commit for nothing.
+        if not tasks:
+            return False
         for task in tasks:
             found, complete = self._find_task_state(content, task)
             if not found or not complete:
@@ -172,44 +177,43 @@ class WaveExecutor:
     def _orig_task_id(instruction: str) -> str:
         """Extract the ORIGINAL tasks.md id embedded at the start of an instruction.
 
-        Orchestrate renumbers tasks internally (e.g. internal `T005`) while the
-        instruction text and the tasks.md line keep the authored id (e.g. `T210`).
+        Legacy fallback ONLY — used when an execution_plan.json predates the
+        first-class `authored_id` field. New plans carry `authored_id` so the
+        matcher never has to re-derive it from instruction text.
         """
         m = re.match(r"\s*(T\d+)\b", instruction or "")
         return m.group(1) if m else ""
 
+    def _authored_id_for(self, task: Dict) -> str:
+        """Return the canonical authored id for a plan task.
+
+        Prefers the persisted first-class `authored_id` field; falls back to
+        re-deriving from the instruction for legacy plans.
+        """
+        authored = task.get("authored_id") or self._orig_task_id(
+            task.get("instruction", "")
+        )
+        return canon_id(authored) if authored else ""
+
     def _find_task_state(self, content: str, task: Dict) -> Tuple[bool, bool]:
         """Return (found, is_complete) for a task in tasks.md.
 
-        MARKER-AGNOSTIC and ID-ROBUST (audit fix 2026-05-29): matches a line by
-        the internal plan id OR the original authored id (from the instruction),
-        independent of any `[S]`/`[P]` marker on the line. Falls back to an
-        instruction substring. Previously the matcher used the internal id (which
-        differs from the file id) and a substring of the [S]-stripped instruction
-        (which the [S]-bearing line no longer contained) — so [S] sentinel tasks
-        could never be detected as complete and the wave re-dispatched forever.
+        Collision-proof (issue #11/#12): matches by the AUTHORED id with an
+        anchored, marker-aware matcher (`task_matching.find_task_line`) and reads
+        completeness from the checkbox group — never an unanchored `] {tid} `
+        substring and never `"[x]" in line`. SENTINEL tasks match by their exact
+        injected id; unlabelled lightweight-mode tasks match by anchored
+        instruction text.
         """
-        task_desc = task.get("instruction", "")
-        ids = [i for i in (task.get("task_id", ""), self._orig_task_id(task_desc)) if i]
-        for line in content.split("\n"):
-            stripped = line.lstrip()
-            hit = False
-            for tid in ids:
-                if (
-                    f"] {tid} " in line
-                    or f"] {tid}:" in line
-                    or stripped.startswith(f"- [x] {tid} ")
-                    or stripped.startswith(f"- [ ] {tid} ")
-                    or stripped.startswith(f"- [x] {tid}:")
-                    or stripped.startswith(f"- [ ] {tid}:")
-                ):
-                    hit = True
-                    break
-            if not hit and task_desc and task_desc in line:
-                hit = True
-            if hit:
-                return True, ("[x]" in line)
-        return False, False
+        parsed = find_task_line(
+            content,
+            authored_id=self._authored_id_for(task),
+            task_id=task.get("task_id", ""),
+            instruction=task.get("instruction", ""),
+        )
+        if parsed is None:
+            return False, False
+        return True, parsed.complete
 
     def verify_wave_completion(self, wave_id: int, tasks: List[Dict]) -> bool:
         """Verify all tasks in wave are marked complete in tasks.md"""
@@ -458,24 +462,40 @@ class WaveExecutor:
                     f"   ❌ Git commit failed (wave {wave_id}): {commit_result.stderr.strip()}"
                 )
 
-    def _mark_task_complete(self, task_id: str, instruction: str) -> None:
-        """Mark a task [x] in tasks.md by finding its instruction line."""
+    def _mark_task_complete(self, task: Dict) -> None:
+        """Mark a task [x] in tasks.md, matching the line by its AUTHORED id.
+
+        Anchored + collision-proof (issue #11/#12 fix #2): flips ONLY the line
+        whose leading authored id (or exact sentinel id / anchored instruction)
+        matches and is currently `[ ]` — never a substring or different-numbered
+        line. A reworded line that no longer matches is a loud no-op warning, not
+        a silent wrong-checkbox flip.
+        """
+        task_id = task.get("task_id", "")
         try:
             content = self.tasks_file.read_text(encoding="utf-8")
             lines = content.split("\n")
+            authored = self._authored_id_for(task)
+            instruction = (task.get("instruction", "") or "").strip()
+            is_sentinel = task_id.startswith("SENTINEL")
             for i, line in enumerate(lines):
-                if instruction in line and "- [ ]" in line:
-                    lines[i] = line.replace("- [ ]", "- [x]", 1)
-                    break
-                # Also match by task_id prefix — accepts both space-prefixed
-                # (`- [ ] T001 desc`) and colon-prefixed (`- [ ] T001: desc`)
-                # task formats. Without this fallback supporting both, the
-                # mark-complete step silently no-ops when execution_plan's
-                # `instruction` field drifts from the literal tasks.md line.
-                elif (
-                    f"] {task_id} " in line or f"] {task_id}:" in line
-                ) and "- [ ]" in line:
-                    lines[i] = line.replace("- [ ]", "- [x]", 1)
+                parsed = parse_task_line(line)
+                if parsed is None or parsed.complete:
+                    continue
+                if is_sentinel:
+                    matched = parsed.rest.startswith(task_id)
+                elif authored:
+                    matched = parsed.authored_id == authored
+                elif instruction and parsed.authored_id is None:
+                    matched = (
+                        parsed.rest == instruction
+                        or parsed.rest.startswith(instruction)
+                        or instruction in parsed.rest
+                    )
+                else:
+                    matched = False
+                if matched:
+                    lines[i] = re.sub(r"\[ \]", "[x]", line, count=1)
                     break
             self.tasks_file.write_text("\n".join(lines), encoding="utf-8")
         except Exception as e:
@@ -500,11 +520,11 @@ class WaveExecutor:
         if task.get("agent_role") == "Sentinel":
             if not _SENTINEL_AVAILABLE or _SentinelRunner is None:
                 print(f"      ⚠️  Sentinel module unavailable — skipping {task_id}")
-                self._mark_task_complete(task_id, command)
+                self._mark_task_complete(task)
                 return
             if self.config is None:
                 print(f"      ⚠️  Config not loaded — skipping sentinel {task_id}")
-                self._mark_task_complete(task_id, command)
+                self._mark_task_complete(task)
                 return
             print(f"      🛡️  Running sentinel: {task_id}")
             runner = _SentinelRunner(self.config, self.project_root)
@@ -517,7 +537,7 @@ class WaveExecutor:
             print(
                 f"      {status_icon} Sentinel {task_id}: {result.result} (tier {result.tier_used})"
             )
-            self._mark_task_complete(task_id, command)
+            self._mark_task_complete(task)
             return
 
         # Locate watchdog binary
@@ -610,6 +630,44 @@ class WaveExecutor:
         print("   │  Wave checkpoint will HALT if any remain [ ]          │")
         print("   └─────────────────────────────────────────────────────┘")
 
+    def _guard_skipped_waves(self, waves: List[Dict], resume_wave: int) -> None:
+        """Print the authored ids treated as done; HALT on any contradiction.
+
+        Belt-and-suspenders independent re-check of the resume decision. Reads
+        tasks.md once and, for every wave being skipped, verifies each task's
+        authored line is actually `[x]`.
+        """
+        try:
+            content = self.tasks_file.read_text(encoding="utf-8")
+        except Exception as e:
+            print(f"⚠️  Resume guard could not read tasks.md ({e}); proceeding.")
+            return
+
+        done_ids: List[str] = []
+        contradictions: List[str] = []
+        for wave in waves:
+            if wave["wave_id"] >= resume_wave:
+                break
+            for task in wave["tasks"]:
+                label = self._authored_id_for(task) or task.get("task_id", "?")
+                found, complete = self._find_task_state(content, task)
+                done_ids.append(label)
+                if not (found and complete):
+                    contradictions.append(label)
+
+        if done_ids:
+            print(f"   Authored ids treated as done: {', '.join(done_ids)}")
+        if contradictions:
+            print(
+                "\n🚫 RESUME HALT: wave(s) reported complete but these authored "
+                f"task(s) are still [ ] (or missing): {', '.join(contradictions)}"
+            )
+            print(
+                "   Refusing to skip — possible tasks.md edit or id mismatch. "
+                "Re-check tasks.md, then re-run: dev-kid execute"
+            )
+            sys.exit(2)
+
     def execute(self) -> None:
         """Execute all waves with checkpoints"""
         print("🚀 Starting wave execution...")
@@ -633,6 +691,12 @@ class WaveExecutor:
             print(
                 f"♻️  Resuming from Wave {resume_wave} (Waves 1–{resume_wave - 1} already complete)"
             )
+            # Resume contradiction guard (issue #11/#12 item 4): re-resolve each
+            # skipped wave's AUTHORED ids and confirm those lines are actually
+            # [x]. With the authored-id matcher this should always hold — but if
+            # it ever doesn't (e.g. a hand-edited tasks.md), HALT loudly with the
+            # offending id instead of silently skipping undone work.
+            self._guard_skipped_waves(waves, resume_wave)
 
         for wave in waves:
             wave_id = wave["wave_id"]
