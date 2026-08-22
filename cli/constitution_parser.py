@@ -215,14 +215,60 @@ class Constitution:
         for keyword, sections in keywords.items():
             if keyword in task_lower:
                 for section_name in sections:
-                    if section_name in self.sections:
-                        relevant_rules.extend(self.sections[section_name].rules)
+                    for resolved in self._resolve_sections(section_name):
+                        relevant_rules.extend(self.sections[resolved].rules)
 
-        # Always include Code Standards as baseline
+        # Universal principles apply to EVERY task, not only unmatched ones.
+        # A section whose name contains "principle" states MUST-level rules that
+        # hold regardless of what the task touches, so they are always attached.
+        for name in self.sections:
+            if "principle" in name.lower():
+                for rule in self.sections[name].rules:
+                    if rule not in relevant_rules:
+                        relevant_rules.append(rule)
+
+        # Legacy baseline, preserved for constitutions using dev-kid's original
+        # section vocabulary.
         if not relevant_rules and "Code Standards" in self.sections:
             relevant_rules.extend(self.sections["Code Standards"].rules)
 
+        # Last resort: a constitution that parsed successfully must never
+        # contribute nothing. Returning [] here is what produced
+        # "registered (no constitution rules)" on every task of a project whose
+        # section names simply differ from the five dev-kid assumed.
+        if not relevant_rules and self.rules:
+            for section in self.sections.values():
+                for rule in section.rules:
+                    if rule not in relevant_rules:
+                        relevant_rules.append(rule)
+
         return relevant_rules
+
+    def _resolve_sections(self, wanted: str):
+        """Map an assumed section name onto the ones this constitution defines.
+
+        dev-kid's keyword map hardcodes five section names ("Code Standards",
+        "Technology Standards", ...). Any constitution using different headings
+        matched none of them. Matching is exact, then case-insensitive, then by
+        shared significant word, so "Technology Standards" also finds a section
+        called "Technology and Cost Constraints".
+        """
+        if wanted in self.sections:
+            return [wanted]
+        lowered = {name.lower(): name for name in self.sections}
+        if wanted.lower() in lowered:
+            return [lowered[wanted.lower()]]
+
+        stop = {"and", "or", "the", "of", "standards", "principles", "constraints"}
+        want_words = {w for w in wanted.lower().split() if w not in stop}
+        if not want_words:
+            return []
+        hits = []
+        for name in self.sections:
+            name_words = {w for w in name.lower().replace("&", " ").split() if w not in stop}
+            if want_words & name_words:
+                hits.append(name)
+        return hits
 
     def validate_output(self, files: List[str]) -> List[ConstitutionViolation]:
         """
