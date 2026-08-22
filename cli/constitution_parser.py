@@ -6,6 +6,7 @@ This module provides the Constitution class for parsing .constitution.md files
 and validating code against constitutional rules.
 """
 
+from constitution_paths import resolve_constitution_path, find_constitution
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -55,9 +56,9 @@ class Constitution:
         "MIGRATION_NEEDS_ROLLBACK",
     }
 
-    def __init__(self, file_path: str = "memory-bank/shared/.constitution.md"):
+    def __init__(self, file_path: str = None):
         """
-        Load constitution from memory-bank/shared/.constitution.md
+        Load constitution from the first existing candidate path.
 
         Args:
             file_path: Path to constitution markdown file
@@ -65,13 +66,13 @@ class Constitution:
         Raises:
             Exception: If constitution file is corrupted or cannot be parsed
         """
-        self.file_path = Path(file_path)
+        self.file_path = resolve_constitution_path(file_path)
         self.sections: Dict[str, ConstitutionSection] = {}
         self.rules: Dict[str, str] = {}
 
         if self.file_path.exists():
             try:
-                self.rules = self._parse(str(file_path))
+                self.rules = self._parse(str(self.file_path))
             except Exception as e:
                 raise Exception(f"Failed to parse constitution: {e}") from e
 
@@ -90,8 +91,14 @@ class Constitution:
         """
         content = self.file_path.read_text(encoding="utf-8")
 
-        # Extract sections (## Section Name)
+        # Extract sections (## Section Name).
+        # SpecKit's constitution template writes each principle as a
+        # "### N. Name" heading with a prose body rather than "- " bullets, so
+        # such a document previously parsed to zero Core Principles. Both
+        # shapes are recognised now; "- " bullets win where present.
         section_pattern = r"^## (.+)$"
+        subsection_pattern = r"^### (.+)$"
+        pending_sub = None
         current_section = None
         current_rules = []
         rule_dict = {}
@@ -115,11 +122,24 @@ class Constitution:
                 current_section = section_match.group(1)
                 current_rules = []
 
+            # "### N. Principle" heading (SpecKit form)
+            elif re.match(subsection_pattern, line.strip()):
+                pending_sub = re.match(subsection_pattern, line.strip()).group(1).strip()
+
             # Check for rule (- Rule text)
             elif line.strip().startswith("- "):
                 rule = line.strip()[2:].strip()
                 if rule and current_section:
                     current_rules.append(rule)
+                    pending_sub = None
+
+            # First substantive prose line under a "###" heading becomes that
+            # principle's rule. Rationale lines are labelled and skipped.
+            elif pending_sub and current_section:
+                s = line.strip()
+                if s and not s.startswith(("#", ">", "|", "```", "*Rationale", "**Rationale")):
+                    current_rules.append(f"{pending_sub}: {s}")
+                    pending_sub = None
 
         # Save last section
         if current_section:

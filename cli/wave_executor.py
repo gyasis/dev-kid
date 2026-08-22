@@ -3,6 +3,7 @@
 Wave Executor - Executes waves from execution_plan.json with checkpoints
 """
 
+from constitution_paths import resolve_constitution_path, find_constitution
 import json
 import os
 import re
@@ -70,7 +71,7 @@ class WaveExecutor:
         self.project_root = Path.cwd()
 
         # Load constitution from memory-bank
-        constitution_path = Path("memory-bank/shared/.constitution.md")
+        constitution_path = resolve_constitution_path()
         if constitution_path.exists():
             try:
                 self.constitution: Optional[Constitution] = Constitution(
@@ -83,7 +84,8 @@ class WaveExecutor:
         else:
             self.constitution: Optional[Constitution] = None
             print(
-                "⚠️  Warning: Constitution file not found at memory-bank/shared/.constitution.md"
+                "⚠️  Warning: no constitution found (looked in "
+                "memory-bank/shared/.constitution.md, .specify/memory/constitution.md, constitution.md)"
             )
 
         # Initialize context compactor for proactive pre-compaction
