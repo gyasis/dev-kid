@@ -4,9 +4,38 @@ Micro-Checkpoint: Frequent git commits to stay in Ralph smart zone
 Commits after every logical change, not just wave completion.
 """
 
+import os
 import subprocess
 import sys
 from datetime import datetime
+
+
+# Generated artifacts that must never enter a checkpoint commit. Override with
+# DEV_KID_CHECKPOINT_EXCLUDES (colon-separated git pathspecs); set
+# DEV_KID_CHECKPOINT_ALL=true to restore blanket staging.
+# NOTE: directory patterns need a trailing /* — a bare "*.egg-info" pathspec
+# does NOT exclude files nested inside it.
+DEFAULT_CHECKPOINT_EXCLUDES = [
+    ".claude/session_snapshots/*",
+    ".claude/activity_stream.md",
+    ".claude/AGENT_STATE.json",
+    ".claude/system_bus.json",
+    ".claude/task_timers.json",
+    "memory-bank/private/*",
+    "*.egg-info/*",
+    "*__pycache__/*",
+    "*.pyc",
+    "*.pyo",
+]
+
+
+def exclude_pathspecs() -> list:
+    """Build git :(exclude) pathspecs for generated artifacts."""
+    if os.environ.get("DEV_KID_CHECKPOINT_ALL", "false").lower() == "true":
+        return []
+    raw = os.environ.get("DEV_KID_CHECKPOINT_EXCLUDES")
+    patterns = [p for p in raw.split(":") if p] if raw else DEFAULT_CHECKPOINT_EXCLUDES
+    return [f":(exclude){p}" for p in patterns]
 
 
 def has_uncommitted_changes() -> bool:
@@ -62,8 +91,10 @@ def create_micro_checkpoint(message: str = None, auto: bool = False) -> bool:
     if not message:
         message = f"Micro-checkpoint {datetime.now().strftime('%H:%M:%S')}"
 
-    # Stage all changes
-    subprocess.run(["git", "add", "."], check=True)
+    # Stage changes, EXCLUDING generated artifacts (see skills/checkpoint.sh
+    # for the rationale). Blanket `git add .` used to sweep build output and
+    # dev-kid's own session state into every checkpoint commit.
+    subprocess.run(["git", "add", "-A", "--", "."] + exclude_pathspecs(), check=True)
 
     # Create commit
     commit_msg = f"""[MICRO-CHECKPOINT] {message}
