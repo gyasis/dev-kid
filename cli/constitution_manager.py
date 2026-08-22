@@ -6,6 +6,7 @@ This module handles the creation and management of .constitution.md files
 that define immutable development rules for Speckit-driven workflows.
 """
 
+from constitution_paths import resolve_constitution_path, find_constitution
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -46,7 +47,8 @@ class Constitution:
         "Security Standards",
     ]
 
-    def __init__(self, file_path: str = "memory-bank/shared/.constitution.md"):
+    def __init__(self, file_path: str = None):
+        file_path = resolve_constitution_path(file_path)
         self.file_path = Path(file_path)
         self.sections: Dict[str, ConstitutionSection] = {}
 

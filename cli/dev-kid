@@ -170,6 +170,18 @@ EOF
 
 # Command implementations
 
+# Resolve the project's constitution. memory-bank/ is OPTIONAL — installs
+# without one fall through to the SpecKit location or a repo-root file.
+_dk_find_constitution() {
+    local c
+    for c in "memory-bank/shared/.constitution.md" \
+             ".specify/memory/constitution.md" \
+             "constitution.md"; do
+        [ -f "$c" ] && { printf '%s' "$c"; return 0; }
+    done
+    return 1
+}
+
 cmd_init() {
     local lightweight=""
     local project_path="."
@@ -862,7 +874,7 @@ cmd_status() {
     fi
 
     # Check Constitution
-    if [ -f "memory-bank/shared/.constitution.md" ]; then
+    if _dk_find_constitution >/dev/null; then
         echo -e "${GREEN}✅ Constitution: Configured${NC}"
         python3 "$DEV_KID_ROOT/cli/constitution_manager.py" validate 2>&1 | grep -q "validation passed" && \
             echo -e "   Quality: Valid" || echo -e "   Quality: ${YELLOW}Needs review${NC}"
@@ -1129,7 +1141,7 @@ cmd_constitution() {
             ;;
         edit)
             echo -e "${GREEN}✏️  Opening constitution in editor${NC}"
-            local constitution_path="memory-bank/shared/.constitution.md"
+            local constitution_path="$(_dk_find_constitution || printf '%s' ".specify/memory/constitution.md")"
 
             if [ ! -f "$constitution_path" ]; then
                 echo -e "${RED}❌ Constitution not found at $constitution_path${NC}"

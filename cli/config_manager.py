@@ -28,7 +28,7 @@ class ConfigSchema:
     checkpoint_auto_save: bool = True
 
     # Constitution integration
-    constitution_path: str = "memory-bank/shared/.constitution.md"
+    constitution_path: str = ""  # empty = resolve at use site (see constitution_paths.py)
     constitution_enforce: bool = True
     constitution_strict_mode: bool = False
 
@@ -189,7 +189,7 @@ class ConfigSchema:
             max_parallel_tasks=task_orch.get("max_parallel_tasks", 3),
             checkpoint_auto_save=task_orch.get("checkpoint_auto_save", True),
             constitution_path=constitution.get(
-                "path", "memory-bank/shared/.constitution.md"
+                "path", ""
             ),
             constitution_enforce=constitution.get("enforce", True),
             constitution_strict_mode=constitution.get("strict_mode", False),
