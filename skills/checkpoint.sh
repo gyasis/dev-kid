@@ -36,8 +36,34 @@ if sync_memory=$(find_skill "sync_memory.sh" 2>/dev/null); then
     "$sync_memory"
 fi
 
-# Stage all changes
-git add .
+# ------------------------------------------------------------------
+# Stage changes — EXCLUDING generated artifacts.
+#
+# This used to be a blanket `git add .`, which swept build output and
+# dev-kid's own session state into every checkpoint commit: .egg-info,
+# __pycache__/*.pyc, .claude/ session snapshots + activity stream, and
+# memory-bank/private. Those commits then made merged branches look
+# unmerged and polluted diffs.
+#
+# Override the list with DEV_KID_CHECKPOINT_EXCLUDES (colon-separated
+# git pathspecs). Set DEV_KID_CHECKPOINT_ALL=true to restore the old
+# stage-everything behaviour.
+#
+# NOTE: directory patterns need a trailing /* — a bare `*.egg-info`
+# pathspec does NOT exclude files nested inside it.
+# ------------------------------------------------------------------
+DEFAULT_EXCLUDES=".claude/session_snapshots/*:.claude/activity_stream.md:.claude/AGENT_STATE.json:.claude/system_bus.json:.claude/task_timers.json:memory-bank/private/*:*.egg-info/*:*__pycache__/*:*.pyc:*.pyo"
+
+if [ "${DEV_KID_CHECKPOINT_ALL:-false}" = "true" ]; then
+    git add -A .
+else
+    IFS=':' read -r -a _ex_patterns <<< "${DEV_KID_CHECKPOINT_EXCLUDES:-$DEFAULT_EXCLUDES}"
+    _ex_args=()
+    for _p in "${_ex_patterns[@]}"; do
+        [ -n "$_p" ] && _ex_args+=(":(exclude)$_p")
+    done
+    git add -A -- . "${_ex_args[@]}"
+fi
 
 # Check if there are changes to commit
 if git diff --cached --quiet; then
