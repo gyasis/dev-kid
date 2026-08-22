@@ -31,6 +31,19 @@ except Exception as _sentinel_import_err:
     print(f"⚠️  Sentinel module not importable: {_sentinel_import_err}")
 
 
+
+class _TaskRuleView:
+    """Minimal adapter so a plan-dict task satisfies get_rules_for_task(),
+    which expects an object exposing .description."""
+
+    __slots__ = ("task_id", "description", "constitution_rules")
+
+    def __init__(self, task_id: str, description: str):
+        self.task_id = task_id
+        self.description = description
+        self.constitution_rules = []
+
+
 class WaveHaltError(Exception):
     """Raised when a sentinel decides to halt wave execution."""
 
@@ -517,6 +530,25 @@ class WaveExecutor:
         task_id = task["task_id"]
         command = task["instruction"]
         constitution_rules = task.get("constitution_rules", [])
+
+        # Rules reach a task by ONE route today: the author hand-writing
+        # "- **Constitution**: A, B" under it in tasks.md, which orchestrator.py
+        # regex-extracts into the plan. Constitution.get_rules_for_task() exists
+        # to derive them automatically and was called by nothing, so a project
+        # that did not annotate every task got no enforcement at all while
+        # still loading and parsing its constitution successfully.
+        #
+        # Explicit annotations still win; this only fills the gap when a task
+        # declares none.
+        if not constitution_rules and getattr(self, "constitution", None):
+            try:
+                derived = self.constitution.get_rules_for_task(
+                    _TaskRuleView(task_id, command)
+                )
+                if derived:
+                    constitution_rules = derived
+            except Exception as e:  # never let rule derivation break execution
+                print(f"      ⚠️  Could not derive constitution rules for {task_id}: {e}")
 
         # --- Sentinel routing (T009) ---
         if task.get("agent_role") == "Sentinel":
