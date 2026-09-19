@@ -83,9 +83,40 @@ if [ -f tasks.md ]; then
     fi
 fi
 
-# Create micro-checkpoint if auto-checkpoint enabled
-if [ "${DEV_KID_AUTO_CHECKPOINT:-true}" = "true" ]; then
-    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+# ------------------------------------------------------------------
+# Resolve auto_git_commit the SAME way stop.sh does: project config >
+# global config > OFF (opt-in default). The old
+# `${DEV_KID_AUTO_CHECKPOINT:-true}` ignored `.devkid/config.json`
+# entirely and defaulted ON, so `dev-kid auto-checkpoint off` had no
+# effect on this hook.
+# ------------------------------------------------------------------
+_AC=$(jq -r '.cli.auto_git_commit' .devkid/config.json 2>/dev/null)
+if [ -z "$_AC" ] || [ "$_AC" = "null" ]; then
+    _AC=$(jq -r '.cli.auto_git_commit' "${DEV_KID_GLOBAL_CONFIG:-$HOME/.config/dev-kid/config.json}" 2>/dev/null)
+fi
+# Optional env override stays available but DEFAULTS OFF now.
+[ "${DEV_KID_AUTO_CHECKPOINT:-}" = "true" ] && _AC=true
+
+# Refuse to auto-commit from inside a LINKED git worktree (see
+# skills/checkpoint.sh for the full rationale). This hook is
+# TEMPLATE-copied into every project's .claude/hooks/, so it guards
+# independently of whatever `dev-kid checkpoint` itself does.
+# Override: DEV_KID_ALLOW_WORKTREE_COMMIT=true.
+_devkid_in_linked_worktree() {
+    local git_dir common_dir
+    git_dir=$(git rev-parse --git-dir 2>/dev/null) || return 1
+    common_dir=$(git rev-parse --git-common-dir 2>/dev/null) || return 1
+    git_dir=$(cd "$git_dir" 2>/dev/null && pwd -P) || return 1
+    common_dir=$(cd "$common_dir" 2>/dev/null && pwd -P) || return 1
+    [ "$git_dir" != "$common_dir" ]
+}
+
+# Create micro-checkpoint if auto-checkpoint enabled and not inside a
+# linked worktree.
+if [ "$_AC" = "true" ]; then
+    if _devkid_in_linked_worktree && [ "${DEV_KID_ALLOW_WORKTREE_COMMIT:-false}" != "true" ]; then
+        echo "$(date -Iseconds) TaskCompleted: linked worktree detected, skipping auto-checkpoint" >> .claude/activity_stream.md 2>/dev/null || true
+    elif ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
         dev-kid checkpoint "[TASK-COMPLETE] Auto-checkpoint" 2>/dev/null || true
     fi
 fi
