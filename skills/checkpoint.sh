@@ -37,6 +37,40 @@ if sync_memory=$(find_skill "sync_memory.sh" 2>/dev/null); then
 fi
 
 # ------------------------------------------------------------------
+# Refuse to auto-commit from inside a LINKED git worktree.
+#
+# Agent sessions routinely share one dev-kid-tracked repo via
+# `git worktree add` — each session gets its own isolated branch and
+# working directory. This script is a TRACKED file, so every worktree
+# inherits it, and a session's own checkpoint would otherwise land a
+# generic "[CHECKPOINT] ..." commit on that worktree's branch — noise
+# the branch owner never asked for, on a branch that is often meant to
+# hold only that session's own intentional commits.
+#
+# Detection: a linked worktree's `git rev-parse --git-dir` (the
+# worktree-specific gitdir under .git/worktrees/<name>) differs from
+# `--git-common-dir` (the shared repo's real .git); in the main
+# checkout the two resolve to the same path.
+#
+# Override: DEV_KID_ALLOW_WORKTREE_COMMIT=true restores the old
+# always-commit behavior inside a worktree.
+# ------------------------------------------------------------------
+_devkid_in_linked_worktree() {
+    local git_dir common_dir
+    git_dir=$(git rev-parse --git-dir 2>/dev/null) || return 1
+    common_dir=$(git rev-parse --git-common-dir 2>/dev/null) || return 1
+    git_dir=$(cd "$git_dir" 2>/dev/null && pwd -P) || return 1
+    common_dir=$(cd "$common_dir" 2>/dev/null && pwd -P) || return 1
+    [ "$git_dir" != "$common_dir" ]
+}
+
+if _devkid_in_linked_worktree && [ "${DEV_KID_ALLOW_WORKTREE_COMMIT:-false}" != "true" ]; then
+    echo "   ℹ️  Linked git worktree detected — skipping git commit (checkpoint.sh never auto-commits inside a worktree)"
+    echo "      Override with DEV_KID_ALLOW_WORKTREE_COMMIT=true if you really want to commit here"
+    exit 0
+fi
+
+# ------------------------------------------------------------------
 # Stage changes — EXCLUDING generated artifacts.
 #
 # This used to be a blanket `git add .`, which swept build output and

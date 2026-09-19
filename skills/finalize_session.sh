@@ -90,12 +90,43 @@ ln -sf "$(basename $SNAPSHOT_FILE)" ".claude/session_snapshots/snapshot_latest.j
 
 # Honor the auto-checkpoint toggle (project .devkid/config.json > global > on).
 # `dev-kid auto-checkpoint off` sets cli.auto_git_commit=false to suppress this.
-_AC=$(jq -r '.cli.auto_git_commit' .devkid/config.json 2>/dev/null)
+# `|| true` on each lookup: `jq` exits non-zero when the config file doesn't
+# exist yet (a fresh worktree, a project that hasn't run `dev-kid init`), and
+# under this script's `set -e` that killed finalize_session.sh outright,
+# before it ever reached the worktree guard below.
+_AC=$(jq -r '.cli.auto_git_commit' .devkid/config.json 2>/dev/null || true)
 if [ -z "$_AC" ] || [ "$_AC" = "null" ]; then
-    _AC=$(jq -r '.cli.auto_git_commit' "${DEV_KID_GLOBAL_CONFIG:-$HOME/.config/dev-kid/config.json}" 2>/dev/null)
+    _AC=$(jq -r '.cli.auto_git_commit' "${DEV_KID_GLOBAL_CONFIG:-$HOME/.config/dev-kid/config.json}" 2>/dev/null || true)
 fi
 
-if [ "$_AC" = "false" ]; then
+# ------------------------------------------------------------------
+# Refuse to auto-commit from inside a LINKED git worktree.
+#
+# See skills/checkpoint.sh for the full rationale — the short version:
+# multiple agent sessions share one dev-kid-tracked repo via
+# `git worktree add`, this script is a TRACKED file so every worktree
+# inherits it, and finalizing one session's worktree should never land
+# a generic "[FINALIZE]" commit on that worktree's own branch.
+#
+# Guarded here (not just delegated to checkpoint.sh) so the fallback
+# manual-commit path below is covered too.
+#
+# Override: DEV_KID_ALLOW_WORKTREE_COMMIT=true restores the old
+# always-commit behavior inside a worktree.
+# ------------------------------------------------------------------
+_devkid_in_linked_worktree() {
+    local git_dir common_dir
+    git_dir=$(git rev-parse --git-dir 2>/dev/null) || return 1
+    common_dir=$(git rev-parse --git-common-dir 2>/dev/null) || return 1
+    git_dir=$(cd "$git_dir" 2>/dev/null && pwd -P) || return 1
+    common_dir=$(cd "$common_dir" 2>/dev/null && pwd -P) || return 1
+    [ "$git_dir" != "$common_dir" ]
+}
+
+if _devkid_in_linked_worktree && [ "${DEV_KID_ALLOW_WORKTREE_COMMIT:-false}" != "true" ]; then
+    echo "ℹ️  Linked git worktree detected — skipping git commit (finalize never auto-commits inside a worktree)"
+    echo "   Override with DEV_KID_ALLOW_WORKTREE_COMMIT=true if you really want to commit here"
+elif [ "$_AC" = "false" ]; then
     echo "ℹ️  auto-checkpoint disabled (dev-kid config) — skipping git commit"
 # Create final checkpoint
 elif checkpoint=$(find_skill "checkpoint.sh" 2>/dev/null); then

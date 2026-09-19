@@ -27,8 +27,25 @@ fi
 # Optional env override stays available but DEFAULTS OFF now.
 [ "${DEV_KID_AUTO_CHECKPOINT:-}" = "true" ] && _AC=true
 
+# Refuse to auto-commit from inside a LINKED git worktree (see
+# skills/checkpoint.sh for the full rationale). `dev-kid finalize`
+# already guards this itself, but this hook is TEMPLATE-copied into
+# every project's .claude/hooks/, which can lag behind a dev-kid core
+# update — so it guards independently too.
+# Override: DEV_KID_ALLOW_WORKTREE_COMMIT=true.
+_devkid_in_linked_worktree() {
+    local git_dir common_dir
+    git_dir=$(git rev-parse --git-dir 2>/dev/null) || return 1
+    common_dir=$(git rev-parse --git-common-dir 2>/dev/null) || return 1
+    git_dir=$(cd "$git_dir" 2>/dev/null && pwd -P) || return 1
+    common_dir=$(cd "$common_dir" 2>/dev/null && pwd -P) || return 1
+    [ "$git_dir" != "$common_dir" ]
+}
+
 if [ "$_AC" = "true" ]; then
-    if command -v dev-kid &>/dev/null; then
+    if _devkid_in_linked_worktree && [ "${DEV_KID_ALLOW_WORKTREE_COMMIT:-false}" != "true" ]; then
+        echo "$(date -Iseconds) SessionStop: linked worktree detected, skipping auto-finalize" >> .claude/activity_stream.md 2>/dev/null || true
+    elif command -v dev-kid &>/dev/null; then
         if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
             dev-kid finalize 2>/dev/null || true
         fi

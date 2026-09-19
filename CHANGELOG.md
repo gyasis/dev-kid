@@ -4,6 +4,40 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **Never auto-commit from inside a linked git worktree.** Several agent
+  sessions often share one dev-kid-tracked repo via `git worktree add` (each
+  gets its own isolated branch + working directory). `skills/checkpoint.sh`
+  and `skills/finalize_session.sh` are TRACKED files, so every worktree
+  inherited them — and each session's own checkpoint/finalize would land a
+  generic `[CHECKPOINT]`/`[FINALIZE]` commit on THAT worktree's own branch,
+  polluting a branch that's usually meant to hold only the session's own
+  intentional commits. Both scripts now detect a linked worktree (a
+  worktree's `git rev-parse --git-dir` differs from `--git-common-dir`,
+  where the main checkout has both equal) and skip staging/committing
+  entirely, printing one clear line explaining why. Non-git bookkeeping
+  (memory sync, the session snapshot) still runs. Override with
+  `DEV_KID_ALLOW_WORKTREE_COMMIT=true` to restore the old always-commit
+  behavior inside a worktree.
+- **`templates/.claude/hooks/task-completed.sh` ignored `.devkid/config.json`
+  entirely.** It gated its auto-checkpoint on `${DEV_KID_AUTO_CHECKPOINT:-true}`
+  — always-on by default, unlike `stop.sh`'s project-config → global-config →
+  OFF resolution — so `dev-kid auto-checkpoint off` had no effect on this
+  hook. It now resolves `auto_git_commit` the exact same way `stop.sh` does,
+  and defaults OFF when no config is present.
+- Both `stop.sh` and `task-completed.sh` also skip their commit path inside a
+  linked worktree (same detection as above, same override), independently of
+  whether the project's installed dev-kid core has this fix yet — these
+  hook files are template-copied per project, so they guard on their own.
+- `skills/finalize_session.sh`: the `.devkid/config.json` / global-config `jq`
+  lookups now tolerate a missing config file (`|| true`). Previously, under
+  this script's `set -e`, a missing config file (a fresh worktree, or any
+  project that hasn't run `dev-kid init` yet) made `jq` exit non-zero and
+  silently killed the whole script before it ever reached the commit logic.
+
 ## v2.4.0 — 2026-05-28
 
 Sentinel/orchestrator rework surfaced by dogfooding a Rust (`gentle-eye`) build.
