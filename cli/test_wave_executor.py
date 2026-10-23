@@ -355,3 +355,70 @@ def run_all_tests():
 
 if __name__ == "__main__":
     run_all_tests()
+
+
+def _git_repo_for_checkpoint(tmp_path, monkeypatch, stage_mb):
+    import subprocess
+
+    ex = _make_project(tmp_path, monkeypatch, done=("T001",), ids=(("T001",),))
+    for k in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{k}_NAME", "t")
+        monkeypatch.setenv(f"GIT_{k}_EMAIL", "t@t")
+    subprocess.run(["git", "init", "-q"], check=True)
+    subprocess.run(["git", "add", "-A"], check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], check=True)
+    for rel in (
+        "memory-bank/private/u/progress.md",
+        "memory-bank/shared/x.md",
+        ".claude/activity_stream.md",
+        "src/a.py",
+        ".env",
+    ):
+        f = Path(rel)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("x")
+    from config_manager import ConfigSchema
+
+    ex.config = ConfigSchema.from_dict(
+        {"cli": {"checkpoint_stage_memory_bank": stage_mb}}
+    )
+    return ex
+
+
+def _committed_files():
+    import subprocess
+
+    return set(
+        subprocess.run(
+            ["git", "show", "--name-only", "--format=", "HEAD"],
+            capture_output=True, text=True,
+        ).stdout.split()
+    )
+
+
+def test_checkpoint_default_stages_only_wave_files(tmp_path, monkeypatch):
+    ex = _git_repo_for_checkpoint(tmp_path, monkeypatch, False)
+    ex._git_checkpoint(1, [{"task_id": "T001", "file_locks": ["src/a.py"]}])
+    assert _committed_files() == {"src/a.py"}
+
+
+def test_checkpoint_opt_in_stages_shared_never_private(tmp_path, monkeypatch):
+    ex = _git_repo_for_checkpoint(tmp_path, monkeypatch, True)
+    ex._git_checkpoint(1, [{"task_id": "T001", "file_locks": ["src/a.py"]}])
+    assert _committed_files() == {
+        "src/a.py", "memory-bank/shared/x.md", ".claude/activity_stream.md",
+    }
+
+
+def test_checkpoint_skips_unsafe_file_locks(tmp_path, monkeypatch, capsys):
+    ex = _git_repo_for_checkpoint(tmp_path, monkeypatch, False)
+    ex._git_checkpoint(
+        1,
+        [{"task_id": "T001", "file_locks": [
+            "src/a.py", ".env", "memory-bank/private/u/progress.md",
+        ]}],
+    )
+    out = capsys.readouterr().out
+    assert _committed_files() == {"src/a.py"}
+    assert "skipped unsafe file_lock: .env" in out
+    assert "skipped unsafe file_lock: memory-bank/private/u/progress.md" in out
