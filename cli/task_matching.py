@@ -31,12 +31,19 @@ from typing import NamedTuple, Optional
 _TASK_LINE_RE = re.compile(r"^\s*-\s*\[(?P<mark>[ xX])\]\s*(?P<rest>.*)$")
 
 # A leading authored task id at the very start of the post-checkbox text:
-# `T020 ...` or `T20: ...`. Anchored to the start of `rest` so it can only be
+# `T020 ...`, `T20: ...` or `T025a ...`. Anchored to the start of `rest` so it can only be
 # THE task's own id, not a `T0xx` mentioned later in the description.
-_LEADING_ID_RE = re.compile(r"^(?P<id>T\d+)\b")
+#
+# Task id grammar: `T` + digits + an OPTIONAL single letter subtask suffix
+# (Spec Kit writes `T025a` as a subtask of `T025`). The suffix must touch the
+# digits and the id must end at a non-word char (`(?![A-Za-z0-9_])`, not `\b`
+# alone), so `T025ab` is NOT an id. A suffix is matched in either case but
+# canon_id() LOWERCASES it: `T025A` == `T025a`, and `T025` != `T025a`.
+ID_PATTERN = r"T\d+[a-zA-Z]?(?![A-Za-z0-9_])"
+_LEADING_ID_RE = re.compile(rf"^(?P<id>{ID_PATTERN})")
 
 # Any T-id anywhere (used by canon_id and dependency clause scanning).
-_ANY_ID_RE = re.compile(r"T(\d+)")
+_ANY_ID_RE = re.compile(rf"(?<![A-Za-z0-9_])({ID_PATTERN})")
 
 
 def canon_id(raw: str) -> str:
@@ -53,10 +60,18 @@ def canon_id(raw: str) -> str:
         return ""
     raw = raw.strip()
     if raw.upper().startswith("T"):
-        m = re.match(r"[Tt](\d+)$", raw)
+        m = re.match(r"[Tt](\d+)([a-zA-Z]?)$", raw)
         if m:
-            return f"T{int(m.group(1)):03d}"
+            return f"T{int(m.group(1)):03d}{m.group(2).lower()}"
     return raw
+
+
+def task_sort_key(tid: str) -> tuple:
+    """Numeric sort key: T025 < T025a < T025b < T026 (non-task ids sort last)."""
+    m = re.match(r"[Tt](\d+)([a-zA-Z]?)$", (tid or "").strip())
+    if not m:
+        return (1, 0, tid or "")
+    return (0, int(m.group(1)), m.group(2).lower())
 
 
 class ParsedLine(NamedTuple):

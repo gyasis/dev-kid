@@ -8,6 +8,18 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ### Fixed
 
+- **Subtask ids like `T025a` were unreadable, and unlabelled lines could
+  collide with authored ids.** Spec Kit writes `T025a` as a subtask of
+  `T025`, but the id regex required `T\d+\b`, so `T025a` parsed as having no
+  id and fell back to its ordinal position (`T019`, ...), which collided with
+  real authored ids and made `orchestrate` exit with a bogus "duplicate task
+  id(s)" error. An id is now `T\d+[a-z]?` ending at a non-word char (the
+  suffix is lowercased by `canon_id`; `T025` and `T025a` are distinct;
+  `T025ab` is not an id). Dependency phrases (`after T025a`, `T025a blocks
+  T030`, `T024 -> T025a`), the prose `## Dependencies` parser, the executor
+  and sentinel runner accept suffixed ids, ids sort `T025 < T025a < T026`, and
+  unlabelled lines now get a synthetic id that skips every authored id.
+
 - **Never auto-commit from inside a linked git worktree.** Several agent
   sessions often share one dev-kid-tracked repo via `git worktree add` (each
   gets its own isolated branch + working directory). `skills/checkpoint.sh`

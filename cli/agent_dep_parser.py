@@ -102,10 +102,10 @@ def _normalize_tid(tid: str) -> str:
     """Normalize 'T1', 't018', ' T5 ' → 'T001'. Returns '' on failure."""
     if not tid:
         return ""
-    m = re.match(r"T(\d{1,4})\s*$", str(tid).strip().upper())
+    m = re.match(r"T(\d{1,4})([A-Z]?)\s*$", str(tid).strip().upper())
     if not m:
         return ""
-    return f"T{m.group(1).zfill(3)}"
+    return f"T{m.group(1).zfill(3)}{m.group(2).lower()}"
 
 
 def _http_post_json(url: str, payload: dict, headers: dict, timeout: int) -> dict:
