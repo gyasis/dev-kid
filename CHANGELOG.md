@@ -6,6 +6,20 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ## Unreleased
 
+### Fixed
+
+- **"Sentinel off" now really means off.** `sentinel-health`, the wave executor
+  and `cli/preflight.sh` all read one rule (`cli/sentinel_toggle.py`): the
+  sentinel is on only when `dev-kid.yml` sets `sentinel.enabled` true. Before,
+  the executor defaulted to on, so a project with no `dev-kid.yml` showed
+  "Sentinel enabled : no" yet ran checkpoint Step 2b and called the
+  SentinelRunner per task. Preflight also refused with "ZERO tiers are ready
+  (0/0)" because it only checks sentinel providers. With the sentinel off,
+  Step 2b prints "sentinel off" and skips the runner, and preflight prints
+  "Sentinel off — provider check not needed" and lets `execute` proceed.
+  Projects that enable it in `dev-kid.yml` are unchanged. The preflight banner
+  also counts providers instead of showing `?/?` when no tiers file is set.
+
 ### Changed / Security
 
 - **The git checkpoint no longer stages `memory-bank/` or

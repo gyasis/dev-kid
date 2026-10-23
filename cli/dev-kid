@@ -981,7 +981,8 @@ sys.path.insert(0, '$DEV_KID_ROOT/cli')
 
 # Read config from dev-kid.yml
 ollama_url = 'http://localhost:11434'
-sentinel_enabled = False
+from sentinel_toggle import is_sentinel_enabled
+sentinel_enabled = is_sentinel_enabled('$project_root')
 tiers_file = ''
 min_tier = ''
 yml_path = os.path.join('$project_root', 'dev-kid.yml')
@@ -993,9 +994,7 @@ try:
             if s.startswith('sentinel:'):
                 in_sentinel = True
             elif in_sentinel:
-                if s.startswith('enabled:'):
-                    sentinel_enabled = s.split(':',1)[1].strip().lower() not in ('false','0','no','off')
-                elif s.startswith('ollama_url:'):
+                if s.startswith('ollama_url:'):
                     ollama_url = s.split(':',1)[1].strip()
                 elif s.startswith('tiers_file:'):
                     tiers_file = s.split(':',1)[1].split('#')[0].strip()
