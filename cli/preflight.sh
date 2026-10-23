@@ -81,34 +81,23 @@ if [[ -f "$PREFLIGHT_CACHE_FILE" ]] && [[ "$RUN_AFTER" == "true" ]]; then
     fi
 fi
 
-# Spec 002 audit fix #4 — short-circuit when sentinel is disabled.
-# Provider keys are ONLY needed by the sentinel micro-agent. If the project
-# has `sentinel.enabled: false` in dev-kid.yml, the keys are irrelevant and
-# the preflight provider gate is over-strict (this was the user's #1 friction).
-SENTINEL_ENABLED="true"
-if [[ -f "$PROJECT_ROOT/dev-kid.yml" ]]; then
-    SENTINEL_ENABLED=$(python3 -c "
-import sys
-try:
-    import yaml
-    c = yaml.safe_load(open('$PROJECT_ROOT/dev-kid.yml')) or {}
-    v = (c.get('sentinel') or {}).get('enabled', True)
-    print('true' if v is True else 'false' if v is False else 'true')
-except Exception:
-    print('true')  # safe default — gate stays on if yaml broken
-" 2>/dev/null || echo "true")
-fi
+# Sentinel on/off — SINGLE source of truth shared with `dev-kid sentinel-health`
+# and the wave executor's Step 2b: cli/sentinel_toggle.py. Provider keys are only
+# needed by the sentinel, so when it is off the provider gate does not apply.
+# (No dev-kid.yml, or no sentinel.enabled in it, means OFF.)
+PREFLIGHT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SENTINEL_ENABLED=$(python3 "$PREFLIGHT_DIR/sentinel_toggle.py" "$PROJECT_ROOT" 2>/dev/null || echo "true")
 
 if [[ "$SENTINEL_ENABLED" == "false" ]]; then
     echo "==============================================="
-    echo "  dev-kid Preflight: sentinel disabled"
-    echo "  → skipping provider readiness check"
-    echo "  → dev-kid.yml has sentinel.enabled: false"
+    echo "  dev-kid Preflight: Sentinel off"
+    echo "  Sentinel off — provider check not needed"
+    echo "  (sentinel.enabled is not true in dev-kid.yml)"
     echo "==============================================="
     if [[ "$RUN_AFTER" == "true" ]]; then
         exec dev-kid "$DEVKID_CMD" "${DEVKID_ARGS[@]}"
     else
-        echo "✅ Preflight passes (sentinel disabled — no providers required)"
+        echo "✅ Preflight passes (Sentinel off — no providers required)"
         exit 0
     fi
 fi
@@ -131,6 +120,12 @@ HEALTH_OUTPUT="$(dev-kid sentinel-health 2>&1)"
 # Parse readiness counters
 TIERS_READY=$(echo "$HEALTH_OUTPUT" | grep -oE '[0-9]+/[0-9]+ tiers ready' | head -1 | awk -F'/' '{print $1}')
 TIERS_TOTAL=$(echo "$HEALTH_OUTPUT" | grep -oE '[0-9]+/[0-9]+ tiers ready' | head -1 | awk -F'[/ ]' '{print $2}')
+if [[ -z "$TIERS_TOTAL" ]]; then
+    # No tiers file configured: sentinel-health prints only the provider list.
+    # Count those so the banner shows real numbers instead of ?/?.
+    TIERS_TOTAL=$(echo "$HEALTH_OUTPUT" | grep -cE '^\s+(✅|❌)\s+(Ollama|Anthropic|Google|OpenAI|Groq|Cerebras)\b')
+    TIERS_READY=$(echo "$HEALTH_OUTPUT" | grep -cE '^\s+✅\s+(Ollama|Anthropic|Google|OpenAI|Groq|Cerebras)\b')
+fi
 mapfile -t MISSING_PROVIDERS < <(echo "$HEALTH_OUTPUT" | grep -E "^\s+❌\s+(Anthropic|OpenAI|Google|Ollama)" | awk '{print $2}')
 
 # Banner

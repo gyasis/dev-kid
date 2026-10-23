@@ -18,6 +18,7 @@ from config_manager import ConfigManager, ConfigSchema
 from constitution_parser import Constitution
 from context_compactor import ContextCompactor
 from resolver import resolve_tasks_file
+from sentinel_toggle import is_sentinel_enabled
 from task_matching import canon_id, find_task_line, parse_task_line
 
 # Sentinel runner (T009) — imported lazily to tolerate incomplete builds
@@ -278,8 +279,12 @@ class WaveExecutor:
 
         # Step 2b: Integration Sentinel — run test-fix loop on each completed task.
         # Filter out Sentinel-role tasks (they already ran during execute_wave).
+        # Same rule as `dev-kid sentinel-health` (cli/sentinel_toggle.py): without
+        # an explicit dev-kid.yml sentinel.enabled the sentinel is OFF.
+        toggle_on = is_sentinel_enabled(self.project_root)
         sentinel_enabled = (
-            _SENTINEL_AVAILABLE
+            toggle_on
+            and _SENTINEL_AVAILABLE
             and self.config is not None
             and getattr(self.config, "sentinel_enabled", False)
         )
@@ -312,6 +317,10 @@ class WaveExecutor:
                 )
                 print(f"      {icon} {task_id}: {result.result} ({tier_info})")
             print("   ✅ Sentinel validation complete")
+        elif not toggle_on:
+            print(
+                "   ℹ️  Step 2b: sentinel off — not enabled in dev-kid.yml (sentinel.enabled), skipping"
+            )
         elif not _SENTINEL_AVAILABLE:
             print(
                 "   ⚠️  Step 2b: sentinel module not importable — skipping (see error above)"
