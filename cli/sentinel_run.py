@@ -32,6 +32,14 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 
+def _canon_task_id(raw: str) -> str:
+    """`T1` -> `T001`, `T25A` -> `T025a` (zero-pad digits, lowercase suffix)."""
+    m = re.match(r"^T(\d+)([A-Za-z]?)$", raw.strip(), re.IGNORECASE)
+    if not m:
+        return raw
+    return f"T{m.group(1).zfill(3)}{m.group(2).lower()}"
+
+
 def _git_branch() -> str:
     try:
         r = subprocess.run(
@@ -109,7 +117,7 @@ def list_tasks_in_md(
     # Permissive pattern: matches both speckit-canonical and colon-prefixed
     # forms. See find_task_in_tasks_md above for rationale.
     pattern = re.compile(
-        r"^\s*-\s*\[([x ])\]\s+(T\d{1,4})\b\s*:?\s*(.+)$",
+        r"^\s*-\s*\[([x ])\]\s+(T\d{1,4}[a-z]?)(?![A-Za-z0-9_])\s*:?\s*(.+)$",
         re.IGNORECASE,
     )
     out: List[Tuple[str, bool, str, List[str]]] = []
@@ -122,8 +130,7 @@ def list_tasks_in_md(
         if task_id.startswith("SENTINEL-"):
             continue
         # Normalize T1 → T001
-        num = task_id[1:]
-        task_id = f"T{num.zfill(3)}"
+        task_id = _canon_task_id(task_id)
         if is_checked and not include_checked:
             continue
         if (not is_checked) and not include_unchecked:
@@ -349,11 +356,11 @@ def main() -> int:
 
     # ----- Single-task mode -----
     task_id = args.task_id.strip().upper()
-    if not re.match(r"^T\d{1,4}$", task_id):
+    if not re.match(r"^T\d{1,4}[A-Z]?$", task_id):
         print(f"❌ Invalid task_id '{args.task_id}' — expected format T001, T1, etc.")
         return 2
     # Normalize T1 → T001
-    task_id = f"T{task_id[1:].zfill(3)}"
+    task_id = _canon_task_id(task_id)
 
     instruction = args.instruction
     file_locks: Optional[List[str]] = args.files

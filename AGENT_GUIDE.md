@@ -76,6 +76,7 @@ If a repo has **both** `.dk/tasks.md` AND `.specify/specs/<branch>/tasks.md`, `.
 ```bash
 dev-kid init --lightweight              # creates .dk/tasks.md placeholder
 # edit .dk/tasks.md — list tasks in format: `- [ ] T001: description affecting `path/to/file.py``
+# Task IDs are `T###` with an optional one-letter subtask suffix (`T025a`). The suffix must touch the digits and be followed by a space or `:`.
 dev-kid spec-resolve                    # sanity-check: confirms .dk/ wins, shows priority
 dev-kid orchestrate "phase-1"           # builds execution_plan.json + symlinks tasks.md → .dk/tasks.md
 dev-kid execute                         # preflight gate → waves → sentinel → checkpoints

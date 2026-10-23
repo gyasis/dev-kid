@@ -196,7 +196,7 @@ class WaveExecutor:
         first-class `authored_id` field. New plans carry `authored_id` so the
         matcher never has to re-derive it from instruction text.
         """
-        m = re.match(r"\s*(T\d+)\b", instruction or "")
+        m = re.match(r"\s*(T\d+[a-zA-Z]?(?![A-Za-z0-9_]))", instruction or "")
         return m.group(1) if m else ""
 
     def _authored_id_for(self, task: Dict) -> str:

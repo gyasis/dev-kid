@@ -224,3 +224,143 @@ def test_unlabelled_tasks_match_by_instruction(tmp_path):
     todo = {"task_id": "T002", "authored_id": "", "instruction": "write the docs page"}
     assert ex._find_task_state(content, done) == (True, True)
     assert ex._find_task_state(content, todo) == (True, False)
+
+
+# --------------------------------------------------------------------------
+# Subtask ids (T025a) + ordinal-fallback collisions
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("T25a", "T025a"),
+        ("t25a", "T025a"),
+        ("T025A", "T025a"),
+        ("T020", "T020"),
+        ("T25", "T025"),
+        ("SENTINEL-T001", "SENTINEL-T001"),
+    ],
+)
+def test_canon_id_suffix(raw, expected):
+    assert canon_id(raw) == expected
+
+
+def test_suffixed_and_plain_ids_differ():
+    assert canon_id("T025") != canon_id("T025a")
+
+
+@pytest.mark.parametrize(
+    "line,expected",
+    [
+        ("- [ ] T025a: sub", "T025a"),
+        ("- [ ] T025a sub", "T025a"),
+        ("- [x] T025 parent", "T025"),
+        ("- [ ] T025A: upper", "T025a"),
+        ("- [ ] T025ab: two letters", None),
+        ("- [ ] T025a_x: underscore", None),
+        ("- [ ] plain text", None),
+    ],
+)
+def test_parse_task_line_suffix(line, expected):
+    assert parse_task_line(line).authored_id == expected
+
+
+def test_task_sort_key_order():
+    from task_matching import task_sort_key
+
+    ids = ["T026", "T025b", "T025", "T025a", "T100"]
+    assert sorted(ids, key=task_sort_key) == ["T025", "T025a", "T025b", "T026", "T100"]
+
+
+def test_find_task_line_suffix_isolated():
+    content = "- [ ] T025: parent\n- [x] T025a: sub\n"
+    got = find_task_line(content, authored_id="T025a")
+    assert got.complete is True and got.rest.startswith("T025a")
+    got = find_task_line(content, authored_id="T025")
+    assert got.complete is False and got.rest.startswith("T025:")
+
+
+_SUBTASK_MD = """# Tasks
+- [ ] T001: setup `a.py`
+- [ ] T002: models `b.py`
+- [ ] T003 [P] docs `c.md`
+- [ ] T025: parent `d.py`
+- [ ] T025a: sub of parent, after T025, blocks T030 `e.py`
+- [ ] T028: other `f.py`
+- [ ] T028a: needs T028 and T025a `g.py`
+- [ ] T030: tail `h.py`
+- [ ] T041a: orphan subtask `i.py`
+"""
+
+
+def _parse(tmp_path, content):
+    tasks = tmp_path / "tasks.md"
+    tasks.write_text(content, encoding="utf-8")
+    orch = TaskOrchestrator(str(tasks))
+    orch.parse_tasks()
+    return orch
+
+
+def test_orchestrator_reads_suffixed_ids(tmp_path):
+    orch = _parse(tmp_path, _SUBTASK_MD)
+    assert [t.id for t in orch.tasks] == [
+        "T001", "T002", "T003", "T025", "T025a", "T028", "T028a", "T030", "T041a",
+    ]
+    graph = orch.analyze_dependencies()
+    assert "T025a" in graph["T028a"]
+    assert "T028" in graph["T028a"]
+    assert "T025" in graph["T025a"]
+    assert "T025a" in graph["T030"]
+
+
+def test_dependency_phrase_forms(tmp_path):
+    md = (
+        "- [ ] T024: a `a.py`\n"
+        "- [ ] T025a: b -> uses T024 -> T025a `b.py`\n"
+        "- [ ] T026: c `c.py`\n"
+        "\n## Dependencies\nT026 depends on T025a\nT025a blocks T027\n"
+        "- [ ] T027: d `d.py`\n"
+    )
+    orch = _parse(tmp_path, md)
+    graph = orch.analyze_dependencies()
+    assert "T025a" in graph["T026"]
+
+
+def test_unlabelled_fallback_never_collides_with_authored(tmp_path):
+    # Suffixed lines at ordinal positions equal to real authored ids (the
+    # regression: positions 1.. mapped onto T001/T002/... authored below).
+    md = (
+        "- [ ] T001a: sub one `a.py`\n"
+        "- [ ] T002a: sub two `b.py`\n"
+        "- [ ] unlabelled work `c.py`\n"
+        "- [ ] T001: real one `d.py`\n"
+        "- [ ] T002: real two `e.py`\n"
+        "- [ ] T003: real three `f.py`\n"
+    )
+    orch = _parse(tmp_path, md)  # must not SystemExit on duplicates
+    ids = [t.id for t in orch.tasks]
+    assert len(ids) == len(set(ids))
+    assert ids[:2] == ["T001a", "T002a"]
+    assert ids[2] not in {"T001", "T002", "T003"}
+    assert ids[3:] == ["T001", "T002", "T003"]
+
+
+def test_lightweight_all_unlabelled_ids_contiguous(tmp_path):
+    orch = _parse(tmp_path, "- [ ] one `a.py`\n- [ ] two `b.py`\n- [ ] three `c.py`\n")
+    assert [t.id for t in orch.tasks] == ["T001", "T002", "T003"]
+
+
+def test_executor_marks_suffix_line_only(tmp_path):
+    content = "- [ ] T025: parent\n- [ ] T025a: sub\n- [x] unlabelled thing\n"
+    ex = _executor_for(tmp_path / "tasks.md")
+    sub = {"task_id": "T025a", "authored_id": "T025a", "instruction": "T025a: sub"}
+    parent = {"task_id": "T025", "authored_id": "T025", "instruction": "T025: parent"}
+    assert ex._find_task_state(content, sub) == (True, False)
+    assert ex._find_task_state(content, parent) == (True, False)
+    # legacy plan without authored_id: derived from instruction text
+    legacy = {"task_id": "T002", "authored_id": "", "instruction": "T025a: sub"}
+    assert ex._authored_id_for(legacy) == "T025a"
+    # unlabelled still matched by instruction (find_task_line step 3)
+    unl = {"task_id": "T003", "authored_id": "", "instruction": "unlabelled thing"}
+    assert ex._find_task_state(content, unl) == (True, True)

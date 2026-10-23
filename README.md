@@ -735,6 +735,8 @@ The orchestrator extracts constitution rules from `tasks.md` and embeds them in 
 
 #### Task Format in tasks.md
 
+Task IDs are `T###` with an optional one-letter subtask suffix (`T025a`). The suffix must touch the digits and be followed by a space or `:`. `T025` and `T025a` are distinct ids; `T025ab` is not an id.
+
 Add `**Constitution**:` metadata to any task:
 
 ```markdown

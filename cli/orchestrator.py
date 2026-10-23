@@ -12,7 +12,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Set
 
-from task_matching import canon_id, parse_task_line
+from task_matching import ID_PATTERN, canon_id, parse_task_line, task_sort_key
+
+# One task id: T + digits + optional 1-letter subtask suffix (T025a). Group-free.
+_TID = ID_PATTERN
 
 
 @dataclass
@@ -78,6 +81,8 @@ class TaskOrchestrator:
         self.tasks: List[Task] = []
         self.waves: List[Wave] = []
         self.file_to_tasks: Dict[str, List[str]] = defaultdict(list)
+        self._synth_counter = 0
+        self._reserved_ids: Set[str] = set()
         self._max_wave_size = max_wave_size or self._load_wave_size()
         # Dependencies declared in a `## Dependencies` prose section.
         # Populated by parse_tasks(), consumed by analyze_dependencies().
@@ -109,6 +114,19 @@ class TaskOrchestrator:
             pass
         return self.DEFAULT_MAX_WAVE_SIZE
 
+    def _synthetic_id(self) -> str:
+        """Next ordinal id for an UNLABELLED task, skipping every authored id.
+
+        Using the line's position (`T{n}`) collided with real authored ids
+        (e.g. an unlabelled line at position 19 vs authored `T019`). All-
+        unlabelled files still get contiguous T001, T002, ...
+        """
+        while True:
+            self._synth_counter += 1
+            cand = f"T{self._synth_counter:03d}"
+            if cand not in self._reserved_ids:
+                return cand
+
     def parse_tasks(self) -> None:
         """Parse tasks.md into Task objects"""
         if not self.tasks_file.exists():
@@ -122,6 +140,14 @@ class TaskOrchestrator:
             sys.exit(1)
 
         lines = content.split("\n")
+
+        # Reserve every authored id up-front so synthetic ids can't clash.
+        self._synth_counter = 0
+        self._reserved_ids = set()
+        for _ln in lines:
+            _p = parse_task_line(_ln)
+            if _p is not None and _p.authored_id and "SENTINEL-" not in _ln:
+                self._reserved_ids.add(_p.authored_id)
 
         task_id = 1
         current_task_lines = []
@@ -209,12 +235,11 @@ class TaskOrchestrator:
         # shape that USED to trigger the silent skip (issue #11). It's now safe
         # (authored id is the id), but surface it so the run is self-documenting.
         authored = [t.authored_id for t in self.tasks if t.authored_id]
-        nums = []
-        for a in authored:
-            try:
-                nums.append(int(a[1:]))
-            except (ValueError, IndexError):
-                pass
+        # Suffixed subtasks (T025a) share their parent's number; compare the
+        # distinct numeric parts so they never register as gaps or crash.
+        nums = sorted(
+            {int(m.group(1)) for a in authored if (m := re.match(r"T(\d+)", a))}
+        )
         if len(nums) >= 2 and sorted(nums) != list(
             range(min(nums), min(nums) + len(nums))
         ):
@@ -265,7 +290,7 @@ class TaskOrchestrator:
         # vs-authored collision class disappears. Unlabelled lightweight-mode
         # lines fall back to a synthetic ordinal id (contiguous for an
         # all-unlabelled file → still collision-free).
-        identifier = authored_id if authored_id else f"T{task_id:03d}"
+        identifier = authored_id if authored_id else self._synthetic_id()
 
         # Full task block — used for dep extraction so sub-bullets and
         # second-line "Dependencies:" / "Requires:" hints are honored.
@@ -387,18 +412,18 @@ class TaskOrchestrator:
         # old single-`T(\d+)` pattern dropped all but the first predecessor.
         clause_re = re.compile(
             r"\b(?:after|depends\s+on|requires|needs|prerequisite\s+(?:for|of))\s+"
-            r"(T\d{1,4}(?:\s*(?:,|and|&|\+|\s)\s*T\d{1,4})*)",
+            rf"({_TID}(?:\s*(?:,|and|&|\+|\s)\s*{_TID})*)",
             re.IGNORECASE,
         )
         deps: List[str] = []
         for clause in clause_re.findall(description):
-            for d in re.findall(r"T(\d{1,4})", clause):
-                deps.append(canon_id("T" + d))
+            for d in re.findall(_TID, clause):
+                deps.append(canon_id(d))
         # Arrow forms: "T005 → T018" or "T005 -> T018" inside a task bullet.
         # Heuristic: arrow usually means "predecessor → current task", so if
         # T005 → appears in T018's block, T018 depends on T005.
-        for m in re.findall(r"T(\d{1,4})\s*(?:->|→)", description, re.IGNORECASE):
-            deps.append(canon_id("T" + m))
+        for m in re.findall(rf"({_TID})\s*(?:->|→)", description, re.IGNORECASE):
+            deps.append(canon_id(m))
         # Deduplicate, preserving first-seen order.
         seen: Set[str] = set()
         ordered: List[str] = []
@@ -419,10 +444,10 @@ class TaskOrchestrator:
 
         pattern = (
             r"\b(?:blocks|before|must\s+(?:complete|be\s+done|land)\s+before|"
-            r"must\s+precede|precedes)\s+T(\d{1,4})\b"
+            rf"must\s+precede|precedes)\s+({_TID})"
         )
         matches = re.findall(pattern, description, re.IGNORECASE)
-        return [f"T{m.zfill(3)}" for m in matches]
+        return [canon_id(m) for m in matches]
 
     # ------------------------------------------------------------------
     # Symbol-graph dependency inference
@@ -578,16 +603,16 @@ class TaskOrchestrator:
         entry_level = 0  # # count on the heading that opened the section
 
         def _record_forward(task_id_num: str, deps_blob: str) -> None:
-            task_id = f"T{task_id_num.zfill(3)}"
-            for d in re.findall(r"T(\d{1,4})", deps_blob):
-                dep_id = f"T{d.zfill(3)}"
+            task_id = canon_id(task_id_num)
+            for d in re.findall(_TID, deps_blob):
+                dep_id = canon_id(d)
                 if dep_id != task_id and dep_id not in deps[task_id]:
                     deps[task_id].append(dep_id)
 
         def _record_reverse(source_num: str, target_blob: str) -> None:
-            source = f"T{source_num.zfill(3)}"
-            for t in re.findall(r"T(\d{1,4})", target_blob):
-                target = f"T{t.zfill(3)}"
+            source = canon_id(source_num)
+            for t in re.findall(_TID, target_blob):
+                target = canon_id(t)
                 if source != target and source not in deps[target]:
                     deps[target].append(source)
 
@@ -620,7 +645,7 @@ class TaskOrchestrator:
             # "T005 must be done before T018"
             # "T018 comes before T020"
             narrative = re.match(
-                r"T(\d{1,4}).*?\b(?:must\s+(?:complete|be\s+done|finish|land)\s+before"
+                rf"({_TID}).*?\b(?:must\s+(?:complete|be\s+done|finish|land)\s+before"
                 r"|must\s+precede"
                 r"|comes\s+before"
                 r"|completes\s+before"
@@ -632,14 +657,14 @@ class TaskOrchestrator:
                 source_num = narrative.group(1)
                 tail = narrative.group(2)
                 # Collect all T-IDs in the tail; "and before T022" adds T022.
-                target_ids = re.findall(r"T(\d{1,4})", tail)
+                target_ids = re.findall(_TID, tail)
                 if target_ids:
-                    _record_reverse(source_num, " ".join(f"T{t}" for t in target_ids))
+                    _record_reverse(source_num, " ".join(target_ids))
                     continue
 
             # "X must complete after Y" / "must be done after Y" → forward
             fwd_narrative = re.match(
-                r"T(\d{1,4}).*?\b(?:must\s+(?:complete|be\s+done|land)\s+after"
+                rf"({_TID}).*?\b(?:must\s+(?:complete|be\s+done|land)\s+after"
                 r"|must\s+follow)\b(.*)$",
                 stripped,
                 re.IGNORECASE,
@@ -647,16 +672,16 @@ class TaskOrchestrator:
             if fwd_narrative:
                 task_num = fwd_narrative.group(1)
                 tail = fwd_narrative.group(2)
-                dep_ids = re.findall(r"T(\d{1,4})", tail)
+                dep_ids = re.findall(_TID, tail)
                 if dep_ids:
-                    _record_forward(task_num, " ".join(f"T{d}" for d in dep_ids))
+                    _record_forward(task_num, " ".join(dep_ids))
                     continue
 
             # --- Structured forward: T<a> <verb> T<b>[, T<c>...] ---
             fwd = re.match(
-                r"T(\d{1,4})\s*[:\-]?\s*"
+                rf"({_TID})\s*[:\-]?\s*"
                 r"(?:requires|depends\s+on|after|needs|->|→)?\s*"
-                r"((?:T\d{1,4}\s*,?\s*)+)$",
+                rf"((?:{_TID}\s*,?\s*)+)$",
                 stripped,
                 re.IGNORECASE,
             )
@@ -666,7 +691,7 @@ class TaskOrchestrator:
 
             # --- Structured reverse: T<a> blocks/before T<b>[, T<c>...] ---
             rev = re.match(
-                r"T(\d{1,4})\s+(?:blocks|before)\s+((?:T\d{1,4}\s*,?\s*)+)$",
+                rf"({_TID})\s+(?:blocks|before)\s+((?:{_TID}\s*,?\s*)+)$",
                 stripped,
                 re.IGNORECASE,
             )
@@ -675,9 +700,9 @@ class TaskOrchestrator:
                 continue
 
             # --- Arrow-chain inside prose: "T005 → T018 → T020" ---
-            arrow_chain = re.findall(r"T(\d{1,4})\s*(?:->|→)\s*T(\d{1,4})", stripped)
+            arrow_chain = re.findall(rf"({_TID})\s*(?:->|→)\s*({_TID})", stripped)
             for left, right in arrow_chain:
-                _record_forward(right, f"T{left}")
+                _record_forward(right, left)
 
         return dict(deps)
 
@@ -1442,7 +1467,7 @@ class TaskOrchestrator:
         if verbose and getattr(self, "_last_dep_graph", None):
             parts.append("\n🧮 DEPENDENCY GRAPH (per-task upstream deps):")
             for task in self.tasks:
-                deps = sorted(self._last_dep_graph.get(task.id, set()))
+                deps = sorted(self._last_dep_graph.get(task.id, set()), key=task_sort_key)
                 if deps:
                     parts.append(f"   {task.id} ← {', '.join(deps)}")
 
