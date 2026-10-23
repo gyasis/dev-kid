@@ -4,6 +4,7 @@ Wave Executor - Executes waves from execution_plan.json with checkpoints
 """
 
 from constitution_paths import resolve_constitution_path, find_constitution
+import hashlib
 import json
 import os
 import re
@@ -468,7 +469,11 @@ class WaveExecutor:
             print(f"   ✅ Git checkpoint committed (wave {wave_id})")
         else:
             combined = (commit_result.stdout + commit_result.stderr).lower()
-            if "nothing to commit" in combined or "nothing added" in combined:
+            if (
+                "nothing to commit" in combined
+                or "nothing added" in combined
+                or "no changes added" in combined
+            ):
                 print(
                     f"   ⚠️  Wave {wave_id}: nothing staged to commit (tasks may have no file changes)"
                 )
@@ -702,6 +707,50 @@ class WaveExecutor:
             )
             sys.exit(2)
 
+    # ── Checkpoint ledger ────────────────────────────────────────────────
+    # Records which waves had their checkpoint run, so a re-run of `execute`
+    # (complete wave, tasks already [x]) runs the checkpoint exactly once.
+    CHECKPOINT_STATE_FILE = Path(".dk/checkpoints.json")
+
+    @staticmethod
+    def _wave_fingerprint(wave: Dict) -> str:
+        """Fingerprint of a wave's task ids; a re-orchestrated plan changes it."""
+        ids = "\n".join(str(t.get("task_id", "")) for t in wave.get("tasks", []))
+        return hashlib.sha256(ids.encode("utf-8")).hexdigest()[:16]
+
+    def _load_checkpoint_state(self) -> Dict:
+        path = self.project_root / self.CHECKPOINT_STATE_FILE
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("waves"), dict):
+                return data
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            print(f"⚠️  Could not read {path} ({e}); treating checkpoints as not run")
+        return {"version": 1, "waves": {}}
+
+    def _checkpoint_recorded(self, phase_id: str, wave: Dict) -> bool:
+        entry = self._load_checkpoint_state()["waves"].get(
+            f"{phase_id}:{wave['wave_id']}"
+        )
+        return bool(entry) and entry.get("fingerprint") == self._wave_fingerprint(wave)
+
+    def _record_checkpoint(self, phase_id: str, wave: Dict) -> None:
+        state = self._load_checkpoint_state()
+        state["waves"][f"{phase_id}:{wave['wave_id']}"] = {
+            "fingerprint": self._wave_fingerprint(wave),
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        path = self.project_root / self.CHECKPOINT_STATE_FILE
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            os.replace(tmp, path)
+        except Exception as e:
+            print(f"⚠️  Could not record checkpoint state ({e}); it will re-run next time")
+
     def execute(self) -> None:
         """Execute all waves with checkpoints"""
         print("🚀 Starting wave execution...")
@@ -735,14 +784,13 @@ class WaveExecutor:
         for wave in waves:
             wave_id = wave["wave_id"]
 
-            # Skip already-completed waves on resume
-            if wave_id < resume_wave:
-                print(f"   ⏩ Wave {wave_id}: already complete — skipping")
-                continue
-
-            # Check if this wave's tasks are already complete (from a previous run)
             if self._wave_already_complete(wave["tasks"]):
-                # Wave is done but checkpoint may not have run — run it now
+                # Complete wave: its checkpoint must have run exactly once. The
+                # agent marks [x] AFTER dispatch and re-runs execute, so this is
+                # the only place a checkpoint can fire.
+                if self._checkpoint_recorded(phase_id, wave):
+                    print(f"   ⏩ Wave {wave_id}: complete, checkpoint done — skipping")
+                    continue
                 try:
                     self.execute_checkpoint(wave_id, wave["checkpoint_after"])
                 except WaveHaltError as e:
@@ -751,6 +799,8 @@ class WaveExecutor:
                         "   Review sentinel manifests in .claude/sentinel/ and fix issues."
                     )
                     sys.exit(2)
+                # Reached only if the checkpoint did not halt (halts sys.exit).
+                self._record_checkpoint(phase_id, wave)
                 continue
 
             # Wave is NOT complete — display tasks for Claude to implement

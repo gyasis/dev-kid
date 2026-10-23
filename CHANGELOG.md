@@ -8,6 +8,20 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ### Fixed
 
+- **`dev-kid execute` never ran the checkpoint of a completed wave.** The
+  documented flow dispatches wave N and exits; the agent marks it `[x]` and
+  re-runs `execute`. On that re-run wave N was below the resume point, so it
+  was skipped ("already complete") and the "run the checkpoint now" branch was
+  unreachable: verify, progress.md, memory sync, sentinel, constitution
+  validation and the git checkpoint never ran (16 waves, zero checkpoints in a
+  real project). `execute` now keeps a ledger in `.dk/checkpoints.json`
+  (keyed by phase + wave, with a fingerprint of the wave's task ids so a
+  re-orchestrated plan never reuses stale marks), runs the checkpoint of every
+  complete wave not yet recorded, in order, and records it only after it
+  finishes without halting. A halting checkpoint (constitution block, sentinel
+  halt) is retried next run. Projects with no ledger catch up once. The git
+  checkpoint also treats "no changes added to commit" as nothing to commit.
+
 - **Subtask ids like `T025a` were unreadable, and unlabelled lines could
   collide with authored ids.** Spec Kit writes `T025a` as a subtask of
   `T025`, but the id regex required `T\d+\b`, so `T025a` parsed as having no

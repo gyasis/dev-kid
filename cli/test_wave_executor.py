@@ -13,6 +13,8 @@ import json
 import os
 import sys
 import tempfile
+
+import pytest
 from pathlib import Path
 
 # Add cli directory to path
@@ -159,6 +161,142 @@ def test_execute_task_method_signature():
     print("✅ Test passed: Method signature correct")
     print(f"   Signature: {sig}")
     return True
+
+
+# ── Checkpoint-on-resume regression tests (pytest style) ──────────────────
+
+
+def _make_project(tmp_path, monkeypatch, done=(), ids=(("T001", "T002"),)):
+    """Project with one wave per tuple in `ids`; `done` lists ids marked [x]."""
+    monkeypatch.chdir(tmp_path)
+    all_ids = [i for wave in ids for i in wave]
+    lines = [f"- [{'x' if i in done else ' '}] {i} do {i}" for i in all_ids]
+    (tmp_path / "tasks.md").write_text("\n".join(lines) + "\n")
+    waves = [
+        {
+            "wave_id": n,
+            "strategy": "PARALLEL_SWARM",
+            "rationale": "r",
+            "tasks": [
+                {"task_id": i, "authored_id": i, "instruction": f"do {i}", "agent_role": "dev"}
+                for i in wave
+            ],
+            "checkpoint_after": {"verify": True},
+        }
+        for n, wave in enumerate(ids, 1)
+    ]
+    (tmp_path / "execution_plan.json").write_text(
+        json.dumps({"execution_plan": {"phase_id": "ph", "waves": waves}})
+    )
+    return WaveExecutor(str(tmp_path / "execution_plan.json"))
+
+
+def _mark_done(tmp_path, *task_ids):
+    text = (tmp_path / "tasks.md").read_text()
+    for i in task_ids:
+        text = text.replace(f"[ ] {i} ", f"[x] {i} ")
+    (tmp_path / "tasks.md").write_text(text)
+
+
+def test_checkpoint_runs_once_for_completed_wave_on_resume(tmp_path, monkeypatch):
+    ex = _make_project(
+        tmp_path, monkeypatch, done=("T001",), ids=(("T001",), ("T002",))
+    )
+    calls, dispatched = [], []
+    monkeypatch.setattr(ex, "execute_checkpoint", lambda w, c: calls.append(w))
+    monkeypatch.setattr(ex, "execute_wave", lambda w: dispatched.append(w["wave_id"]))
+
+    with pytest.raises(SystemExit) as e:
+        ex.execute()
+    assert e.value.code == 0
+    assert calls == [1]  # wave 1 checkpoint ran
+    assert dispatched == [2]  # wave 2 dispatched
+    assert (tmp_path / ".dk" / "checkpoints.json").exists()
+
+    ex2 = WaveExecutor(str(tmp_path / "execution_plan.json"))
+    monkeypatch.setattr(ex2, "execute_checkpoint", lambda w, c: calls.append(w))
+    monkeypatch.setattr(ex2, "execute_wave", lambda w: dispatched.append(w["wave_id"]))
+    with pytest.raises(SystemExit):
+        ex2.execute()
+    assert calls == [1]  # NOT run twice
+    assert dispatched == [2, 2]
+
+    # Agent finishes wave 2: its checkpoint runs, wave 1's still does not.
+    _mark_done(tmp_path, "T002")
+    ex3 = WaveExecutor(str(tmp_path / "execution_plan.json"))
+    monkeypatch.setattr(ex3, "execute_checkpoint", lambda w, c: calls.append(w))
+    ex3.execute()
+    assert calls == [1, 2]
+
+
+def test_halting_checkpoint_is_not_recorded(tmp_path, monkeypatch):
+    ex = _make_project(tmp_path, monkeypatch, done=("T001",), ids=(("T001",),))
+
+    def halt(w, c):
+        sys.exit(1)
+
+    monkeypatch.setattr(ex, "execute_checkpoint", halt)
+    with pytest.raises(SystemExit) as e:
+        ex.execute()
+    assert e.value.code == 1
+    assert not (tmp_path / ".dk" / "checkpoints.json").exists()
+
+    calls = []
+    ex2 = WaveExecutor(str(tmp_path / "execution_plan.json"))
+    monkeypatch.setattr(ex2, "execute_checkpoint", lambda w, c: calls.append(w))
+    ex2.execute()
+    assert calls == [1]  # retried
+
+
+def test_sentinel_halt_is_not_recorded(tmp_path, monkeypatch):
+    import wave_executor as we
+
+    ex = _make_project(tmp_path, monkeypatch, done=("T001",), ids=(("T001",),))
+
+    def halt(w, c):
+        raise we.WaveHaltError("boom")
+
+    monkeypatch.setattr(ex, "execute_checkpoint", halt)
+    with pytest.raises(SystemExit) as e:
+        ex.execute()
+    assert e.value.code == 2
+    assert not (tmp_path / ".dk" / "checkpoints.json").exists()
+
+
+def test_changed_plan_does_not_reuse_marks(tmp_path, monkeypatch):
+    ex = _make_project(tmp_path, monkeypatch, done=("T001",), ids=(("T001",),))
+    calls = []
+    monkeypatch.setattr(ex, "execute_checkpoint", lambda w, c: calls.append(w))
+    ex.execute()
+    assert calls == [1]
+
+    # Re-orchestrated: same phase + wave id, different task ids.
+    ex2 = _make_project(tmp_path, monkeypatch, done=("T009",), ids=(("T009",),))
+    monkeypatch.setattr(ex2, "execute_checkpoint", lambda w, c: calls.append(w))
+    ex2.execute()
+    assert calls == [1, 1]
+
+
+def test_git_checkpoint_nothing_to_commit_does_not_crash(
+    tmp_path, monkeypatch, capsys
+):
+    import subprocess
+
+    ex = _make_project(tmp_path, monkeypatch, done=("T001",), ids=(("T001",),))
+    env = {
+        "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+    }
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    subprocess.run(["git", "init", "-q"], check=True)
+    subprocess.run(["git", "add", "-A"], check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], check=True)
+
+    ex._git_checkpoint(1, [{"task_id": "T001", "file_locks": ["src/a.py"]}])
+    out = capsys.readouterr().out
+    assert "nothing staged to commit" in out
+    assert "Git commit failed" not in out
 
 
 def cleanup_test_environment(test_dir: Path):
