@@ -38,6 +38,8 @@ class ConfigSchema:
     # CLI preferences
     verbose: bool = False
     auto_git_commit: bool = False
+    # Wave checkpoint also stages memory-bank/shared/ + .claude/activity_stream.md
+    checkpoint_stage_memory_bank: bool = False
     git_commit_prefix: str = "[dev-kid]"
 
     # Agent preferences
@@ -106,6 +108,7 @@ class ConfigSchema:
             "cli": {
                 "verbose": self.verbose,
                 "auto_git_commit": self.auto_git_commit,
+                "checkpoint_stage_memory_bank": self.checkpoint_stage_memory_bank,
                 "git_commit_prefix": self.git_commit_prefix,
             },
             "agents": {
@@ -196,6 +199,9 @@ class ConfigSchema:
             mcp_servers=mcp,
             verbose=cli.get("verbose", False),
             auto_git_commit=cli.get("auto_git_commit", False),
+            checkpoint_stage_memory_bank=bool(
+                cli.get("checkpoint_stage_memory_bank", False)
+            ),
             git_commit_prefix=cli.get("git_commit_prefix", "[dev-kid]"),
             preferred_model=agents.get("preferred_model", "sonnet"),
             agent_timeout_minutes=agents.get("timeout_minutes", 30),

@@ -418,15 +418,43 @@ class WaveExecutor:
 
         progress_file.write_text(content, encoding="utf-8")
 
+    @staticmethod
+    def _is_unsafe_to_stage(path: str) -> bool:
+        """True for private memory, .claude state, or common secret file names."""
+        import fnmatch
+
+        norm = os.path.normpath(path).replace(os.sep, "/")
+        if norm.startswith(("memory-bank/private/", ".claude/")) or norm in (
+            "memory-bank/private",
+            ".claude",
+        ):
+            return True
+        name = norm.rsplit("/", 1)[-1].lower()
+        return any(
+            fnmatch.fnmatch(name, pat)
+            for pat in (".env", ".env.*", "*.pem", "*.key", "credentials*")
+        )
+
     def _git_checkpoint(
         self, wave_id: int, wave_tasks: Optional[List[Dict]] = None
     ) -> None:
-        """Create git checkpoint commit, staging only wave file_locks + known safe paths."""
+        """Create git checkpoint commit, staging only tasks.md + the wave's file_locks.
+
+        memory-bank/ and .claude/ are local session state (memory-bank/private/
+        holds personal notes) and are NOT staged by default. Opt in with
+        `cli.checkpoint_stage_memory_bank: true` to also stage
+        memory-bank/shared/ and .claude/activity_stream.md. memory-bank/private/
+        is never staged, and file_locks under it, under .claude/, or matching
+        common secret names are skipped with a warning.
+        """
         # Collect files touched by this wave to avoid staging secrets / unrelated work
         files_to_stage: list[str] = ["tasks.md"]
         if wave_tasks:
             for t in wave_tasks:
                 for f in t.get("file_locks") or []:
+                    if f and self._is_unsafe_to_stage(str(f)):
+                        print(f"   ⚠️  Checkpoint skipped unsafe file_lock: {f}")
+                        continue
                     # Fix: parentheses required so `f` gates BOTH conditions
                     if f and (
                         "/" in str(f)
@@ -448,8 +476,13 @@ class WaveExecutor:
                         )
                     ):
                         files_to_stage.append(str(f))
-        # Always include memory-bank and .claude state dirs (safe, no secrets)
-        files_to_stage += ["memory-bank/", ".claude/activity_stream.md"]
+        # Opt-in only: shared memory bank + activity stream (never private/)
+        stage_mb = bool(
+            self.config is not None
+            and getattr(self.config, "checkpoint_stage_memory_bank", False)
+        )
+        if stage_mb:
+            files_to_stage += ["memory-bank/shared/", ".claude/activity_stream.md"]
 
         for path in files_to_stage:
             subprocess.run(

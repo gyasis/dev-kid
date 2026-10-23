@@ -6,6 +6,18 @@ All notable changes to dev-kid. Format roughly follows [Keep a Changelog](https:
 
 ## Unreleased
 
+### Changed / Security
+
+- **The git checkpoint no longer stages `memory-bank/` or
+  `.claude/activity_stream.md` by default.** It stages only `tasks.md` and the
+  wave's own `file_locks`. `memory-bank/private/<user>/` holds personal notes
+  and both paths are local session state many projects keep out of commits.
+  Opt in with `cli.checkpoint_stage_memory_bank: true` to also stage
+  `memory-bank/shared/` and `.claude/activity_stream.md`; `memory-bank/private/`
+  is never staged. `file_locks` under `memory-bank/private/` or `.claude/`, or
+  named like secrets (`.env`, `*.pem`, `*.key`, `credentials*`), are skipped
+  with a warning.
+
 ### Fixed
 
 - **`dev-kid execute` never ran the checkpoint of a completed wave.** The
