@@ -196,6 +196,11 @@ class TaskOrchestrator:
             elif current_task_lines and line.strip().startswith("- **Constitution**:"):
                 # Add constitution line to current task
                 current_task_lines.append(line)
+            elif current_task_lines and line[:1] in (" ", "\t") and line.strip():
+                # Indented continuation of a wrapped task line. Keep it in the
+                # block so a "Needs T0xx first." on a later line still creates
+                # a dependency edge (full_text in _process_task reads it).
+                current_task_lines.append(line)
             elif not line.strip() and current_task_lines:
                 # Empty line ends task block
                 self._process_task(current_task_lines, task_id, current_wave_idx)
