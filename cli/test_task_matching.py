@@ -364,3 +364,48 @@ def test_executor_marks_suffix_line_only(tmp_path):
     # unlabelled still matched by instruction (find_task_line step 3)
     unl = {"task_id": "T003", "authored_id": "", "instruction": "unlabelled thing"}
     assert ex._find_task_state(content, unl) == (True, True)
+
+
+# --------------------------------------------------------------------------
+# Continuation lines: a dependency on the second or later line of a task
+# (Spec Kit wraps long task text with an indent) must still create an edge.
+# --------------------------------------------------------------------------
+
+
+def test_dependency_on_continuation_line_is_honored(tmp_path):
+    orch = _orchestrate(
+        tmp_path,
+        "## Phase 1\n\n"
+        "- [ ] T001 Edit `a.py`.\n"
+        "- [ ] T002 Edit `b.py`. This task text is long and wraps\n"
+        "  onto a second line. Needs T001 first.\n"
+        "  Verify: `python3 -m pytest -q`\n",
+    )
+    by_id = {t.id: t for t in orch.tasks}
+    assert set(by_id) == {"T001", "T002"}
+    assert by_id["T002"].dependencies == ["T001"]
+    graph = orch.analyze_dependencies()
+    assert "T001" in graph["T002"]
+
+
+def test_continuation_dependency_orders_waves(tmp_path):
+    orch = _orchestrate(
+        tmp_path,
+        "## Phase 1\n\n"
+        "- [ ] T001 [P] Edit `a.py`.\n"
+        "- [ ] T002 [P] Edit `b.py` and wrap\n"
+        "  the text. Needs T001 and\n"
+        "  more words first.\n",
+    )
+    orch.create_waves()
+    waves = [[t["task_id"] for t in w.tasks] for w in orch.waves]
+    assert waves == [["T001"], ["T002"]]
+
+
+def test_unindented_text_after_task_is_not_continuation(tmp_path):
+    orch = _orchestrate(
+        tmp_path,
+        "- [ ] T001 Edit `a.py`.\n"
+        "Needs T009 first.\n",
+    )
+    assert orch.tasks[0].dependencies == []
